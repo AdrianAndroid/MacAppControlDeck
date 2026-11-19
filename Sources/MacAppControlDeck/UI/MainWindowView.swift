@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import ApplicationServices
+import Carbon
 
 final class DeckState: ObservableObject {
     static let shared = DeckState()
@@ -14,6 +15,7 @@ final class DeckState: ObservableObject {
     @Published var accessibilityReady = AXIsProcessTrusted()
     @Published var inputMonitoringReady = CGPreflightListenEventAccess()
     @Published var missionControlSpaceSwitchEnabled = DeckState.readSpaceSwitchSetting()
+    @Published var automationReady = DeckState.readAutomationPermission()
 
     let store: ConfigStore
     let pairing = PairingManager()
@@ -44,6 +46,7 @@ final class DeckState: ObservableObject {
                 self?.accessibilityReady = AXIsProcessTrusted()
                 self?.inputMonitoringReady = CGPreflightListenEventAccess()
                 self?.missionControlSpaceSwitchEnabled = DeckState.readSpaceSwitchSetting()
+                self?.automationReady = DeckState.readAutomationPermission()
             }
         }
     }
@@ -59,6 +62,40 @@ final class DeckState: ObservableObject {
                                               "com.apple.dock" as CFString)
         if let number = value as? NSNumber { return number.boolValue }
         return true
+    }
+
+    /// 检测是否允许向 System Events 发送 Apple 事件（桌面切换依赖）。
+    static func readAutomationPermission() -> Bool {
+        var address = AEAddressDesc()
+        let bytes = Array("com.apple.systemevents".utf8)
+        let created = bytes.withUnsafeBufferPointer { buffer in
+            AECreateDesc(DescType(typeApplicationBundleID), buffer.baseAddress, bytes.count, &address)
+        }
+        guard created == noErr else { return false }
+        defer { AEDisposeDesc(&address) }
+        let status = AEDeterminePermissionToAutomateTarget(&address,
+                                                          AEEventClass(typeWildCard),
+                                                          AEEventID(typeWildCard),
+                                                          false)
+        return status == noErr
+    }
+
+    func requestAutomationPermission() {
+        var address = AEAddressDesc()
+        let bytes = Array("com.apple.systemevents".utf8)
+        let created = bytes.withUnsafeBufferPointer { buffer in
+            AECreateDesc(DescType(typeApplicationBundleID), buffer.baseAddress, bytes.count, &address)
+        }
+        if created == noErr {
+            _ = AEDeterminePermissionToAutomateTarget(&address,
+                                                      AEEventClass(typeWildCard),
+                                                      AEEventID(typeWildCard),
+                                                      true)
+            AEDisposeDesc(&address)
+        }
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     func openDesktopDockSettings() {
@@ -278,6 +315,20 @@ struct MainWindowView: View {
                     Spacer()
                     if !state.inputMonitoringReady {
                         Button("去授权（打开系统设置）") { state.requestInputMonitoring() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(state.automationReady ? Color.green : Color.orange)
+                        .frame(width: 10, height: 10)
+                    Text(state.automationReady
+                         ? "自动化：已允许控制 System Events（桌面左右切换可用）"
+                         : "自动化：未允许控制 System Events（桌面左右切换不可用）")
+                        .font(.subheadline)
+                    Spacer()
+                    if !state.automationReady {
+                        Button("去授权（会弹系统确认框）") { state.requestAutomationPermission() }
                             .buttonStyle(.borderedProminent)
                     }
                 }
