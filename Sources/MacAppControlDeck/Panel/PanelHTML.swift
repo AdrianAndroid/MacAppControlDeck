@@ -58,6 +58,7 @@ enum PanelHTML {
       .btn .symbol { font-size:20px; font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:1px; }
       .btn .label { font-size:12px; line-height:1.2; text-align:center; color:var(--fg); word-break:break-all; }
       .btn .state { font-size:10px; color:var(--muted); min-height:12px; }
+      .btn.placeholder { background:transparent; border:1px dashed var(--line); opacity:.35; pointer-events:none; }
       .btn .state.busy { color:var(--warn); } .btn .state.done { color:var(--ok); } .btn .state.fail { color:var(--err); }
       #pair { display:none; flex-direction:column; gap:12px; padding-top:8vh; }
       #pair.show { display:flex; }
@@ -173,7 +174,7 @@ enum PanelHTML {
         const landscape=matchMedia('(orientation: landscape)').matches;
         const appCols=landscape?4:2;
         const scCols=landscape?6:4;
-        const scRows=Math.min(3,Math.max(1,Math.ceil(shortcuts.length/scCols)))||1;
+        const scRows=3;   // 固定 3 排，不足用空白占位补齐，贴底显示
 
         // 快捷操作区高度固定为行数 × 行高，避免最后一行被截断
         const scCell=72, scGap=10;
@@ -213,6 +214,14 @@ enum PanelHTML {
           page.style.gridTemplateColumns='repeat('+cols+',1fr)';
           page.style.gridAutoRows= kind==='shortcut' ? '72px' : '92px';
           itemsInPage.forEach(b=>page.appendChild(makeButton(b,kind)));
+          if (kind==='shortcut') {
+            // 空白占位卡片：补满整页（固定 3 排的视觉）
+            for (let i=itemsInPage.length; i<per; i++) {
+              const ph=document.createElement('div');
+              ph.className='btn placeholder';
+              page.appendChild(ph);
+            }
+          }
           pagesEl.appendChild(page);
         });
         if(pages.length>1){
