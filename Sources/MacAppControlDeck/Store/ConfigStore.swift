@@ -79,6 +79,38 @@ final class ConfigStore {
     }
 
     @discardableResult
+    func addCommandButton(name: String, appPath: String, bundleID: String, arguments: [String]) -> ButtonConfig {
+        queue.sync {
+            let groupMax = buttons.filter { $0.kind == .command }.map { $0.sortOrder }.max() ?? -1
+            let config = ButtonConfig(id: UUID().uuidString,
+                                      kind: .command,
+                                      name: name,
+                                      bundleID: bundleID,
+                                      appPath: appPath,
+                                      sortOrder: groupMax + 1,
+                                      commandArguments: arguments)
+            buttons.append(config)
+            saveButtons()
+            return config
+        }
+    }
+
+    @discardableResult
+    func updateCommand(id: String, name: String?, appPath: String?, bundleID: String?, arguments: [String]?) -> Bool {
+        queue.sync {
+            guard let index = buttons.firstIndex(where: { $0.id == id }), buttons[index].kind == .command else {
+                return false
+            }
+            if let name, !name.isEmpty { buttons[index].name = name }
+            if let appPath { buttons[index].appPath = appPath }
+            if let bundleID { buttons[index].bundleID = bundleID }
+            if let arguments { buttons[index].commandArguments = arguments }
+            saveButtons()
+            return true
+        }
+    }
+
+    @discardableResult
     func updateShortcut(id: String, name: String?, combo: ShortcutCombo?) -> Bool {
         queue.sync {
             guard let index = buttons.firstIndex(where: { $0.id == id }), buttons[index].kind == .shortcut else {

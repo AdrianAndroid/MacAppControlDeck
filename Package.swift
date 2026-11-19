@@ -9,6 +9,10 @@ let package = Package(
             name: "MacAppControlDeck",
             path: "Sources/MacAppControlDeck"
         ),
+        .executableTarget(
+            name: "KeySender",
+            path: "Sources/KeySender"
+        ),
         .testTarget(
             name: "MacAppControlDeckTests",
             dependencies: ["MacAppControlDeck"],

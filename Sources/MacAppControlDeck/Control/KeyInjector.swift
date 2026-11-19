@@ -79,22 +79,66 @@ struct KeyInjector: ShortcutInjecting {
                                            message: "快捷操作配置不完整（缺少主键），请在 Mac 端重新编辑")
         }
 
+        // 优先通过随包 CLI 助手投递：Snipaste 等全局热键应用会忽略
+        // 直接由 GUI 进程 post 的事件，而 CLI 子进程的注入能被正常识别。
+        if let sender = Self.helperURL(), Self.runHelper(sender, combo: combo) {
+            logger("已通过助手注入 \(combo.symbol)")
+            return ShortcutInjectionResult(sent: true, errorCode: nil, message: "已发送快捷键")
+        }
+        logger("助手不可用，回退进程内注入")
+
         let flags = Self.flags(for: combo.modifiers)
-        for keyDown in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: nil,
-                                      virtualKey: CGKeyCode(combo.keyCode),
-                                      keyDown: keyDown) else {
-                logger("注入失败：无法创建按键事件")
-                return ShortcutInjectionResult(sent: false,
-                                               errorCode: "injection-failed",
-                                               message: "按键注入失败，请重试")
+        let keyCode = CGKeyCode(combo.keyCode)
+        // 在主线程投递：WindowServer 的全局热键匹配对投递线程敏感，
+        // 后台网络线程直接 post 时，Snipaste 等全局热键应用收不到事件。
+        func postAll() {
+            for keyDown in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: nil,
+                                          virtualKey: keyCode,
+                                          keyDown: keyDown) else { continue }
+                event.flags = flags
+                event.post(tap: .cghidEventTap)
+                usleep(60_000)
             }
-            event.flags = flags
-            event.post(tap: .cghidEventTap)
-            usleep(60_000)
+        }
+        if Thread.isMainThread {
+            postAll()
+        } else {
+            DispatchQueue.main.sync { postAll() }
         }
         logger("已注入 \(combo.symbol)")
         return ShortcutInjectionResult(sent: true, errorCode: nil, message: "已发送快捷键")
+    }
+
+    static func helperURL() -> URL? {
+        guard let executable = Bundle.main.executableURL else { return nil }
+        let url = executable.deletingLastPathComponent().appendingPathComponent("KeySender")
+        return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
+    }
+
+    static func modifierMask(_ modifiers: [ShortcutModifier]) -> UInt64 {
+        var mask: UInt64 = 0
+        if modifiers.contains(.command) { mask |= 1 }
+        if modifiers.contains(.control) { mask |= 2 }
+        if modifiers.contains(.option) { mask |= 4 }
+        if modifiers.contains(.shift) { mask |= 8 }
+        if modifiers.contains(.function) { mask |= 16 }
+        return mask
+    }
+
+    static func runHelper(_ url: URL, combo: ShortcutCombo) -> Bool {
+        let process = Process()
+        process.executableURL = url
+        process.arguments = [String(combo.keyCode), String(modifierMask(combo.modifiers))]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 
     static func flags(for modifiers: [ShortcutModifier]) -> CGEventFlags {

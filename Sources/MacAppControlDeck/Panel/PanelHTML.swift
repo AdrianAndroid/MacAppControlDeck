@@ -124,8 +124,8 @@ enum PanelHTML {
 
       function render(buttons){
         buttons=buttons||[];
-        const apps=buttons.filter(b=>b.kind!=='shortcut');
-        const shortcuts=buttons.filter(b=>b.kind==='shortcut');
+        const apps=buttons.filter(b=>b.kind==='app'||!b.kind);
+        const shortcuts=buttons.filter(b=>b.kind==='shortcut'||b.kind==='command');
         mainEl.classList.toggle('show',!!buttons.length);
         pairEl.classList.toggle('show',!(token&&buttons.length));
         if(!token){ pairEl.classList.add('show'); return; }
@@ -168,7 +168,7 @@ enum PanelHTML {
         const el=document.createElement('div');
         el.className='btn '+(kind==='shortcut'?'shortcut':'app');
         el.dataset.bid=b.id;
-        if(kind==='shortcut'){
+        if(kind==='shortcut'||kind==='command'){
           el.innerHTML=`<div class="symbol">${escapeText(b.symbol||'—')}</div><div class="label">${escapeText(b.name)}</div><div class="state"></div>`;
         } else {
           el.innerHTML=(b.iconUrl?`<img src="${b.iconUrl}" alt="">`:'<div class="fallback">▸</div>')+
@@ -183,11 +183,11 @@ enum PanelHTML {
       async function trigger(button,el,kind){
         if(inflight.has(button.id)) return;
         inflight.add(button.id);
-        setState(el,kind==='shortcut'?'正在发送…':'正在打开…','busy');
+        setState(el, kind==='shortcut' ? '正在发送…' : (kind==='command' ? '正在执行…' : '正在打开…'), 'busy');
         try{
           const res=await api('/api/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buttonId:button.id})});
           const data=await res.json().catch(()=>({}));
-          if(res.ok&&data.status==='sent'){ setState(el,'已发送快捷键','done'); toastMsg(data.message||'已发送快捷键'); }
+          if(res.ok&&data.status==='sent'){ setState(el, kind==='command'?'已执行':'已发送快捷键','done'); toastMsg(data.message||'已发送快捷键'); }
           else if(res.ok&&(data.status==='launched'||data.status==='activated')){ setState(el,data.status==='launched'?'已启动':'已切换','done'); toastMsg(data.message); }
           else if(res.ok&&data.status==='unconfirmed'){ setState(el,'未确认','busy'); toastMsg(data.message||'已发送激活请求，但未能确认窗口状态',5000); }
           else if(res.status===401){ showPair(); toastMsg('请重新配对'); }

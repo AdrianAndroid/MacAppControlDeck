@@ -141,6 +141,50 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(json["error"] as? String, "accessibility-required")
     }
 
+    func test_commandButtonRunsAppCLI() async throws {
+        let appDir = directory.appendingPathComponent("FakeTool.app")
+        let macos = appDir.appendingPathComponent("Contents/MacOS")
+        try FileManager.default.createDirectory(at: macos, withIntermediateDirectories: true)
+        let script = macos.appendingPathComponent("FakeTool")
+        try "#!/bin/sh\nexit 0\n".write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        let plist = appDir.appendingPathComponent("Contents/Info.plist")
+        let dict: [String: Any] = ["CFBundleExecutable": "FakeTool",
+                                   "CFBundleIdentifier": "local.faketool",
+                                   "CFBundlePackageType": "APPL"]
+        let data = try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
+        try data.write(to: plist)
+
+        let router = makeRouter(injector: FakeShortcutInjector())
+        let token = await pairToken(router)
+        let button = router.store.addCommandButton(name: "工具",
+                                                   appPath: appDir.path,
+                                                   bundleID: "local.faketool",
+                                                   arguments: ["run"])
+        let body = try! JSONEncoder().encode(["buttonId": button.id])
+        let response = await router.handle(HTTPRequest(method: "POST", path: "/api/activate",
+                                                       headers: ["Host": "127.0.0.1",
+                                                                 "Content-Type": "application/json",
+                                                                 "X-Device-Token": token],
+                                                       body: body))
+        XCTAssertEqual(response.status, 200)
+        let json = try! JSONSerialization.jsonObject(with: response.body) as! [String: Any]
+        XCTAssertEqual(json["status"] as? String, "sent")
+    }
+
+    func test_commandButtonAppearsInPayload() async {
+        let router = makeRouter(injector: FakeShortcutInjector())
+        let token = await pairToken(router)
+        _ = router.store.addCommandButton(name: "截图", appPath: "/Applications/Snipaste.app",
+                                          bundleID: "com.Snipaste", arguments: ["snip"])
+        let response = await router.handle(HTTPRequest(method: "GET", path: "/api/buttons",
+                                                       headers: ["Host": "127.0.0.1",
+                                                                 "X-Device-Token": token],
+                                                       body: Data()))
+        let text = String(data: response.body, encoding: .utf8)!
+        XCTAssertTrue(text.contains("\"kind\":\"command\""))
+    }
+
     func test_buttonsPayloadIncludesKindAndSymbol() async {
         let router = makeRouter(injector: FakeShortcutInjector())
         let token = await pairToken(router)

@@ -173,12 +173,12 @@ final class APIRouter {
         let dtos = buttons.map { button -> ButtonDTO in
             guard button.kind == .app else {
                 return ButtonDTO(id: button.id,
-                                 kind: ButtonKind.shortcut.rawValue,
+                                 kind: button.kind.rawValue,
                                  name: button.name,
                                  bundleID: "",
                                  installed: true,
                                  iconUrl: nil,
-                                 symbol: button.displaySymbol)
+                                 symbol: button.kind == .command ? "▶" : button.displaySymbol)
             }
             var url: String?
             let hasIcon = IconCache.cachedIconURL(appPath: button.appPath,
@@ -225,6 +225,17 @@ final class APIRouter {
                 return .error(result.errorCode ?? "injection-failed",
                               message: result.message,
                               status: 403)
+            }
+            struct Resp: Codable { var status: ActivateStatus; var message: String }
+            return .json(Resp(status: .sent, message: result.message))
+        case .command:
+            guard !button.appPath.isEmpty else {
+                return .error("bad-button-config", message: "命令按钮配置不完整", status: 409)
+            }
+            let result = CommandRunner.run(appPath: button.appPath,
+                                           arguments: button.commandArguments ?? [])
+            guard result.ok else {
+                return .error("command-failed", message: result.message, status: 403)
             }
             struct Resp: Codable { var status: ActivateStatus; var message: String }
             return .json(Resp(status: .sent, message: result.message))

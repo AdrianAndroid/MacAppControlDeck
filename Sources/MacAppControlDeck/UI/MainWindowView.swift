@@ -13,6 +13,7 @@ final class DeckState: ObservableObject {
     @Published var installedApps: [InstalledApp] = []
     @Published var accessibilityReady = AXIsProcessTrusted()
     @Published var inputMonitoringReady = CGPreflightListenEventAccess()
+    @Published var missionControlSpaceSwitchEnabled = DeckState.readSpaceSwitchSetting()
 
     let store: ConfigStore
     let pairing = PairingManager()
@@ -42,12 +43,26 @@ final class DeckState: ObservableObject {
             DispatchQueue.main.async {
                 self?.accessibilityReady = AXIsProcessTrusted()
                 self?.inputMonitoringReady = CGPreflightListenEventAccess()
+                self?.missionControlSpaceSwitchEnabled = DeckState.readSpaceSwitchSetting()
             }
         }
     }
 
     func openAccessibilitySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    static func readSpaceSwitchSetting() -> Bool {
+        let value = CFPreferencesCopyAppValue("workspaces-auto-swoosh" as CFString,
+                                              "com.apple.dock" as CFString)
+        if let number = value as? NSNumber { return number.boolValue }
+        return true
+    }
+
+    func openDesktopDockSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension?MissionControl") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -121,6 +136,14 @@ final class DeckState: ObservableObject {
         refreshAll()
     }
 
+    func addCommand(name: String, appPath: String, bundleID: String, arguments: [String]) {
+        store.addCommandButton(name: name, appPath: appPath, bundleID: bundleID, arguments: arguments)
+        refreshAll()
+    }
+
+    var commandButtons: [ButtonConfig] { buttons.filter { $0.kind == .command } }
+    var quickButtons: [ButtonConfig] { buttons.filter { $0.kind != .app } }
+
     var appButtons: [ButtonConfig] { buttons.filter { $0.kind == .app } }
     var shortcutButtons: [ButtonConfig] { buttons.filter { $0.kind == .shortcut } }
 
@@ -149,6 +172,7 @@ struct MainWindowView: View {
     @State private var pendingRename: ButtonConfig?
     @State private var renameText = ""
     @State private var showShortcutSheet = false
+    @State private var showCommandSheet = false
     @State private var editingShortcut: ButtonConfig?
 
     var body: some View {
@@ -172,6 +196,9 @@ struct MainWindowView: View {
         }
         .sheet(item: $editingShortcut) { button in
             ShortcutSheet(state: state, editing: button)
+        }
+        .sheet(isPresented: $showCommandSheet) {
+            CommandSheet(state: state)
         }
         .confirmationDialog("确定删除按钮「\(pendingDelete?.name ?? "")」？", isPresented: Binding(
             get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
@@ -239,14 +266,31 @@ struct MainWindowView: View {
                         .fill(state.inputMonitoringReady ? Color.green : Color.orange)
                         .frame(width: 10, height: 10)
                     Text(state.inputMonitoringReady
-                         ? "输入监控：已授权（可触发 Snipaste 等全局热键）"
-                         : "输入监控：未授权（F1 等全局热键类应用可能无响应）")
+                         ? "输入监控：已授权"
+                         : "输入监控：未授权（部分第三方应用的全局热键可能收不到按键）")
                         .font(.subheadline)
                     Spacer()
                     if !state.inputMonitoringReady {
                         Button("去授权（打开系统设置）") { state.requestInputMonitoring() }
                             .buttonStyle(.borderedProminent)
                     }
+                }
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(state.missionControlSpaceSwitchEnabled ? Color.green : Color.orange)
+                        .frame(width: 10, height: 10)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(state.missionControlSpaceSwitchEnabled
+                             ? "调度中心：切换应用时跟随窗口所在空间（已开启）"
+                             : "调度中心：未开启「切换到包含窗口的空间」，跨桌面切换不可用")
+                            .font(.subheadline)
+                        Text("系统设置 → 桌面与程序坞 → 调度中心：切换到某个应用程序时，会切换到包含该应用程序的打开窗口的空间")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("打开调度中心设置") { state.openDesktopDockSettings() }
+                        .buttonStyle(.bordered)
                 }
                 HStack {
                     Text(state.panelURL?.absoluteString ?? "未获取到局域网地址")
@@ -327,6 +371,9 @@ struct MainWindowView: View {
                         Button("添加快捷操作…") {
                             showShortcutSheet = true
                         }
+                        Button("添加命令按钮…") {
+                            showCommandSheet = true
+                        }
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
@@ -348,10 +395,14 @@ struct MainWindowView: View {
                             Divider()
                         }
                     }
-                    if !state.shortcutButtons.isEmpty {
+                    if !state.quickButtons.isEmpty {
                         sectionHeader("快捷操作")
-                        ForEach(state.shortcutButtons) { button in
-                            shortcutRow(button)
+                        ForEach(state.quickButtons) { button in
+                            if button.kind == .command {
+                                commandRow(button)
+                            } else {
+                                shortcutRow(button)
+                            }
                             Divider()
                         }
                     }
@@ -395,6 +446,39 @@ struct MainWindowView: View {
                 }
                 if button.kind == .shortcut {
                     Button("编辑组合…") { editingShortcut = button }
+                }
+                Button("删除…") { pendingDelete = button }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func commandRow(_ button: ButtonConfig) -> some View {
+        HStack(spacing: 12) {
+            Text("▶")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 64, height: 32)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .quaternaryLabelColor).opacity(0.25)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(button.name).font(.callout).lineLimit(1)
+                Text("命令 · \((button.appPath as NSString).lastPathComponent) \((button.commandArguments ?? []).joined(separator: " "))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
+                .help("上移")
+            Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
+                .help("下移")
+            Menu {
+                Button("重命名…") {
+                    pendingRename = button
+                    renameText = button.name
                 }
                 Button("删除…") { pendingDelete = button }
             } label: {
@@ -472,7 +556,8 @@ struct MainWindowView: View {
     private var noteCard: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 6) {
-                Text("跨桌面空间切换依赖系统设置：系统设置 → 桌面与程序坞 → 「切换到某个应用程序时，切换到具有该应用程序打开窗口的空间」（默认开启）。全屏空间与多显示器可能不完全跟随该设置，属系统行为。")
+                Text("权限与调度中心状态见上方「服务状态」区；开关未开启时跨桌面切换不可用。")
+                Text("全屏空间与多显示器可能不完全跟随调度中心设置，属系统行为。")
                 Text("应用最小化窗口的恢复由系统与目标应用决定；无法确认时面板会显示“未确认”，不会谎报成功。")
             }
             .font(.caption)
