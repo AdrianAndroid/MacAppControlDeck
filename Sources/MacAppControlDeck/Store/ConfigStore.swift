@@ -64,6 +64,34 @@ final class ConfigStore {
     }
 
     @discardableResult
+    func addShortcutButton(name: String, combo: ShortcutCombo) -> ButtonConfig {
+        queue.sync {
+            let groupMax = buttons.filter { $0.kind == .shortcut }.map { $0.sortOrder }.max() ?? -1
+            let config = ButtonConfig(id: UUID().uuidString,
+                                      kind: .shortcut,
+                                      name: name,
+                                      sortOrder: groupMax + 1,
+                                      shortcut: combo.normalized)
+            buttons.append(config)
+            saveButtons()
+            return config
+        }
+    }
+
+    @discardableResult
+    func updateShortcut(id: String, name: String?, combo: ShortcutCombo?) -> Bool {
+        queue.sync {
+            guard let index = buttons.firstIndex(where: { $0.id == id }), buttons[index].kind == .shortcut else {
+                return false
+            }
+            if let name, !name.isEmpty { buttons[index].name = name }
+            if let combo { buttons[index].shortcut = combo.normalized }
+            saveButtons()
+            return true
+        }
+    }
+
+    @discardableResult
     func renameButton(id: String, to newName: String) -> Bool {
         queue.sync {
             guard let index = buttons.firstIndex(where: { $0.id == id }) else { return false }
@@ -86,15 +114,16 @@ final class ConfigStore {
     @discardableResult
     func moveButton(id: String, offset: Int) -> Bool {
         queue.sync {
-            var order = buttons.sorted { $0.sortOrder < $1.sortOrder }
-            guard let index = order.firstIndex(where: { $0.id == id }) else { return false }
+            guard let moving = buttons.first(where: { $0.id == id }) else { return false }
+            var group = buttons.filter { $0.kind == moving.kind }.sorted { $0.sortOrder < $1.sortOrder }
+            guard let index = group.firstIndex(where: { $0.id == id }) else { return false }
             let target = index + offset
-            guard order.indices.contains(target) else { return false }
-            order.swapAt(index, target)
-            buttons = order.enumerated().map { i, item in
-                var copy = item
-                copy.sortOrder = i
-                return copy
+            guard group.indices.contains(target) else { return false }
+            group.swapAt(index, target)
+            for (i, item) in group.enumerated() {
+                if let global = buttons.firstIndex(where: { $0.id == item.id }) {
+                    buttons[global].sortOrder = i
+                }
             }
             saveButtons()
             return true
@@ -102,7 +131,16 @@ final class ConfigStore {
     }
 
     func sortedButtons() -> [ButtonConfig] {
-        queue.sync { buttons.sorted { $0.sortOrder < $1.sortOrder } }
+        queue.sync {
+            buttons.sorted {
+                if $0.kind != $1.kind { return $0.kind == .app }
+                return $0.sortOrder < $1.sortOrder
+            }
+        }
+    }
+
+    func buttons(kind: ButtonKind) -> [ButtonConfig] {
+        sortedButtons().filter { $0.kind == kind }
     }
 
     func button(id: String) -> ButtonConfig? {

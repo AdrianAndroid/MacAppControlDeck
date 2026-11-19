@@ -60,6 +60,7 @@ final class APIRouter {
     let store: ConfigStore
     let pairing: PairingManager
     let activator: AppControlling
+    let injector: ShortcutInjecting
     private let iconDirectory: URL
     private let maxBodySize = 4096
     private let logger = RequestLogger.shared
@@ -67,10 +68,12 @@ final class APIRouter {
     init(store: ConfigStore,
          pairing: PairingManager,
          activator: AppControlling,
+         injector: ShortcutInjecting = KeyInjector(),
          iconDirectory: URL? = nil) {
         self.store = store
         self.pairing = pairing
         self.activator = activator
+        self.injector = injector
         self.iconDirectory = iconDirectory ?? ConfigStore.defaultDirectory().appendingPathComponent("icons")
         try? FileManager.default.createDirectory(at: self.iconDirectory, withIntermediateDirectories: true)
     }
@@ -157,15 +160,26 @@ final class APIRouter {
     private func handleButtons() -> HTTPResponse {
         struct ButtonDTO: Codable {
             var id: String
+            var kind: String
             var name: String
             var bundleID: String
             var installed: Bool
             var iconUrl: String?
+            var symbol: String?
         }
         struct Resp: Codable { var buttons: [ButtonDTO] }
 
         let buttons = store.sortedButtons()
-        let dtos = buttons.map { button in
+        let dtos = buttons.map { button -> ButtonDTO in
+            guard button.kind == .app else {
+                return ButtonDTO(id: button.id,
+                                 kind: ButtonKind.shortcut.rawValue,
+                                 name: button.name,
+                                 bundleID: "",
+                                 installed: true,
+                                 iconUrl: nil,
+                                 symbol: button.displaySymbol)
+            }
             var url: String?
             let hasIcon = IconCache.cachedIconURL(appPath: button.appPath,
                                                   cacheURL: iconDirectory.appendingPathComponent("\(button.id).png")) != nil
@@ -175,10 +189,12 @@ final class APIRouter {
             let installed = FileManager.default.fileExists(atPath: button.appPath)
                 || !NSWorkspaceLike.bundleURLs(for: button.bundleID).isEmpty
             return ButtonDTO(id: button.id,
+                             kind: ButtonKind.app.rawValue,
                              name: button.name,
                              bundleID: button.bundleID,
                              installed: installed,
-                             iconUrl: url)
+                             iconUrl: url,
+                             symbol: nil)
         }
         return .json(Resp(buttons: dtos))
     }
@@ -195,9 +211,24 @@ final class APIRouter {
         guard let button = store.button(id: payload.buttonId) else {
             return .error("button-not-found", message: "按钮不存在", status: 404)
         }
-        let outcome = await activator.activate(bundleID: button.bundleID)
-        struct Resp: Codable { var status: ActivateStatus; var message: String }
-        return .json(Resp(status: outcome.status, message: outcome.message))
+        switch button.kind {
+        case .app:
+            let outcome = await activator.activate(bundleID: button.bundleID)
+            struct Resp: Codable { var status: ActivateStatus; var message: String }
+            return .json(Resp(status: outcome.status, message: outcome.message))
+        case .shortcut:
+            guard let combo = button.shortcut else {
+                return .error("bad-button-config", message: "快捷操作配置不完整，请在 Mac 端重新编辑", status: 409)
+            }
+            let result = injector.inject(combo)
+            guard result.sent else {
+                return .error(result.errorCode ?? "injection-failed",
+                              message: result.message,
+                              status: 403)
+            }
+            struct Resp: Codable { var status: ActivateStatus; var message: String }
+            return .json(Resp(status: .sent, message: result.message))
+        }
     }
 
     private func handleStatic(path: String) -> HTTPResponse {

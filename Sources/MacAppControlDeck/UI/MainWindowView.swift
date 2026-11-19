@@ -98,6 +98,19 @@ final class DeckState: ObservableObject {
         refreshAll()
     }
 
+    func addShortcut(name: String, combo: ShortcutCombo) {
+        store.addShortcutButton(name: name, combo: combo)
+        refreshAll()
+    }
+
+    func updateShortcut(id: String, name: String?, combo: ShortcutCombo?) {
+        store.updateShortcut(id: id, name: name, combo: combo)
+        refreshAll()
+    }
+
+    var appButtons: [ButtonConfig] { buttons.filter { $0.kind == .app } }
+    var shortcutButtons: [ButtonConfig] { buttons.filter { $0.kind == .shortcut } }
+
     func rename(_ button: ButtonConfig, to name: String) {
         store.renameButton(id: button.id, to: name)
         refreshAll()
@@ -122,6 +135,8 @@ struct MainWindowView: View {
     @State private var pendingRevoke: DeviceRecord?
     @State private var pendingRename: ButtonConfig?
     @State private var renameText = ""
+    @State private var showShortcutSheet = false
+    @State private var editingShortcut: ButtonConfig?
 
     var body: some View {
         ScrollView {
@@ -138,6 +153,12 @@ struct MainWindowView: View {
         .frame(minWidth: 760, minHeight: 600)
         .sheet(isPresented: $showAddSheet) {
             AddButtonSheet(state: state)
+        }
+        .sheet(isPresented: $showShortcutSheet) {
+            ShortcutSheet(state: state, editing: nil)
+        }
+        .sheet(item: $editingShortcut) { button in
+            ShortcutSheet(state: state, editing: button)
         }
         .confirmationDialog("确定删除按钮「\(pendingDelete?.name ?? "")」？", isPresented: Binding(
             get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
@@ -271,24 +292,39 @@ struct MainWindowView: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Button("添加应用按钮…") {
-                        state.installedApps = AppEnumerator.installedApps()
-                        showAddSheet = true
+                    Menu("添加按钮") {
+                        Button("添加应用按钮…") {
+                            state.installedApps = AppEnumerator.installedApps()
+                            showAddSheet = true
+                        }
+                        Button("添加快捷操作…") {
+                            showShortcutSheet = true
+                        }
                     }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
                     Spacer()
                     Text("共 \(state.buttons.count) 个")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 if state.buttons.isEmpty {
-                    Text("还没有按钮，点击「添加应用按钮…」创建一个。")
+                    Text("还没有按钮，点击「添加按钮」创建。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 6)
                 } else {
-                    ForEach(state.buttons.sorted { $0.sortOrder < $1.sortOrder }) { button in
-                        buttonRow(button)
-                        if button.id != state.buttons.sorted(by: { $0.sortOrder < $1.sortOrder }).last?.id {
+                    if !state.appButtons.isEmpty {
+                        sectionHeader("应用")
+                        ForEach(state.appButtons) { button in
+                            buttonRow(button)
+                            Divider()
+                        }
+                    }
+                    if !state.shortcutButtons.isEmpty {
+                        sectionHeader("快捷操作")
+                        ForEach(state.shortcutButtons) { button in
+                            shortcutRow(button)
                             Divider()
                         }
                     }
@@ -298,6 +334,13 @@ struct MainWindowView: View {
         } label: {
             Text("按钮配置").font(.headline)
         }
+    }
+
+    private func sectionHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.top, 4)
     }
 
     private func buttonRow(_ button: ButtonConfig) -> some View {
@@ -323,6 +366,42 @@ struct MainWindowView: View {
                     pendingRename = button
                     renameText = button.name
                 }
+                if button.kind == .shortcut {
+                    Button("编辑组合…") { editingShortcut = button }
+                }
+                Button("删除…") { pendingDelete = button }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func shortcutRow(_ button: ButtonConfig) -> some View {
+        HStack(spacing: 12) {
+            Text(button.displaySymbol ?? "—")
+                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .frame(width: 64, height: 32)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .quaternaryLabelColor).opacity(0.25)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(button.name).font(.callout).lineLimit(1)
+                Text("快捷操作 · \(button.displaySymbol ?? "")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
+                .help("上移")
+            Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
+                .help("下移")
+            Menu {
+                Button("重命名…") {
+                    pendingRename = button
+                    renameText = button.name
+                }
+                Button("编辑组合…") { editingShortcut = button }
                 Button("删除…") { pendingDelete = button }
             } label: {
                 Image(systemName: "ellipsis.circle")

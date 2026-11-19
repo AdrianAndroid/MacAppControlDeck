@@ -17,26 +17,39 @@ enum PanelHTML {
     <style>
       :root { color-scheme: dark; --bg:#0f1220; --card:#1b2036; --line:#2a3152; --fg:#eef1ff; --muted:#8d96c5; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { height: 100%; }
       body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--fg);
-             padding:calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 14px) calc(env(safe-area-inset-bottom) + 18px) calc(env(safe-area-inset-left) + 14px); }
-      header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-      h1 { font-size:17px; margin:0; font-weight:600; }
+             display:flex; flex-direction:column; height:100vh; height:100dvh;
+             padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px); }
+      header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex:0 0 auto; }
+      h1 { font-size:16px; margin:0; font-weight:600; }
       #status { font-size:12px; padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
       #status.ok { color:var(--ok); border-color:#1f4d33; }
       #status.err { color:var(--err); border-color:#5c2733; }
-      #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 24px);
+      #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 20px);
                background:#262c4c; color:var(--fg); padding:10px 16px; border-radius:12px; font-size:14px; max-width:90vw;
-               opacity:0; transition:opacity .25s; pointer-events:none; z-index:10; box-shadow:0 6px 24px rgba(0,0,0,.4); }
+               opacity:0; transition:opacity .25s; pointer-events:none; z-index:20; box-shadow:0 6px 24px rgba(0,0,0,.4); }
       #toast.show { opacity:1; }
-      #grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
-      @media (min-width: 700px) { #grid { grid-template-columns:repeat(4,1fr); } }
-      .btn { background:var(--card); border:1px solid var(--line); border-radius:16px; min-height:88px; color:var(--fg);
-             display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px 6px; cursor:pointer; }
+      #main { display:none; flex-direction:column; flex:1 1 auto; min-height:0; gap:6px; padding-bottom:calc(env(safe-area-inset-bottom) + 8px); }
+      #main.show { display:flex; }
+      .zone { display:flex; flex-direction:column; min-height:0; }
+      #appsZone { flex:1 1 auto; }
+      #shortcutsZone { flex:0 0 auto; border-top:1px solid var(--line); padding-top:6px; }
+      .zone-title { font-size:11px; color:var(--muted); margin:2px 0 4px; letter-spacing:.5px; }
+      .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; flex:1 1 auto; }
+      .pages::-webkit-scrollbar { display:none; }
+      .page { flex:0 0 100%; width:100%; scroll-snap-align:start; display:grid; gap:10px; padding:2px; align-content:start; }
+      .dots { display:flex; justify-content:center; gap:6px; padding:4px 0 2px; min-height:14px; }
+      .dots i { width:6px; height:6px; border-radius:50%; background:#3a4270; }
+      .dots i.on { background:var(--muted); }
+      .btn { background:var(--card); border:1px solid var(--line); border-radius:16px; min-height:76px; color:var(--fg);
+             display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px 6px; cursor:pointer; position:relative; }
       .btn:active { background:#232a4a; }
-      .btn img { width:52px; height:52px; border-radius:12px; }
-      .btn .fallback { width:52px; height:52px; border-radius:12px; background:#2d3459; display:flex; align-items:center; justify-content:center; font-size:26px; }
-      .btn .label { font-size:13px; line-height:1.2; text-align:center; color:var(--fg); word-break:break-all; }
-      .btn .state { font-size:11px; color:var(--muted); min-height:14px; }
+      .btn img { width:44px; height:44px; border-radius:10px; }
+      .btn .fallback { width:44px; height:44px; border-radius:10px; background:#2d3459; display:flex; align-items:center; justify-content:center; font-size:22px; }
+      .btn .symbol { font-size:20px; font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:1px; }
+      .btn .label { font-size:12px; line-height:1.2; text-align:center; color:var(--fg); word-break:break-all; }
+      .btn .state { font-size:10px; color:var(--muted); min-height:12px; }
       .btn .state.busy { color:var(--warn); } .btn .state.done { color:var(--ok); } .btn .state.fail { color:var(--err); }
       #pair { display:none; flex-direction:column; gap:12px; padding-top:8vh; }
       #pair.show { display:flex; }
@@ -44,12 +57,27 @@ enum PanelHTML {
       #pair button, #pair input.dev { font-size:16px; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
       #pair .hint { color:var(--muted); font-size:13px; text-align:center; line-height:1.6; }
       .errtext { color:var(--err); font-size:13px; text-align:center; min-height:18px; }
+      @media (orientation: landscape) {
+        body { padding-left:calc(env(safe-area-inset-left) + 16px); padding-right:calc(env(safe-area-inset-right) + 16px); }
+        .btn { min-height:66px; }
+      }
     </style>
     </head>
     <body>
     <header><h1>Mac 应用快捷控制台</h1><span id="status">检测中…</span></header>
     <div id="toast"></div>
-    <div id="main" style="display:none"><div id="grid"></div></div>
+    <div id="main">
+      <section class="zone" id="appsZone">
+        <div class="zone-title">应用</div>
+        <div class="pages" id="appsPages"></div>
+        <div class="dots" id="appsDots"></div>
+      </section>
+      <section class="zone" id="shortcutsZone">
+        <div class="zone-title">快捷操作</div>
+        <div class="pages" id="shortcutPages"></div>
+        <div class="dots" id="shortcutDots"></div>
+      </section>
+    </div>
     <div id="pair">
       <div class="hint">输入 Mac 端菜单栏「生成配对码」显示的 6 位数字<br>有效时间 2 分钟，错误 3 次将作废</div>
       <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="配对码">
@@ -59,105 +87,149 @@ enum PanelHTML {
     </div>
     <script>
       const $ = s => document.querySelector(s);
-      const grid = $('#grid'), mainEl = $('#main'), pairEl = $('#pair'), statusEl = $('#status'), toast = $('#toast');
-      let token = localStorage.getItem('deck_token');
-      const deviceName = localStorage.getItem('deck_device') || 'iPhone';
-      const inflight = new Set();
+      const appsZone=$('#appsZone'), shortcutsZone=$('#shortcutsZone');
+      const appsPagesEl=$('#appsPages'), shortcutPagesEl=$('#shortcutPages');
+      const appsDotsEl=$('#appsDots'), shortcutDotsEl=$('#shortcutDots');
+      const mainEl=$('#main'), pairEl=$('#pair'), statusEl=$('#status'), toast=$('#toast');
+      let token=localStorage.getItem('deck_token');
+      const deviceName=localStorage.getItem('deck_device')||'iPhone';
+      const inflight=new Set();
 
-      function toastMsg(t, ms=2600){ toast.textContent=t; toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>toast.classList.remove('show'), ms); }
-      function setStatus(text, cls){ statusEl.textContent=text; statusEl.className=cls||''; }
-      function saveToken(t){ token=t; localStorage.setItem('deck_token', t); localStorage.setItem('deck_device', deviceName); }
-
-      async function api(path, opts={}){
-        const headers = Object.assign({'X-Device-Token': token||''}, opts.headers||{});
-        const res = await fetch(path, Object.assign({}, opts, {headers}));
-        if (res.status === 401 && token) { token=null; localStorage.removeItem('deck_token'); showPair(); throw new Error('凭证已失效'); }
-        return res;
-      }
-
-      async function checkHealth(){
-        try {
-          const res = await fetch('/api/health', {cache:'no-store'});
-          if (res.ok) { setStatus('已连接','ok'); return true; }
-        } catch(e) {}
-        setStatus('Mac 未连接','err'); return false;
-      }
-
-      async function loadButtons(){
-        try {
-          const res = await api('/api/buttons');
-          if(!res.ok){ showPair(); return; }
-          const data = await res.json();
-          localStorage.setItem('deck_buttons', JSON.stringify(data.buttons));
-          render(data.buttons);
-        } catch(e) { if (localStorage.getItem('deck_buttons')) render(JSON.parse(localStorage.getItem('deck_buttons'))); }
-      }
-
-      function render(buttons){
-        mainEl.style.display = buttons && buttons.length ? 'block' : 'none';
-        pairEl.classList.toggle('show', !(token && buttons && buttons.length));
-        if (!token) { pairEl.classList.add('show'); return; }
-        grid.innerHTML = '';
-        if (!buttons || !buttons.length) { grid.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:32px 0">Mac 端还没有按钮，请在 Mac 应用里添加</div>'; return; }
-        for (const b of buttons) {
-          const el = document.createElement('div');
-          el.className='btn'; el.dataset.bid=b.id;
-          el.innerHTML = (b.iconUrl ? `<img src="${b.iconUrl}" alt="">` : '<div class="fallback">▸</div>') +
-            `<div class="label">${escapeText(b.name)}${b.installed?'':'<br><span style="color:var(--warn);font-size:11px">应用缺失</span>'}</div><div class="state"></div>`;
-          el.addEventListener('click', ()=>activate(b, el));
-          grid.appendChild(el);
-        }
-      }
-
+      function toastMsg(t,ms=2600){ toast.textContent=t; toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>toast.classList.remove('show'),ms); }
+      function setStatus(t,cls){ statusEl.textContent=t; statusEl.className=cls||''; }
+      function saveToken(t){ token=t; localStorage.setItem('deck_token',t); localStorage.setItem('deck_device',deviceName); }
       function escapeText(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-      function setState(el, text, cls){ const s=el.querySelector('.state'); s.textContent=text; s.className='state '+(cls||''); }
+      async function api(path,opts={}){
+        const headers=Object.assign({'X-Device-Token':token||''},opts.headers||{});
+        const res=await fetch(path,Object.assign({},opts,{headers}));
+        if(res.status===401&&token){ token=null; localStorage.removeItem('deck_token'); showPair(); throw new Error('凭证已失效'); }
+        return res;
+      }
+      async function checkHealth(){
+        try{ const res=await fetch('/api/health',{cache:'no-store'}); if(res.ok){ setStatus('已连接','ok'); return true; } }catch(e){}
+        setStatus('Mac 未连接','err'); return false;
+      }
+      async function loadButtons(){
+        try{
+          const res=await api('/api/buttons');
+          if(!res.ok){ showPair(); return; }
+          const data=await res.json();
+          localStorage.setItem('deck_buttons',JSON.stringify(data.buttons));
+          render(data.buttons);
+        }catch(e){ const cached=localStorage.getItem('deck_buttons'); if(cached) render(JSON.parse(cached)); }
+      }
 
-      async function activate(button, el){
-        if (inflight.has(button.id)) return;
-        inflight.add(button.id);
-        setState(el, '正在打开…','busy');
-        try {
-          const res = await api('/api/activate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({buttonId: button.id})});
-          const data = await res.json().catch(()=>({}));
-          if (res.ok && (data.status==='launched'||data.status==='activated')) { setState(el, data.status==='launched'?'已启动':'已切换','done'); toastMsg(data.message); }
-          else if (res.ok && data.status==='unconfirmed') { setState(el, '未确认','busy'); toastMsg(data.message || '已发送激活请求，但未能确认窗口状态', 5000); }
-          else if (res.status===401) { showPair(); toastMsg('请重新配对'); }
-          else { setState(el, '失败','fail'); toastMsg(data.message || '请求失败'); }
-        } catch(e) {
-          setState(el, '失败','fail');
-          toastMsg(navigator.onLine ? 'Mac 未连接，请检查局域网' : '网络不可用');
+      function chunk(list,n){ const out=[]; for(let i=0;i<list.length;i+=n) out.push(list.slice(i,i+n)); return out; }
+
+      function render(buttons){
+        buttons=buttons||[];
+        const apps=buttons.filter(b=>b.kind!=='shortcut');
+        const shortcuts=buttons.filter(b=>b.kind==='shortcut');
+        mainEl.classList.toggle('show',!!buttons.length);
+        pairEl.classList.toggle('show',!(token&&buttons.length));
+        if(!token){ pairEl.classList.add('show'); return; }
+
+        const landscape=matchMedia('(orientation: landscape)').matches;
+        const appCols=landscape?4:2, appRows=landscape?3:4;
+        const scCols=landscape?6:4, scRows=Math.min(3,Math.max(1,Math.ceil(shortcuts.length/scCols)))||1;
+
+        renderZone(appsPagesEl,appsDotsEl,apps,appCols,appRows,'app');
+        if(shortcuts.length){
+          shortcutsZone.style.display='flex';
+          renderZone(shortcutPagesEl,shortcutDotsEl,shortcuts,scCols,scRows,'shortcut');
+        } else {
+          shortcutsZone.style.display='none';
         }
-        setTimeout(()=>inflight.delete(button.id), 1200);
-        setTimeout(()=>{ const s=el.querySelector('.state'); if(!s.classList.contains('busy')) s.textContent=''; }, 3500);
       }
 
-      function showPair(){
-        pairEl.classList.add('show'); mainEl.style.display='none';
-        token && localStorage.removeItem('deck_token'); token=null;
+      function renderZone(pagesEl,dotsEl,items,cols,rows,kind){
+        pagesEl.innerHTML=''; dotsEl.innerHTML='';
+        if(!items.length){ return; }
+        const per=cols*rows;
+        const pages=chunk(items,per);
+        pages.forEach(itemsInPage=>{
+          const page=document.createElement('div');
+          page.className='page';
+          page.style.gridTemplateColumns='repeat('+cols+',1fr)';
+          page.style.gridAutoRows= kind==='shortcut' ? '72px' : '92px';
+          itemsInPage.forEach(b=>page.appendChild(makeButton(b,kind)));
+          pagesEl.appendChild(page);
+        });
+        if(pages.length>1){
+          const dots=[...Array(pages.length)].map((_,i)=>{ const d=document.createElement('i'); if(i===0)d.className='on'; dotsEl.appendChild(d); return d; });
+          pagesEl.onscroll=()=>{ const idx=Math.round(pagesEl.scrollLeft/pagesEl.clientWidth); dots.forEach((d,i)=>d.className=i===idx?'on':''); };
+        } else {
+          pagesEl.onscroll=null;
+        }
       }
+
+      function makeButton(b,kind){
+        const el=document.createElement('div');
+        el.className='btn '+(kind==='shortcut'?'shortcut':'app');
+        el.dataset.bid=b.id;
+        if(kind==='shortcut'){
+          el.innerHTML=`<div class="symbol">${escapeText(b.symbol||'—')}</div><div class="label">${escapeText(b.name)}</div><div class="state"></div>`;
+        } else {
+          el.innerHTML=(b.iconUrl?`<img src="${b.iconUrl}" alt="">`:'<div class="fallback">▸</div>')+
+            `<div class="label">${escapeText(b.name)}${b.installed?'':'<br><span style="color:var(--warn);font-size:10px">应用缺失</span>'}</div><div class="state"></div>`;
+        }
+        el.addEventListener('click',()=>trigger(b,el,kind));
+        return el;
+      }
+
+      function setState(el,text,cls){ const s=el.querySelector('.state'); s.textContent=text; s.className='state '+(cls||''); }
+
+      async function trigger(button,el,kind){
+        if(inflight.has(button.id)) return;
+        inflight.add(button.id);
+        setState(el,kind==='shortcut'?'正在发送…':'正在打开…','busy');
+        try{
+          const res=await api('/api/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buttonId:button.id})});
+          const data=await res.json().catch(()=>({}));
+          if(res.ok&&data.status==='sent'){ setState(el,'已发送快捷键','done'); toastMsg(data.message||'已发送快捷键'); }
+          else if(res.ok&&(data.status==='launched'||data.status==='activated')){ setState(el,data.status==='launched'?'已启动':'已切换','done'); toastMsg(data.message); }
+          else if(res.ok&&data.status==='unconfirmed'){ setState(el,'未确认','busy'); toastMsg(data.message||'已发送激活请求，但未能确认窗口状态',5000); }
+          else if(res.status===401){ showPair(); toastMsg('请重新配对'); }
+          else { setState(el,'失败','fail'); toastMsg(data.message||'请求失败',4000); }
+        }catch(e){
+          setState(el,'失败','fail');
+          toastMsg(navigator.onLine?'Mac 未连接，请检查局域网':'网络不可用');
+        }
+        setTimeout(()=>inflight.delete(button.id),1200);
+        setTimeout(()=>{ const s=el.querySelector('.state'); if(!s.classList.contains('busy')) s.textContent=''; },3500);
+      }
+
+      function showPair(){ pairEl.classList.add('show'); mainEl.classList.remove('show'); token&&localStorage.removeItem('deck_token'); token=null; }
 
       async function doPair(){
-        const code = $('#code').value.trim(); const name = $('#devname').value.trim() || 'iPhone';
+        const code=$('#code').value.trim(); const name=$('#devname').value.trim()||'iPhone';
         $('#pairErr').textContent='';
-        if (!/\\d{6}/.test(code)) { $('#pairErr').textContent='请输入 6 位配对码'; return; }
-        try {
-          const res = await fetch('/api/pair', {method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({code, deviceName: name})});
-          const data = await res.json();
-          if (res.ok) { saveToken(data.token); $('#code').value=''; await loadButtons(); toastMsg('配对成功'); }
-          else $('#pairErr').textContent = data.message || '配对失败';
-        } catch(e) { $('#pairErr').textContent = '无法连接 Mac，请确认同一局域网'; }
+        if(!/^\\d{6}$/.test(code)){ $('#pairErr').textContent='请输入 6 位配对码'; return; }
+        try{
+          const res=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,deviceName:name})});
+          const data=await res.json();
+          if(res.ok){ saveToken(data.token); $('#code').value=''; await loadButtons(); toastMsg('配对成功'); }
+          else $('#pairErr').textContent=data.message||'配对失败';
+        }catch(e){ $('#pairErr').textContent='无法连接 Mac，请确认同一局域网'; }
       }
-      $('#pairBtn').addEventListener('click', doPair);
-      $('#code').addEventListener('keydown', e=>{ if(e.key==='Enter') doPair(); });
+      $('#pairBtn').addEventListener('click',doPair);
+      $('#code').addEventListener('keydown',e=>{ if(e.key==='Enter') doPair(); });
 
-      document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
-      setInterval(()=>{ checkHealth().then(ok=>{ if(ok && token && !inflight.size) loadButtons(); }); }, 5000);
+      let lastOrientation=matchMedia('(orientation: landscape)').matches;
+      function onResize(){
+        const now=matchMedia('(orientation: landscape)').matches;
+        if(now!==lastOrientation){ lastOrientation=now; const cached=localStorage.getItem('deck_buttons'); if(cached) render(JSON.parse(cached)); }
+      }
+      window.addEventListener('resize',onResize);
+      window.addEventListener('orientationchange',()=>setTimeout(onResize,200));
+
+      document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
+      setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!inflight.size) loadButtons(); }); },5000);
 
       (async function init(){
         await checkHealth();
-        if (token) { mainEl.style.display='block'; await loadButtons(); } else { showPair(); }
+        if(token){ mainEl.classList.add('show'); await loadButtons(); } else { showPair(); }
       })();
     </script>
     </body>
