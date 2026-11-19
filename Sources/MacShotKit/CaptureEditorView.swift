@@ -15,17 +15,17 @@ struct CaptureEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-            Divider()
-            GeometryReader { proxy in
-                ZStack(alignment: .topLeading) {
-                    Color(nsColor: .windowBackgroundColor)
-                    imageAndCanvas(size: proxy.size)
-                }
-                .clipped()
-            }
+            dragStrip
+            canvasArea
+            bottomBar
         }
-        .frame(minWidth: 640, minHeight: 420)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+        )
+        .frame(minWidth: 680, minHeight: 420)
         .sheet(isPresented: $showingText) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("添加文字").font(.headline)
@@ -44,74 +44,144 @@ struct CaptureEditorView: View {
         }
     }
 
-    private var toolbar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                ForEach(CaptureTool.allCases) { tool in
-                    Button {
-                        model.tool = tool
-                        if tool != .crop { model.cropRect = nil }
-                    } label: {
-                        Image(systemName: tool.symbol)
-                            .frame(width: 26, height: 24)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(model.tool == tool ? .accentColor : .secondary)
-                    .help(tool.title)
-                }
-                Spacer(minLength: 8)
+    private var dragStrip: some View {
+        WindowDragHandle()
+            .frame(height: 16)
+    }
+
+    private var canvasArea: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color(nsColor: .underPageBackgroundColor)
+                imageAndCanvas(size: proxy.size)
+            }
+            .clipped()
+        }
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.10))
+                .frame(height: 1)
+            HStack(spacing: 3) {
+                toolGroup([.rectangle, .filledRectangle, .ellipse, .line, .arrow])
+                separator
+                toolGroup([.pen, .marker])
+                separator
+                toolGroup([.text, .number])
+                separator
+                toolGroup([.pixelate, .blur, .highlight, .measure, .crop])
+
+                Spacer(minLength: 6)
+
                 ColorPicker("", selection: $model.color, supportsOpacity: false)
                     .labelsHidden()
-                    .frame(width: 34)
-                Slider(value: $model.lineWidth, in: 1...14)
-                    .frame(width: 90)
-                Text("\(Int(model.lineWidth))")
-                    .font(.caption.monospacedDigit())
-                    .frame(width: 18)
-            }
+                    .frame(width: 24, height: 24)
+                    .help("颜色")
 
-            HStack(spacing: 8) {
-                Button("撤销", systemImage: "arrow.uturn.backward") { model.undo() }
-                    .disabled(!model.canUndo)
-                Button("重做", systemImage: "arrow.uturn.forward") { model.redo() }
-                    .disabled(!model.canRedo)
-                if model.tool == .crop {
-                    Button("应用裁剪", systemImage: "crop") { model.applyCrop() }
-                        .disabled(model.cropRect == nil)
-                    Button("取消裁剪") { model.resetCrop() }
-                        .disabled(model.cropRect == nil)
+                Image(systemName: "lineweight")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Slider(value: $model.lineWidth, in: 1...14)
+                    .frame(width: 62)
+                    .controlSize(.mini)
+                Text("\(Int(model.lineWidth))")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+
+                separator
+
+                actionButton("arrow.uturn.backward", "撤销", disabled: !model.canUndo) {
+                    model.undo()
                 }
-                Spacer()
-                Button("保存", systemImage: "square.and.arrow.down") {
+                actionButton("arrow.uturn.forward", "重做", disabled: !model.canRedo) {
+                    model.redo()
+                }
+
+                separator
+
+                if model.tool == .crop {
+                    actionButton("checkmark", "应用裁剪", disabled: model.cropRect == nil) {
+                        model.applyCrop()
+                    }
+                    actionButton("xmark", "取消裁剪", disabled: model.cropRect == nil) {
+                        model.resetCrop()
+                    }
+                }
+                actionButton("square.and.arrow.down", "保存", primary: true) {
                     if let image = model.render() { onSave(image) }
                 }
-                Button("复制", systemImage: "doc.on.doc") {
+                actionButton("doc.on.doc", "复制") {
                     if let image = model.render() { onCopy(image) }
                 }
-                Button("钉图", systemImage: "pin") {
+                actionButton("pin", "钉图") {
                     if let image = model.render() { onPin(image) }
                 }
-                Button("OCR", systemImage: "text.viewfinder") {
+                actionButton("text.viewfinder", "OCR") {
                     if let image = model.render() { onOCR(image) }
                 }
-                Button("关闭", systemImage: "xmark") { onClose() }
-                    .keyboardShortcut(.cancelAction)
+                actionButton("xmark", "关闭") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
             }
-            .font(.caption)
+            .padding(.horizontal, 10)
+            .frame(height: 44)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+    }
+
+    private func toolGroup(_ tools: [CaptureTool]) -> some View {
+        HStack(spacing: 2) {
+            ForEach(tools) { tool in
+                EditorToolButton(tool: tool,
+                                 selected: model.tool == tool) {
+                    model.tool = tool
+                    if tool != .crop { model.cropRect = nil }
+                }
+            }
+        }
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.12))
+            .frame(width: 1, height: 20)
+            .padding(.horizontal, 3)
+    }
+
+    private func actionButton(_ symbol: String,
+                              _ title: String,
+                              disabled: Bool = false,
+                              primary: Bool = false,
+                              action: @escaping () -> Void) -> some View {
+        EditorActionButton(symbol: symbol,
+                           title: title,
+                           disabled: disabled,
+                           primary: primary,
+                           action: action)
     }
 
     private func imageAndCanvas(size: CGSize) -> some View {
+        let inset: CGFloat = 14
+        let container = CGRect(x: inset, y: inset,
+                               width: max(size.width - inset * 2, 1),
+                               height: max(size.height - inset * 2, 1))
         let fit = fitRect(imageSize: CGSize(width: model.imageWidth, height: model.imageHeight),
-                          in: size)
+                          in: container)
         return ZStack(alignment: .topLeading) {
             Image(nsImage: NSImage(cgImage: model.baseImage,
                                    size: NSSize(width: model.imageWidth, height: model.imageHeight)))
                 .resizable()
                 .interpolation(.high)
                 .frame(width: fit.width, height: fit.height)
+                .shadow(color: .black.opacity(0.28), radius: 16, x: 0, y: 7)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
                 .position(x: fit.midX, y: fit.midY)
 
             Canvas { context, _ in
@@ -314,14 +384,104 @@ struct CaptureEditorView: View {
         pendingTextPoint = nil
     }
 
-    private func fitRect(imageSize: CGSize, in container: CGSize) -> CGRect {
+    private func fitRect(imageSize: CGSize, in container: CGRect) -> CGRect {
         guard imageSize.width > 0, imageSize.height > 0,
               container.width > 0, container.height > 0 else { return .zero }
         let scale = min(container.width / imageSize.width,
                         container.height / imageSize.height)
         let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        return CGRect(x: (container.width - size.width) / 2,
-                      y: (container.height - size.height) / 2,
+        return CGRect(x: container.midX - size.width / 2,
+                      y: container.midY - size.height / 2,
                       width: size.width, height: size.height)
+    }
+}
+
+private struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        DragView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+    }
+}
+
+private struct EditorToolButton: View {
+    let tool: CaptureTool
+    let selected: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            glyph
+                .frame(width: 27, height: 27)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(selected
+                              ? Color.accentColor.opacity(0.18)
+                              : (hovering ? Color.primary.opacity(0.06) : Color.clear))
+                )
+                .foregroundStyle(selected ? Color.accentColor : Color.primary.opacity(0.78))
+        }
+        .buttonStyle(.plain)
+        .help(tool.title)
+        .onHover { hovering = $0 }
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        switch tool {
+        case .text:
+            Text("T")
+                .font(.system(size: 13, weight: .semibold, design: .serif))
+        case .number:
+            ZStack {
+                Circle()
+                    .stroke(Color.primary.opacity(0.55), lineWidth: 1)
+                    .frame(width: 15, height: 15)
+                Text("1")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+        default:
+            Image(systemName: tool.symbol)
+                .font(.system(size: 12, weight: .medium))
+        }
+    }
+}
+
+private struct EditorActionButton: View {
+    let symbol: String
+    let title: String
+    let disabled: Bool
+    let primary: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 28, height: 27)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(primary
+                              ? Color.accentColor
+                              : (hovering && !disabled ? Color.primary.opacity(0.08) : Color.clear))
+                )
+                .foregroundStyle(primary ? Color.white : Color.primary.opacity(disabled ? 0.28 : 0.76))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .help(title)
+        .onHover { hovering = $0 }
     }
 }

@@ -36,13 +36,22 @@ final class CaptureEditorWindowController {
         let contentSize = CGSize(width: min(max(imageSize.width + 40, 760), 1500),
                                  height: min(max(imageSize.height + 150, 520), 1000))
         let hosting = NSHostingView(rootView: root)
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: contentSize),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                              backing: .buffered, defer: false)
+        let window = EditorWindow(contentRect: CGRect(origin: .zero, size: contentSize),
+                                  styleMask: [.borderless, .resizable],
+                                  backing: .buffered, defer: false)
         window.title = "截图编辑"
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        window.level = .normal
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.contentView = hosting
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.cornerRadius = 12
+        window.contentView?.layer?.masksToBounds = true
+        window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 640, height: 420)
+        window.minSize = NSSize(width: 680, height: 420)
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -55,4 +64,9 @@ final class CaptureEditorWindowController {
         window = nil
         model = nil
     }
+}
+
+private final class EditorWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }
