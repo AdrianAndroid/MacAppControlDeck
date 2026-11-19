@@ -66,6 +66,10 @@ enum PanelHTML {
       #pair button, #pair input.dev { font-size:16px; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
       #pair .hint { color:var(--muted); font-size:13px; text-align:center; line-height:1.6; }
       .errtext { color:var(--err); font-size:13px; text-align:center; min-height:18px; }
+      .empty { flex:0 0 100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+               gap:8px; padding:24px 18px; text-align:center; color:var(--muted); font-size:15px; line-height:1.8; }
+      .empty b { color:var(--fg); font-weight:600; font-size:16px; }
+      .empty span { font-size:12px; opacity:.85; line-height:1.9; }
       @media (orientation: landscape) {
         body { padding-left:calc(env(safe-area-inset-left) + 16px); padding-right:calc(env(safe-area-inset-right) + 16px); }
         .btn { min-height:66px; }
@@ -167,9 +171,23 @@ enum PanelHTML {
         buttons=buttons||[];
         const apps=buttons.filter(b=>b.kind==='app'||!b.kind);
         const shortcuts=buttons.filter(b=>b.kind==='shortcut'||b.kind==='command');
-        mainEl.classList.toggle('show',!!buttons.length);
-        pairEl.classList.toggle('show',!(token&&buttons.length));
-        if(!token){ pairEl.classList.add('show'); return; }
+        if(!token){ mainEl.classList.remove('show'); pairEl.classList.add('show'); return; }
+        // 已配对：始终进入主界面（即使还没有按钮），否则会出现"配对成功却退回配对页"
+        mainEl.classList.add('show');
+        pairEl.classList.remove('show');
+
+        if(!buttons.length){
+          appsPagesEl.innerHTML=''; appsDotsEl.innerHTML='';
+          shortcutPagesEl.innerHTML=''; shortcutDotsEl.innerHTML='';
+          shortcutsZone.style.display='none';
+          document.documentElement.style.setProperty('--quick-h','0px');
+          const tip=document.createElement('div');
+          tip.className='empty';
+          tip.innerHTML='<b>还没有按钮</b>'+
+            '<span>请在 Mac 端「添加应用按钮」或「添加快捷操作」，<br>添加后面板会自动刷新。</span>';
+          appsPagesEl.appendChild(tip);
+          return;
+        }
 
         const landscape=matchMedia('(orientation: landscape)').matches;
         const appCols=landscape?4:2;

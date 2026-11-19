@@ -22,19 +22,19 @@
 ## 构建与安装
 
 ```zsh
-./Build/setup-signing.sh   # 仅首次：创建稳定自签名证书（强烈建议）
+./Build/setup-signing.sh   # 可选：创建稳定自签名证书（无 Apple 开发证书时建议执行一次）
 ./Build/build.sh           # swift build -c release + 组装 .app + 签名 + 图标
-open build/MacAppControlDeck.app
+open BuildOutput/MacAppControlDeck.app
 ```
 
 安装到「应用程序」目录：
 
 ```zsh
-cp -R build/MacAppControlDeck.app /Applications/
+cp -R BuildOutput/MacAppControlDeck.app /Applications/
 open /Applications/MacAppControlDeck.app
 ```
 
-> **为什么需要稳定证书**：辅助功能授权（TCC）按签名绑定。ad-hoc 签名每次重新构建都会变，系统会保留旧授权条目但实际不信任（表现为「开关是开的、授权却不生效」）。用固定自签名证书后，重新构建不再需要重新授权。
+> **为什么需要稳定证书**：辅助功能授权（TCC）按签名绑定。ad-hoc 签名每次重新构建都会变，系统会保留旧授权条目但实际不信任（表现为「开关是开的、授权却不生效」）。用固定证书（Apple Development 或自签名）后，重新构建不再需要重新授权。
 
 运行后：菜单栏出现滑块图标，Dock 也有图标。App 自动在本机局域网 IP 上监听（默认端口 47615，被占用自动 +1），窗口首屏显示面板地址（形如 `http://192.168.x.x:47615/panel/`），可点击复制。
 
@@ -109,7 +109,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 24 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 36 项，含真实 TCP 服务器与真实应用激活的端到端用例
 ```
 
 ## 已知限制
@@ -130,13 +130,16 @@ swift test     # 24 项，含真实 TCP 服务器与真实应用激活的端到�
 | 按钮显示「应用缺失」 | 应用已卸载/移动，在 Mac 端重新绑定 |
 | 端口冲突 | 服务自动尝试 47615–47634，以窗口显示地址为准 |
 | 点击无反应 | 看按钮下状态行：失败原因会原样显示（如「启动失败：…」） |
+| 面板地址是 169.254.x.x、手机访问不到 | 该地址属于未联网的网卡（常见于有线口 en0 没插网线、Wi-Fi 实际是 en1）。本版已改为「可路由地址优先」，若仍显示 169.254 请检查网络连接 |
+| Android Chrome 一直转圈/提示无法连接 | 浏览器把 `http://` 强制升级成 HTTPS，而服务只支持明文 HTTP。完整输入 `http://IP:端口/panel/`，关闭 Chrome「始终使用安全连接」（或 `chrome://flags/#https-upgrades` 设为 Disabled），也可改用 Firefox |
+| 配对提示成功但仍停在配对页 | 旧版在「按钮数为 0」时会退回配对页；本版已修复为进入主界面并显示空状态，按提示在 Mac 端添加按钮即可（面板 5 秒自动刷新） |
 | 点击后只切菜单栏、不跳桌面 | ①检查调度中心开关（见上）；②检查辅助功能状态灯是否绿色。手动点 Dock 图标也不跳桌面即为开关问题 |
 | 辅助功能状态灯一直橙色 | TCC 记录绑定了旧签名：删除该条目，重新添加 `/Applications/MacAppControlDeck.app`，再重启程序 |
 | F1 触发不了 Snipaste 等全局热键应用 | 已知限制：请改用「命令按钮」（应用选 Snipaste、参数 `snip`）。普通应用中 F1 可正常注入 |
 | 点击启动台/系统界面后显示"未确认" | 启动台等系统界面不会以常规应用注册进程，属正常；已打开即可用 |
 | 快捷键提示"当前处于安全输入状态" | 密码框/锁屏等安全输入场景会屏蔽按键注入，退出安全输入后重试 |
 | 桌面左/右切换无反应 | 检查「自动化」权限：系统设置 → 隐私与安全性 → 自动化 → 勾选 MacAppControlDeck → System Events；并确认系统键盘快捷键「向左/向右切换桌面」为默认的 ⌃←/⌃→ |
-| 重新构建后授权失效 | 确认 `setup-signing.sh` 已执行且 `build.sh` 输出了「已使用稳定证书签名」 |
+| 重新构建后授权失效 | 确认 `build.sh` 输出了「已使用签名身份：…」而不是「ad-hoc 签名」；必要时执行 `setup-signing.sh` 并在钥匙串中信任该证书 |
 
 运行日志：`~/Library/Application Support/MacAppControlDeck/logs/activation.log`（含每条激活策略的执行结果）。
 
@@ -151,10 +154,11 @@ Sources/MacAppControlDeck/
 ├── UI/MainWindowView.swift      # 设置窗口（服务状态、权限状态、配对、按钮管理）
 └── Panel/PanelHTML.swift        # 手机端单页 Web 面板
 Build/
-├── build.sh                     # 构建/签名/打包（含图标）
+├── build.sh                     # 构建/签名/打包（含图标），产出到 BuildOutput/
 ├── setup-signing.sh             # 一次性创建稳定自签名证书
-├── make-icon.swift              # 生成应用图标
-└── AppIcon.icns / Info.plist
+├── make-icon.swift              # 生成 AppIcon.iconset
+└── Info.plist                   # Bundle 元数据（含 Automation 用途说明）
+BuildOutput/                     # 构建产物（.gitignore）
 openspec/                        # 规格与设计（proposal / design / tasks / specs）
 Docs/archive/                    # 历史归档
 ```
@@ -163,3 +167,4 @@ Docs/archive/                    # 历史归档
 
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)
 - 2026-11-19 远程快捷操作（快捷键 / 命令按钮 / 桌面切换）经验总结：[Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md](Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md)
+- 2026-11-19 构建补齐、局域网地址与面板配对修复：[Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md](Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md)
