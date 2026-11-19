@@ -180,6 +180,7 @@ struct MainWindowView: View {
     @State private var showCommandSheet = false
     @State private var editingShortcut: ButtonConfig?
     @State private var draggingID: String?
+    @State private var dragOriginIndex: Int?
 
     var body: some View {
         ScrollView {
@@ -462,11 +463,9 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
-        .onDrag {
-            draggingID = button.id
-            return NSItemProvider(object: button.id as NSString)
-        }
-        .onDrop(of: [.text], delegate: RowDropDelegate(target: button, state: state, draggingID: $draggingID))
+        .frame(minHeight: 44)
+        .gesture(rowDragGesture(button))
+        .opacity(draggingID == button.id ? 0.55 : 1)
     }
 
     private func commandRow(_ button: ButtonConfig) -> some View {
@@ -501,11 +500,9 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
-        .onDrag {
-            draggingID = button.id
-            return NSItemProvider(object: button.id as NSString)
-        }
-        .onDrop(of: [.text], delegate: RowDropDelegate(target: button, state: state, draggingID: $draggingID))
+        .frame(minHeight: 44)
+        .gesture(rowDragGesture(button))
+        .opacity(draggingID == button.id ? 0.55 : 1)
     }
 
     private func shortcutRow(_ button: ButtonConfig) -> some View {
@@ -540,11 +537,33 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
-        .onDrag {
-            draggingID = button.id
-            return NSItemProvider(object: button.id as NSString)
-        }
-        .onDrop(of: [.text], delegate: RowDropDelegate(target: button, state: state, draggingID: $draggingID))
+        .frame(minHeight: 44)
+        .gesture(rowDragGesture(button))
+        .opacity(draggingID == button.id ? 0.55 : 1)
+    }
+
+    private func rowDragGesture(_ button: ButtonConfig) -> some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                if draggingID == nil {
+                    draggingID = button.id
+                    dragOriginIndex = state.buttons.filter { $0.kind == button.kind }
+                        .firstIndex { $0.id == button.id }
+                }
+                guard let origin = dragOriginIndex else { return }
+                let group = state.buttons.filter { $0.kind == button.kind }
+                guard !group.isEmpty else { return }
+                let steps = Int((value.translation.height / 44).rounded())
+                let target = max(0, min(group.count - 1, origin + steps))
+                if let current = state.buttons.filter({ $0.kind == button.kind }).firstIndex(where: { $0.id == button.id }),
+                   current != target {
+                    state.moveToIndex(button, toIndex: target)
+                }
+            }
+            .onEnded { _ in
+                draggingID = nil
+                dragOriginIndex = nil
+            }
     }
 
     private var devicesCard: some View {
@@ -655,29 +674,3 @@ struct AddButtonSheet: View {
 }
 
 
-struct RowDropDelegate: DropDelegate {
-    let target: ButtonConfig
-    let state: DeckState
-    @Binding var draggingID: String?
-
-    func dropEntered(info: DropInfo) {
-        guard let draggingID,
-              draggingID != target.id,
-              let dragged = state.buttons.first(where: { $0.id == draggingID }),
-              dragged.kind == target.kind else { return }
-        let group = state.buttons.filter { $0.kind == target.kind }
-        guard let from = group.firstIndex(where: { $0.id == dragged.id }),
-              let to = group.firstIndex(where: { $0.id == target.id }),
-              from != to else { return }
-        state.moveToIndex(dragged, toIndex: to)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingID = nil
-        return true
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-}
