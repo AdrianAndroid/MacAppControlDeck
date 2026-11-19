@@ -33,10 +33,18 @@ final class CaptureEditorWindowController {
         )
 
         let imageSize = CGSize(width: image.width, height: image.height)
-        let contentSize = CGSize(width: min(max(imageSize.width + 40, 760), 1500),
-                                 height: min(max(imageSize.height + 150, 520), 1000))
+        let screenFrame = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let minW: CGFloat = 800
+        let minH: CGFloat = 400
+        let maxW = screenFrame.width * 0.9
+        let maxH = screenFrame.height * 0.9
+        // DetachedEditorWindowController: chromeW = 46 + 60, chromeH = 32 + 44 + 40 + 40.
+        let winW = min(maxW, max(minW, imageSize.width + 106))
+        let winH = min(maxH, max(minH, imageSize.height + 156))
         let hosting = NSHostingView(rootView: root)
-        let window = EditorWindow(contentRect: CGRect(origin: .zero, size: contentSize),
+        let window = EditorWindow(contentRect: CGRect(x: screenFrame.midX - winW / 2,
+                                                      y: screenFrame.midY - winH / 2,
+                                                      width: winW, height: winH),
                                   styleMask: [.borderless, .resizable],
                                   backing: .buffered, defer: false)
         window.title = "截图编辑"
@@ -47,12 +55,12 @@ final class CaptureEditorWindowController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.contentView = hosting
         window.contentView?.wantsLayer = true
-        window.contentView?.layer?.cornerRadius = 12
+        window.contentView?.layer?.cornerRadius = 10
         window.contentView?.layer?.masksToBounds = true
         window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 680, height: 420)
-        window.center()
+        window.minSize = NSSize(width: minW, height: minH)
+        window.maxSize = NSSize(width: screenFrame.width, height: screenFrame.height)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window

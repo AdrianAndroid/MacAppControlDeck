@@ -220,15 +220,36 @@ public final class MacShotController {
                                          options: recordingOptions,
                                          outputURL: url)
                 self.isRecording = true
-                RecordingHUDController.shared.show(format: format) { [weak self] in
-                    self?.stopRecording()
-                }
+                let anchor = Self.anchor(for: target)
+                RecordingHUDController.shared.show(
+                    format: format,
+                    relativeTo: anchor.rect,
+                    screen: anchor.screen,
+                    onTogglePause: { paused in
+                        recorder.setPaused(paused)
+                    },
+                    onStop: { [weak self] in
+                        self?.stopRecording()
+                    })
             } catch {
                 self.recorder = nil
                 self.recordingTarget = nil
                 self.isRecording = false
                 self.showAlert("无法开始录制", error.localizedDescription)
             }
+        }
+    }
+
+    private static func anchor(for target: RecordingTarget) -> (rect: CGRect, screen: NSScreen?) {
+        switch target {
+        case .screen(let screen):
+            return (screen.frame, screen)
+        case .area(let screen, let rect):
+            return (rect, screen)
+        case .window(let window):
+            let center = CGPoint(x: window.bounds.midX, y: window.bounds.midY)
+            let screen = NSScreen.screens.first { $0.frame.contains(center) }
+            return (window.bounds, screen)
         }
     }
 

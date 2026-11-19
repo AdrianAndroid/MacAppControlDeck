@@ -74,7 +74,7 @@
 | 自动 PII 打码 / 人脸检测 | 需要额外 Vision 模型与规则，当前提供手动马赛克/模糊 |
 | Beautify（窗口框/阴影/渐变背景） | 未接入 |
 | 图像调整（亮度/对比度/饱和度/预设） | 未接入 |
-| 添加截图 / 粘贴图片图层 / 缩放 0.1–8x / 翻转 | 当前单图编辑，未做图层模型 |
+| 添加截图 / 粘贴图片图层 / 缩放 0.1–8x | 当前单图编辑，未做图层模型 |
 | QR / 条形码识别 | 当前只做文字 OCR |
 | 反色 / 背景移除 / 浮动缩略图 | 未接入 |
 | Liquid Glass（macOS 26） | 当前系统为 macOS 15，且不引入仅 macOS 26 的 API |
@@ -87,3 +87,14 @@
 - 视频 PTS 使用帧序号生成；音频 PTS 用首帧音频时间归零，避免 MP4 总时长出现异常大值。
 - 视频帧通过 `CVPixelBuffer` 重绘到目标尺寸，避免直接把 SCStream 的 sample buffer 交给 H.264 编码器导致 `-16122`。
 - HUD 必须在主线程创建；`beginRecording` 使用 `Task { @MainActor in ... }`，`RecordingHUDController.show` 有主线程兜底。
+
+## 编辑器与录制 HUD 的界面对齐（按上游源码复刻）
+
+- 顶栏：`EditorTopBarView` 高度 32pt，背景 `ToolbarLayout.defaultBgColor`（white 0.12），底边 0.5pt；左侧像素尺寸 11pt 等宽字体、45% 白；裁剪/水平翻转/垂直翻转按钮 24×22、13pt 图标；右侧 40×22 拖动把手（两侧 2×3 抓取点 + photo 图标）。
+- 画布：背景 white 0.15；`EditorView.editorDocumentMargin = 40`，右侧/底部按 `contentInsets` 预留 60/84pt；图片按 1:1 显示，超大图才等比缩小。
+- 底部悬浮工具条：`ToolbarButtonView.size = 32`，`ToolbarStripView` padding 4、spacing 2、圆角 6、背景 white 0.12；选中工具填充 `defaultAccentColor`（0.55/0.30/0.85），其余图标白色 90%，hover 白色 12%。
+- 工具顺序与上游一致（省略未移植的 select/loupe/stamp/eyedropper）；文字图标为 17pt 粗体 `T`，马赛克为 4×4 棋盘格。
+- 选项行：`ToolOptionsRowView` 高度 34、padding 8、圆角 6；包含粗细标签 9.5pt、100pt 滑杆、`Npx` 10pt 等宽数值；裁剪时显示应用/取消。
+- 右侧竖条：距右 20、距顶 36，padding 4、spacing 2，32pt 按钮；复制/保存/钉图/OCR/关闭。
+- 录制 HUD：完全按 `RecordingHUDPanel`，164×32、10pt 圆角、背景 white 0.12 @94%、0.5pt 白 10% 边框；停止/暂停各 24pt，红点 11pt bold，计时 13pt 等宽 semibold，右侧 20pt 拖动把手和 0.5pt 分隔线；面板层级 `.statusBar + 2`，相对选区右上角 8pt。
+- 暂停已真正接入录制：暂停期间不再写视频帧与音频帧，音频 PTS 扣掉暂停时长，HUD 计时冻结；实测约 20 秒墙钟里暂停 6 秒，输出 MP4 时长为 14.03 秒。

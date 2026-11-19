@@ -147,6 +147,62 @@ final class CaptureEditorModel: ObservableObject {
         cropRect = nil
     }
 
+    func flipHorizontally() {
+        guard let flipped = flipped(baseImage, horizontal: true) else { return }
+        baseImage = flipped
+        mirrorAnnotations(horizontal: true)
+        isDirty = true
+        undoStack.removeAll()
+        redoStack.removeAll()
+    }
+
+    func flipVertically() {
+        guard let flipped = flipped(baseImage, horizontal: false) else { return }
+        baseImage = flipped
+        mirrorAnnotations(horizontal: false)
+        isDirty = true
+        undoStack.removeAll()
+        redoStack.removeAll()
+    }
+
+    private func flipped(_ image: CGImage, horizontal: Bool) -> CGImage? {
+        let width = image.width
+        let height = image.height
+        guard let context = CGContext(data: nil, width: width, height: height,
+                                      bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.translateBy(x: horizontal ? CGFloat(width) : 0,
+                            y: horizontal ? 0 : CGFloat(height))
+        context.scaleBy(x: horizontal ? -1 : 1, y: horizontal ? 1 : -1)
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+
+    private func mirrorAnnotations(horizontal: Bool) {
+        let width = imageWidth
+        let height = imageHeight
+        annotations = annotations.map { annotation in
+            var copy = annotation
+            if horizontal {
+                copy.start.x = width - copy.start.x
+                copy.end.x = width - copy.end.x
+                copy.points = copy.points.map { CGPoint(x: width - $0.x, y: $0.y) }
+            } else {
+                copy.start.y = height - copy.start.y
+                copy.end.y = height - copy.end.y
+                copy.points = copy.points.map { CGPoint(x: $0.x, y: height - $0.y) }
+            }
+            return copy
+        }
+        if let crop = cropRect {
+            cropRect = horizontal
+                ? CGRect(x: width - crop.maxX, y: crop.minY, width: crop.width, height: crop.height)
+                : CGRect(x: crop.minX, y: height - crop.maxY, width: crop.width, height: crop.height)
+        }
+    }
+
     func render() -> CGImage? {
         AnnotationRenderer.render(image: baseImage,
                                   annotations: annotations,

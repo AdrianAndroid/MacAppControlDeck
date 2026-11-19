@@ -72,6 +72,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var latestPixelBuffer: CVPixelBuffer?
     private var frameTimer: DispatchSourceTimer?
     private var audioStart: CMTime?
+    private var isPaused = false
+    private var pausedAt: Date?
+    private var totalPaused: TimeInterval = 0
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private let stateQueue = DispatchQueue(label: "MacShotKit.recorder.state")
 
@@ -92,6 +95,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         self.frameTimer?.cancel()
         self.frameTimer = nil
         self.audioStart = nil
+        self.isPaused = false
+        self.pausedAt = nil
+        self.totalPaused = 0
 
         let content: SCShareableContent
         do {
@@ -232,8 +238,26 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         timer.resume()
     }
 
+    func setPaused(_ paused: Bool) {
+        stateQueue.async { [weak self] in
+            guard let self else { return }
+            if paused {
+                if !self.isPaused {
+                    self.isPaused = true
+                    self.pausedAt = Date()
+                }
+            } else if self.isPaused {
+                if let pausedAt = self.pausedAt {
+                    self.totalPaused += Date().timeIntervalSince(pausedAt)
+                }
+                self.pausedAt = nil
+                self.isPaused = false
+            }
+        }
+    }
+
     private func emitFrame() {
-        guard !isStopping, let sourceBuffer = latestPixelBuffer else { return }
+        guard !isPaused, !isStopping, let sourceBuffer = latestPixelBuffer else { return }
 
         if format == .gif {
             let gifTime = CMTime(value: Int64(gifFrames.count),
@@ -386,12 +410,16 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             }
 
         case .audio:
-            guard startedAt != nil, let audioInput,
+            guard !isPaused, startedAt != nil, let audioInput,
                   audioInput.isReadyForMoreMediaData else { return }
 
             let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
             if audioStart == nil { audioStart = pts }
-            let relative = CMTimeSubtract(pts, audioStart ?? pts)
+            var paused = totalPaused
+            if let pausedAt { paused += Date().timeIntervalSince(pausedAt) }
+            var relative = CMTimeSubtract(pts, audioStart ?? pts)
+            relative = CMTimeSubtract(relative, CMTime(seconds: paused, preferredTimescale: 48_000))
+            if relative.seconds < 0 { relative = .zero }
             var timing = CMSampleTimingInfo(duration: CMSampleBufferGetDuration(sampleBuffer),
                                            presentationTimeStamp: relative,
                                            decodeTimeStamp: .invalid)
