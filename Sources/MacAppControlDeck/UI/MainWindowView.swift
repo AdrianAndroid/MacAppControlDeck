@@ -144,6 +144,11 @@ final class DeckState: ObservableObject {
     var commandButtons: [ButtonConfig] { buttons.filter { $0.kind == .command } }
     var quickButtons: [ButtonConfig] { buttons.filter { $0.kind != .app } }
 
+    func moveToIndex(_ button: ButtonConfig, toIndex: Int) {
+        store.moveButton(id: button.id, toIndex: toIndex)
+        refreshAll()
+    }
+
     var appButtons: [ButtonConfig] { buttons.filter { $0.kind == .app } }
     var shortcutButtons: [ButtonConfig] { buttons.filter { $0.kind == .shortcut } }
 
@@ -174,6 +179,7 @@ struct MainWindowView: View {
     @State private var showShortcutSheet = false
     @State private var showCommandSheet = false
     @State private var editingShortcut: ButtonConfig?
+    @State private var draggingID: String?
 
     var body: some View {
         ScrollView {
@@ -424,6 +430,7 @@ struct MainWindowView: View {
     private func buttonRow(_ button: ButtonConfig) -> some View {
         let installed = FileManager.default.fileExists(atPath: button.appPath)
         return HStack(spacing: 12) {
+            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).help("拖动排序")
             AppIconView(path: button.appPath)
                 .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
@@ -455,10 +462,16 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
+        .onDrag {
+            draggingID = button.id
+            return NSItemProvider(object: button.id as NSString)
+        }
+        .onDrop(of: [.text], delegate: RowDropDelegate(target: button, state: state, draggingID: $draggingID))
     }
 
     private func commandRow(_ button: ButtonConfig) -> some View {
         HStack(spacing: 12) {
+            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).help("拖动排序")
             Text("▶")
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 64, height: 32)
@@ -488,10 +501,16 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
+        .onDrag {
+            draggingID = button.id
+            return NSItemProvider(object: button.id as NSString)
+        }
+        .onDrop(of: [.text], delegate: RowDropDelegate(target: button, state: state, draggingID: $draggingID))
     }
 
     private func shortcutRow(_ button: ButtonConfig) -> some View {
         HStack(spacing: 12) {
+            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).help("拖动排序")
             Text(button.displaySymbol ?? "—")
                 .font(.system(size: 15, weight: .semibold, design: .monospaced))
                 .frame(width: 64, height: 32)
@@ -521,6 +540,11 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
+        .onDrag {
+            draggingID = button.id
+            return NSItemProvider(object: button.id as NSString)
+        }
+        .onDrop(of: [.text], delegate: RowDropDelegate(target: button, state: state, draggingID: $draggingID))
     }
 
     private var devicesCard: some View {
@@ -627,5 +651,33 @@ struct AddButtonSheet: View {
     private var filteredApps: [InstalledApp] {
         searchText.isEmpty ? state.installedApps
             : state.installedApps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+}
+
+
+struct RowDropDelegate: DropDelegate {
+    let target: ButtonConfig
+    let state: DeckState
+    @Binding var draggingID: String?
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingID,
+              draggingID != target.id,
+              let dragged = state.buttons.first(where: { $0.id == draggingID }),
+              dragged.kind == target.kind else { return }
+        let group = state.buttons.filter { $0.kind == target.kind }
+        guard let from = group.firstIndex(where: { $0.id == dragged.id }),
+              let to = group.firstIndex(where: { $0.id == target.id }),
+              from != to else { return }
+        state.moveToIndex(dragged, toIndex: to)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }

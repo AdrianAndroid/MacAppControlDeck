@@ -165,14 +165,41 @@ final class ConfigStore {
     func sortedButtons() -> [ButtonConfig] {
         queue.sync {
             buttons.sorted {
-                if $0.kind != $1.kind { return $0.kind == .app }
+                let rank = Self.kindRank($0.kind), otherRank = Self.kindRank($1.kind)
+                if rank != otherRank { return rank < otherRank }
                 return $0.sortOrder < $1.sortOrder
             }
         }
     }
 
+    static func kindRank(_ kind: ButtonKind) -> Int {
+        switch kind {
+        case .app: return 0
+        case .shortcut: return 1
+        case .command: return 2
+        }
+    }
+
     func buttons(kind: ButtonKind) -> [ButtonConfig] {
         sortedButtons().filter { $0.kind == kind }
+    }
+
+    @discardableResult
+    func moveButton(id: String, toIndex: Int) -> Bool {
+        queue.sync {
+            guard let moving = buttons.first(where: { $0.id == id }) else { return false }
+            var group = buttons.filter { $0.kind == moving.kind }.sorted { $0.sortOrder < $1.sortOrder }
+            group.removeAll { $0.id == id }
+            let clamped = min(max(0, toIndex), group.count)
+            group.insert(moving, at: clamped)
+            for (index, item) in group.enumerated() {
+                if let global = buttons.firstIndex(where: { $0.id == item.id }) {
+                    buttons[global].sortOrder = index
+                }
+            }
+            saveButtons()
+            return true
+        }
     }
 
     func button(id: String) -> ButtonConfig? {

@@ -111,6 +111,22 @@ final class ShortcutActionsTests: XCTestCase {
         return (try! JSONDecoder().decode(T.self, from: response.body)).token
     }
 
+    func test_moveShortcutToIndexAndKindRanking() {
+        let store = ConfigStore(directory: directory)
+        let a = store.addShortcutButton(name: "A", combo: ShortcutCombo(modifiers: [.command], keyCode: 0, keyLabel: "A"))
+        let b = store.addShortcutButton(name: "B", combo: ShortcutCombo(modifiers: [.command], keyCode: 1, keyLabel: "S"))
+        let c = store.addCommandButton(name: "C", appPath: "/Applications/Snipaste.app",
+                                       bundleID: "com.Snipaste", arguments: ["snip"])
+        _ = store.addButton(name: "App", bundleID: "com.apple.Safari", appPath: "/Applications/Safari.app")
+
+        XCTAssertTrue(store.moveButton(id: b.id, toIndex: 0))
+        XCTAssertEqual(store.buttons(kind: .shortcut).map(\.name), ["B", "A"])
+
+        let ordered = store.sortedButtons().map(\.kind)
+        XCTAssertEqual(ordered, [.app, .shortcut, .shortcut, .command])
+        XCTAssertTrue(store.buttons(kind: .command).contains { $0.id == c.id })
+    }
+
     func test_routerDispatchesShortcutToInjector() async {
         let injector = FakeShortcutInjector()
         let router = makeRouter(injector: injector)

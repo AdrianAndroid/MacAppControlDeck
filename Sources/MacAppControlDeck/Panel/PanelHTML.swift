@@ -17,6 +17,8 @@ enum PanelHTML {
     <style>
       :root { color-scheme: dark; --bg:#0f1220; --card:#1b2036; --line:#2a3152; --fg:#eef1ff; --muted:#8d96c5; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+      .btn, .page, .pages { touch-action: manipulation; }
       html, body { height: 100%; }
       body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--fg);
              display:flex; flex-direction:column; height:100vh; height:100dvh;
@@ -94,6 +96,15 @@ enum PanelHTML {
       let token=localStorage.getItem('deck_token');
       const deviceName=localStorage.getItem('deck_device')||'iPhone';
       const inflight=new Set();
+      // 禁用双击缩放/双击选中（iOS Safari 与桌面浏览器行为一致）
+      document.addEventListener('dblclick', e => e.preventDefault());
+      document.addEventListener('gesturestart', e => e.preventDefault());
+      let lastTapAt = 0;
+      document.addEventListener('touchend', e => {
+        const now = Date.now();
+        if (now - lastTapAt < 300) { e.preventDefault(); }
+        lastTapAt = now;
+      }, { passive: false });
 
       function toastMsg(t,ms=2600){ toast.textContent=t; toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>toast.classList.remove('show'),ms); }
       function setStatus(t,cls){ statusEl.textContent=t; statusEl.className=cls||''; }
