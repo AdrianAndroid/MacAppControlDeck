@@ -124,7 +124,12 @@ final class ShortcutActionsTests: XCTestCase {
 
         let ordered = store.sortedButtons().map(\.kind)
         XCTAssertEqual(ordered, [.app, .shortcut, .shortcut, .command])
-        XCTAssertTrue(store.buttons(kind: .command).contains { $0.id == c.id })
+
+        // 命令按钮可与快捷操作在同一"快捷"组内互相移动
+        XCTAssertTrue(store.moveButton(id: c.id, toIndex: 0))
+        XCTAssertEqual(store.sortedButtons().map(\.name), ["App", "C", "B", "A"])
+        XCTAssertTrue(store.moveButton(id: a.id, toIndex: 0))
+        XCTAssertEqual(store.sortedButtons().map(\.name), ["App", "A", "C", "B"])
     }
 
     func test_routerDispatchesShortcutToInjector() async {

@@ -66,7 +66,7 @@ final class ConfigStore {
     @discardableResult
     func addShortcutButton(name: String, combo: ShortcutCombo) -> ButtonConfig {
         queue.sync {
-            let groupMax = buttons.filter { $0.kind == .shortcut }.map { $0.sortOrder }.max() ?? -1
+            let groupMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
             let config = ButtonConfig(id: UUID().uuidString,
                                       kind: .shortcut,
                                       name: name,
@@ -81,7 +81,7 @@ final class ConfigStore {
     @discardableResult
     func addCommandButton(name: String, appPath: String, bundleID: String, arguments: [String]) -> ButtonConfig {
         queue.sync {
-            let groupMax = buttons.filter { $0.kind == .command }.map { $0.sortOrder }.max() ?? -1
+            let groupMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
             let config = ButtonConfig(id: UUID().uuidString,
                                       kind: .command,
                                       name: name,
@@ -147,7 +147,8 @@ final class ConfigStore {
     func moveButton(id: String, offset: Int) -> Bool {
         queue.sync {
             guard let moving = buttons.first(where: { $0.id == id }) else { return false }
-            var group = buttons.filter { $0.kind == moving.kind }.sorted { $0.sortOrder < $1.sortOrder }
+            let rank = Self.kindRank(moving.kind)
+            var group = buttons.filter { Self.kindRank($0.kind) == rank }.sorted { $0.sortOrder < $1.sortOrder }
             guard let index = group.firstIndex(where: { $0.id == id }) else { return false }
             let target = index + offset
             guard group.indices.contains(target) else { return false }
@@ -172,12 +173,9 @@ final class ConfigStore {
         }
     }
 
+    /// 排序分组：应用一组，快捷操作与命令共用一个"快捷"组（面板上也显示在一起）。
     static func kindRank(_ kind: ButtonKind) -> Int {
-        switch kind {
-        case .app: return 0
-        case .shortcut: return 1
-        case .command: return 2
-        }
+        kind == .app ? 0 : 1
     }
 
     func buttons(kind: ButtonKind) -> [ButtonConfig] {
@@ -188,7 +186,8 @@ final class ConfigStore {
     func moveButton(id: String, toIndex: Int) -> Bool {
         queue.sync {
             guard let moving = buttons.first(where: { $0.id == id }) else { return false }
-            var group = buttons.filter { $0.kind == moving.kind }.sorted { $0.sortOrder < $1.sortOrder }
+            let rank = Self.kindRank(moving.kind)
+            var group = buttons.filter { Self.kindRank($0.kind) == rank }.sorted { $0.sortOrder < $1.sortOrder }
             group.removeAll { $0.id == id }
             let clamped = min(max(0, toIndex), group.count)
             group.insert(moving, at: clamped)

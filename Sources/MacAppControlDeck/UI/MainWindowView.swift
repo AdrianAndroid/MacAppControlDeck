@@ -396,18 +396,22 @@ struct MainWindowView: View {
                 } else {
                     if !state.appButtons.isEmpty {
                         sectionHeader("应用")
-                        ForEach(state.appButtons) { button in
-                            buttonRow(button)
+                        ForEach(Array(state.appButtons.enumerated()), id: \.element.id) { index, button in
+                            buttonRow(button,
+                                      canMoveUp: index > 0,
+                                      canMoveDown: index < state.appButtons.count - 1)
                             Divider()
                         }
                     }
                     if !state.quickButtons.isEmpty {
                         sectionHeader("快捷操作")
-                        ForEach(state.quickButtons) { button in
+                        ForEach(Array(state.quickButtons.enumerated()), id: \.element.id) { index, button in
+                            let canUp = index > 0
+                            let canDown = index < state.quickButtons.count - 1
                             if button.kind == .command {
-                                commandRow(button)
+                                commandRow(button, canMoveUp: canUp, canMoveDown: canDown)
                             } else {
-                                shortcutRow(button)
+                                shortcutRow(button, canMoveUp: canUp, canMoveDown: canDown)
                             }
                             Divider()
                         }
@@ -427,7 +431,7 @@ struct MainWindowView: View {
             .padding(.top, 4)
     }
 
-    private func buttonRow(_ button: ButtonConfig) -> some View {
+    private func buttonRow(_ button: ButtonConfig, canMoveUp: Bool, canMoveDown: Bool) -> some View {
         let installed = FileManager.default.fileExists(atPath: button.appPath)
         return HStack(spacing: 12) {
             AppIconView(path: button.appPath)
@@ -443,8 +447,10 @@ struct MainWindowView: View {
             Spacer(minLength: 8)
             Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
                 .help("上移")
+                .disabled(!canMoveUp)
             Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
                 .help("下移")
+                .disabled(!canMoveDown)
             Menu {
                 Button("重命名…") {
                     pendingRename = button
@@ -464,7 +470,7 @@ struct MainWindowView: View {
 
     }
 
-    private func commandRow(_ button: ButtonConfig) -> some View {
+    private func commandRow(_ button: ButtonConfig, canMoveUp: Bool, canMoveDown: Bool) -> some View {
         HStack(spacing: 12) {
             Text("▶")
                 .font(.system(size: 15, weight: .semibold))
@@ -480,8 +486,10 @@ struct MainWindowView: View {
             Spacer(minLength: 8)
             Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
                 .help("上移")
+                .disabled(!canMoveUp)
             Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
                 .help("下移")
+                .disabled(!canMoveDown)
             Menu {
                 Button("重命名…") {
                     pendingRename = button
@@ -498,7 +506,7 @@ struct MainWindowView: View {
 
     }
 
-    private func shortcutRow(_ button: ButtonConfig) -> some View {
+    private func shortcutRow(_ button: ButtonConfig, canMoveUp: Bool, canMoveDown: Bool) -> some View {
         HStack(spacing: 12) {
             Text(button.displaySymbol ?? "—")
                 .font(.system(size: 15, weight: .semibold, design: .monospaced))
@@ -513,8 +521,10 @@ struct MainWindowView: View {
             Spacer(minLength: 8)
             Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
                 .help("上移")
+                .disabled(!canMoveUp)
             Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
                 .help("下移")
+                .disabled(!canMoveDown)
             Menu {
                 Button("重命名…") {
                     pendingRename = button
