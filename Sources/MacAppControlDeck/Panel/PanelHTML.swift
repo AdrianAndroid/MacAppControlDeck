@@ -38,9 +38,11 @@ enum PanelHTML {
       #appsZone { flex:1 1 auto; }
       #shortcutsZone { flex:0 0 auto; border-top:1px solid var(--line); padding-top:6px; }
       .zone-title { font-size:11px; color:var(--muted); margin:2px 0 4px; letter-spacing:.5px; }
-      .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; flex:1 1 auto; }
+      .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+      #appsPages { flex:1 1 auto; min-height:0; }
+      #shortcutPages { flex:0 0 auto; overflow-y:visible; }
       .pages::-webkit-scrollbar { display:none; }
-      .page { flex:0 0 100%; width:100%; scroll-snap-align:start; display:grid; gap:10px; padding:2px; align-content:start; }
+      .page { flex:0 0 100%; width:100%; height:100%; scroll-snap-align:start; display:grid; gap:10px; padding:2px; align-content:start; }
       .dots { display:flex; justify-content:center; gap:6px; padding:4px 0 2px; min-height:14px; }
       .dots i { width:6px; height:6px; border-radius:50%; background:#3a4270; }
       .dots i.on { background:var(--muted); }
@@ -143,16 +145,28 @@ enum PanelHTML {
         if(!token){ pairEl.classList.add('show'); return; }
 
         const landscape=matchMedia('(orientation: landscape)').matches;
-        const appCols=landscape?4:2, appRows=landscape?3:4;
-        const scCols=landscape?6:4, scRows=Math.min(3,Math.max(1,Math.ceil(shortcuts.length/scCols)))||1;
+        const appCols=landscape?4:2;
+        const scCols=landscape?6:4;
+        const scRows=Math.min(3,Math.max(1,Math.ceil(shortcuts.length/scCols)))||1;
 
-        renderZone(appsPagesEl,appsDotsEl,apps,appCols,appRows,'app');
+        // 快捷操作区高度固定为行数 × 行高，避免最后一行被截断
+        const scCell=72, scGap=10;
+        shortcutPagesEl.style.height=(scRows*scCell+(scRows-1)*scGap+4)+'px';
+
+        const renderAll=()=>{
+          const h=appsPagesEl.clientHeight;
+          const measured=h>0 ? Math.max(2, Math.min(6, Math.floor((h+10)/102))) : (landscape?3:4);
+          renderZone(appsPagesEl,appsDotsEl,apps,appCols,measured,'app');
+        };
+        renderAll();
         if(shortcuts.length){
           shortcutsZone.style.display='flex';
           renderZone(shortcutPagesEl,shortcutDotsEl,shortcuts,scCols,scRows,'shortcut');
         } else {
           shortcutsZone.style.display='none';
         }
+        // 首屏布局稳定后按真实可用高度重算一次
+        requestAnimationFrame(()=>setTimeout(renderAll, 30));
       }
 
       function renderZone(pagesEl,dotsEl,items,cols,rows,kind){
