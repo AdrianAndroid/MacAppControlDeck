@@ -33,11 +33,14 @@ enum PanelHTML {
                opacity:0; transition:opacity .25s; pointer-events:none; z-index:20; box-shadow:0 6px 24px rgba(0,0,0,.4); }
       #toast.show { opacity:1; }
       #main { display:none; flex-direction:column; flex:1 1 auto; min-height:0; gap:6px; overflow:hidden;
-              padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 8px); }
+              padding-bottom:var(--quick-h, 0px); }
       #main.show { display:flex; }
       .zone { display:flex; flex-direction:column; min-height:0; }
       #appsZone { flex:1 1 auto; min-height:0; overflow:hidden; }
-      #shortcutsZone { flex:0 0 auto; border-top:1px solid var(--line); padding-top:6px; }
+      #shortcutsZone { position:fixed; left:calc(env(safe-area-inset-left, 0px) + 12px); right:calc(env(safe-area-inset-right, 0px) + 12px);
+                       bottom:0; z-index:5; background:var(--bg);
+                       border-top:1px solid var(--line); padding-top:6px;
+                       padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 6px); }
       .zone-title { font-size:11px; color:var(--muted); margin:2px 0 4px; letter-spacing:.5px; }
       .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
       #appsPages { flex:1 1 auto; min-height:0; }
@@ -98,22 +101,9 @@ enum PanelHTML {
       const mainEl=$('#main'), pairEl=$('#pair'), statusEl=$('#status'), toast=$('#toast');
       let token=localStorage.getItem('deck_token');
       const deviceName=localStorage.getItem('deck_device')||'iPhone';
-      // iOS Safari：100dvh 不扣除底部工具栏，改用 visualViewport 实际可视高度
-      function fitViewportHeight(){
-        const vv = (window.visualViewport && window.visualViewport.height) || 0;
-        const h = Math.max(window.innerHeight || 0, vv);
-        if (h > 0) document.body.style.height = Math.round(h) + 'px';
-      }
-      fitViewportHeight();
       if (location.search.includes('debug=1')) {
         setTimeout(updateDebug, 600);
         setTimeout(updateDebug, 1500);
-      }
-      window.addEventListener('resize', fitViewportHeight);
-      window.addEventListener('orientationchange', ()=>setTimeout(fitViewportHeight, 120));
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', fitViewportHeight);
-        window.visualViewport.addEventListener('scroll', fitViewportHeight);
       }
 
       const debugMode = location.search.includes('debug=1');
@@ -201,8 +191,15 @@ enum PanelHTML {
         } else {
           shortcutsZone.style.display='none';
         }
-        // 首屏布局稳定后按真实可用高度重算一次
-        requestAnimationFrame(()=>setTimeout(()=>{ fitViewportHeight(); renderAll(); }, 40));
+        const syncFooter=()=>{
+          const h = shortcuts.length ? Math.ceil(shortcutsZone.getBoundingClientRect().height) : 0;
+          document.documentElement.style.setProperty('--quick-h', (h + 6) + 'px');
+          renderAll();
+        };
+        syncFooter();
+        requestAnimationFrame(()=>setTimeout(syncFooter, 60));
+        window.addEventListener('resize', $=>setTimeout(syncFooter, 80));
+        window.addEventListener('orientationchange', ()=>setTimeout(syncFooter, 200));
       }
 
       function renderZone(pagesEl,dotsEl,items,cols,rows,kind){
