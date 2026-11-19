@@ -179,8 +179,7 @@ struct MainWindowView: View {
     @State private var showShortcutSheet = false
     @State private var showCommandSheet = false
     @State private var editingShortcut: ButtonConfig?
-    @State private var draggingID: String?
-    @State private var dragOriginIndex: Int?
+
 
     var body: some View {
         ScrollView {
@@ -431,7 +430,6 @@ struct MainWindowView: View {
     private func buttonRow(_ button: ButtonConfig) -> some View {
         let installed = FileManager.default.fileExists(atPath: button.appPath)
         return HStack(spacing: 12) {
-            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).help("拖动排序")
             AppIconView(path: button.appPath)
                 .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
@@ -463,14 +461,11 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
-        .frame(minHeight: 44)
-        .gesture(rowDragGesture(button))
-        .opacity(draggingID == button.id ? 0.55 : 1)
+
     }
 
     private func commandRow(_ button: ButtonConfig) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).help("拖动排序")
             Text("▶")
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 64, height: 32)
@@ -500,14 +495,11 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
-        .frame(minHeight: 44)
-        .gesture(rowDragGesture(button))
-        .opacity(draggingID == button.id ? 0.55 : 1)
+
     }
 
     private func shortcutRow(_ button: ButtonConfig) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).help("拖动排序")
             Text(button.displaySymbol ?? "—")
                 .font(.system(size: 15, weight: .semibold, design: .monospaced))
                 .frame(width: 64, height: 32)
@@ -537,33 +529,7 @@ struct MainWindowView: View {
             .fixedSize()
         }
         .padding(.vertical, 4)
-        .frame(minHeight: 44)
-        .gesture(rowDragGesture(button))
-        .opacity(draggingID == button.id ? 0.55 : 1)
-    }
 
-    private func rowDragGesture(_ button: ButtonConfig) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                if draggingID == nil {
-                    draggingID = button.id
-                    dragOriginIndex = state.buttons.filter { $0.kind == button.kind }
-                        .firstIndex { $0.id == button.id }
-                }
-                guard let origin = dragOriginIndex else { return }
-                let group = state.buttons.filter { $0.kind == button.kind }
-                guard !group.isEmpty else { return }
-                let steps = Int((value.translation.height / 44).rounded())
-                let target = max(0, min(group.count - 1, origin + steps))
-                if let current = state.buttons.filter({ $0.kind == button.kind }).firstIndex(where: { $0.id == button.id }),
-                   current != target {
-                    state.moveToIndex(button, toIndex: target)
-                }
-            }
-            .onEnded { _ in
-                draggingID = nil
-                dragOriginIndex = nil
-            }
     }
 
     private var devicesCard: some View {
