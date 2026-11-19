@@ -51,14 +51,19 @@ final class AppControl: AppControlling {
         do {
             _ = try await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
             var running: NSRunningApplication?
-            for _ in 0..<30 {
+            for _ in 0..<8 {
                 running = Self.runningApp(bundleID)
                 if running != nil { break }
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
             guard let running else {
                 log("启动请求返回但未确认运行")
-                return AppActivationOutcome(status: .unconfirmed, message: "已发送启动请求，未能确认启动结果")
+                let isSystemLauncher = bundleID.contains("launchpad")
+                return AppActivationOutcome(
+                    status: .unconfirmed,
+                    message: isSystemLauncher
+                        ? "已打开启动台（系统界面不会以常规应用形式出现，无法确认状态）"
+                        : "已发送启动请求，未能确认运行（部分系统界面不显示为常规应用）")
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             let outcome = await activate(running: running, appURL: appURL, bundleID: bundleID)

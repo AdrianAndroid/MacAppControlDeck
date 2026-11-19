@@ -12,6 +12,7 @@ final class DeckState: ObservableObject {
     @Published var devices: [DeviceRecord] = []
     @Published var installedApps: [InstalledApp] = []
     @Published var accessibilityReady = AXIsProcessTrusted()
+    @Published var inputMonitoringReady = CGPreflightListenEventAccess()
 
     let store: ConfigStore
     let pairing = PairingManager()
@@ -40,6 +41,7 @@ final class DeckState: ObservableObject {
         accessibilityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.accessibilityReady = AXIsProcessTrusted()
+                self?.inputMonitoringReady = CGPreflightListenEventAccess()
             }
         }
     }
@@ -48,6 +50,17 @@ final class DeckState: ObservableObject {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func openInputMonitoringSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func requestInputMonitoring() {
+        _ = CGRequestListenEventAccess()
+        openInputMonitoringSettings()
     }
 
     func stop() {
@@ -218,6 +231,20 @@ struct MainWindowView: View {
                     Spacer()
                     if !state.accessibilityReady {
                         Button("去授权（打开系统设置）") { state.openAccessibilitySettings() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(state.inputMonitoringReady ? Color.green : Color.orange)
+                        .frame(width: 10, height: 10)
+                    Text(state.inputMonitoringReady
+                         ? "输入监控：已授权（可触发 Snipaste 等全局热键）"
+                         : "输入监控：未授权（F1 等全局热键类应用可能无响应）")
+                        .font(.subheadline)
+                    Spacer()
+                    if !state.inputMonitoringReady {
+                        Button("去授权（打开系统设置）") { state.requestInputMonitoring() }
                             .buttonStyle(.borderedProminent)
                     }
                 }
