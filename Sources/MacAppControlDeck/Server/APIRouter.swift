@@ -63,6 +63,7 @@ final class APIRouter {
     let injector: ShortcutInjecting
     private let iconDirectory: URL
     private let maxBodySize = 4096
+    private let quickActionQueue = DispatchQueue(label: "deck.quick-actions", qos: .userInitiated)
     private let logger = RequestLogger.shared
 
     init(store: ConfigStore,
@@ -220,7 +221,10 @@ final class APIRouter {
             guard let combo = button.shortcut else {
                 return .error("bad-button-config", message: "快捷操作配置不完整，请在 Mac 端重新编辑", status: 409)
             }
-            let result = injector.inject(combo)
+            // 串行执行：连续点击（如连续切换桌面）时保证按键顺序
+            let result: ShortcutInjectionResult = quickActionQueue.sync {
+                injector.inject(combo)
+            }
             guard result.sent else {
                 return .error(result.errorCode ?? "injection-failed",
                               message: result.message,
@@ -232,8 +236,10 @@ final class APIRouter {
             guard !button.appPath.isEmpty else {
                 return .error("bad-button-config", message: "命令按钮配置不完整", status: 409)
             }
-            let result = CommandRunner.run(appPath: button.appPath,
-                                           arguments: button.commandArguments ?? [])
+            let result: CommandRunResult = quickActionQueue.sync {
+                CommandRunner.run(appPath: button.appPath,
+                                  arguments: button.commandArguments ?? [])
+            }
             guard result.ok else {
                 return .error("command-failed", message: result.message, status: 403)
             }

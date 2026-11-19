@@ -95,7 +95,8 @@ enum PanelHTML {
       const mainEl=$('#main'), pairEl=$('#pair'), statusEl=$('#status'), toast=$('#toast');
       let token=localStorage.getItem('deck_token');
       const deviceName=localStorage.getItem('deck_device')||'iPhone';
-      const inflight=new Set();
+      const queues = new Map();   // id -> { items: [], running: false, el }
+      const TIMEOUT = { shortcut: 2500, command: 4000, app: 20000 };
       // 禁用双击缩放/双击选中（iOS Safari 与桌面浏览器行为一致）
       document.addEventListener('dblclick', e => e.preventDefault());
       document.addEventListener('gesturestart', e => e.preventDefault());
@@ -185,31 +186,68 @@ enum PanelHTML {
           el.innerHTML=(b.iconUrl?`<img src="${b.iconUrl}" alt="">`:'<div class="fallback">▸</div>')+
             `<div class="label">${escapeText(b.name)}${b.installed?'':'<br><span style="color:var(--warn);font-size:10px">应用缺失</span>'}</div><div class="state"></div>`;
         }
-        el.addEventListener('click',()=>trigger(b,el,kind));
+        el.addEventListener('click',()=>enqueue(b,el,kind));
         return el;
       }
 
       function setState(el,text,cls){ const s=el.querySelector('.state'); s.textContent=text; s.className='state '+(cls||''); }
 
-      async function trigger(button,el,kind){
-        if(inflight.has(button.id)) return;
-        inflight.add(button.id);
-        setState(el, kind==='shortcut' ? '正在发送…' : (kind==='command' ? '正在执行…' : '正在打开…'), 'busy');
-        try{
-          const res=await api('/api/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buttonId:button.id})});
-          const data=await res.json().catch(()=>({}));
-          if(res.ok&&data.status==='sent'){ setState(el, kind==='command'?'已执行':'已发送快捷键','done'); toastMsg(data.message||'已发送快捷键'); }
-          else if(res.ok&&(data.status==='launched'||data.status==='activated')){ setState(el,data.status==='launched'?'已启动':'已切换','done'); toastMsg(data.message); }
-          else if(res.ok&&data.status==='unconfirmed'){ setState(el,'未确认','busy'); toastMsg(data.message||'已发送激活请求，但未能确认窗口状态',5000); }
-          else if(res.status===401){ showPair(); toastMsg('请重新配对'); }
-          else { setState(el,'失败','fail'); toastMsg(data.message||'请求失败',4000); }
-        }catch(e){
-          setState(el,'失败','fail');
-          toastMsg(navigator.onLine?'Mac 未连接，请检查局域网':'网络不可用');
-        }
-        setTimeout(()=>inflight.delete(button.id),1200);
-        setTimeout(()=>{ const s=el.querySelector('.state'); if(!s.classList.contains('busy')) s.textContent=''; },3500);
+      function queueOf(button, el){
+        let q = queues.get(button.id);
+        if (!q) { q = { items: [], running: false, el }; queues.set(button.id, q); }
+        q.el = el;
+        return q;
       }
+      function queueLabel(q){ return q.items.length ? ' · 排队×' + q.items.length : ''; }
+
+      function enqueue(button, el, kind){
+        const q = queueOf(button, el);
+        if (q.items.length >= 8) q.items.shift();   // 队列上限，丢最旧
+        q.items.push(kind);
+        if (!q.running) {
+          setState(el, kind==='shortcut'?'正在发送…':(kind==='command'?'正在执行…':'正在打开…'), 'busy');
+          runQueue(button.id);
+        } else {
+          setState(el, (q.running? '处理中' : '') + queueLabel(q), 'busy');
+        }
+      }
+
+      async function runQueue(id){
+        const q = queues.get(id);
+        if (!q || q.running) return;
+        q.running = true;
+        while (q.items.length) {
+          const kind = q.items.shift();
+          const el = q.el;
+          const baseText = kind==='shortcut'?'正在发送…':(kind==='command'?'正在执行…':'正在打开…');
+          setState(el, baseText + queueLabel(q), 'busy');
+          const controller = new AbortController();
+          const timeoutMs = TIMEOUT[kind] || 20000;
+          const timer = setTimeout(()=>controller.abort(), timeoutMs);
+          try{
+            const res = await api('/api/activate', {method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({buttonId: id}), signal: controller.signal});
+            clearTimeout(timer);
+            const data = await res.json().catch(()=>({}));
+            if(res.ok&&data.status==='sent'){ setState(el, kind==='command'?'已执行':'已发送','done'); }
+            else if(res.ok&&(data.status==='launched'||data.status==='activated')){ setState(el, data.status==='launched'?'已启动':'已切换','done'); }
+            else if(res.ok&&data.status==='unconfirmed'){ setState(el,'未确认','busy'); }
+            else if(res.status===401){ showPair(); }
+            else { setState(el,'失败','fail'); toastMsg(data.message||'请求失败', 3000); }
+          }catch(err){
+            clearTimeout(timer);
+            if (err.name === 'AbortError') { setState(el,'已超时，放弃','fail'); }
+            else { setState(el,'失败','fail'); toastMsg(navigator.onLine?'Mac 未连接，请检查局域网':'网络不可用', 3000); }
+          }
+          if (q.items.length) setState(q.el, baseText + queueLabel(q), 'busy');
+        }
+        q.running = false;
+        setTimeout(()=>{ const st=q.el&&q.el.querySelector('.state'); if(st && !q.running && !q.items.length && !st.classList.contains('busy')) st.textContent=''; }, 900);
+        setTimeout(()=>{ const st=q.el&&q.el.querySelector('.state'); if(st && !q.running && !q.items.length && !st.classList.contains('fail')) st.textContent=''; }, 2600);
+      }
+
+      function anyRunning(){ return [...queues.values()].some(q=>q.running || q.items.length); }
+
 
       function showPair(){ pairEl.classList.add('show'); mainEl.classList.remove('show'); token&&localStorage.removeItem('deck_token'); token=null; }
 
@@ -236,7 +274,7 @@ enum PanelHTML {
       window.addEventListener('orientationchange',()=>setTimeout(onResize,200));
 
       document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
-      setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!inflight.size) loadButtons(); }); },5000);
+      setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!anyRunning()) loadButtons(); }); },5000);
 
       (async function init(){
         await checkHealth();
