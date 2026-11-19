@@ -41,6 +41,16 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(preset("escape").combo.keyCode, 53)
     }
 
+    func test_spaceSwitchClassification() {
+        let left = ShortcutCombo(modifiers: [.control], keyCode: 123, keyLabel: "←")
+        let right = ShortcutCombo(modifiers: [.control], keyCode: 124, keyLabel: "→")
+        let copy = ShortcutCombo(modifiers: [.command], keyCode: 8, keyLabel: "C")
+        XCTAssertTrue(KeyInjector.isSpaceSwitch(left))
+        XCTAssertTrue(KeyInjector.isSpaceSwitch(right))
+        XCTAssertFalse(KeyInjector.isSpaceSwitch(copy))
+        XCTAssertFalse(KeyInjector.isSpaceSwitch(ShortcutCombo(modifiers: [.control, .shift], keyCode: 123, keyLabel: "←")))
+    }
+
     func test_comboNormalizationDedupesAndSorts() {
         let combo = ShortcutCombo(modifiers: [.shift, .command, .shift, .control],
                                  keyCode: 40, keyLabel: "K")

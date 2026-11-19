@@ -60,6 +60,11 @@ struct KeyInjector: ShortcutInjecting {
     }
 
     func inject(_ combo: ShortcutCombo) -> ShortcutInjectionResult {
+        // 桌面左右切换走 System Events：WindowServer 的系统快捷键
+        // 会忽略本进程直接注入的按键。
+        if Self.isSpaceSwitch(combo) {
+            return Self.runSystemEventsKey(combo, logger: logger)
+        }
         guard AXIsProcessTrusted() else {
             logger("注入失败：未授权辅助功能")
             return ShortcutInjectionResult(sent: false,
@@ -108,6 +113,41 @@ struct KeyInjector: ShortcutInjecting {
         }
         logger("已注入 \(combo.symbol)")
         return ShortcutInjectionResult(sent: true, errorCode: nil, message: "已发送快捷键")
+    }
+
+    static func isSpaceSwitch(_ combo: ShortcutCombo) -> Bool {
+        Set(combo.modifiers) == [.control] && (combo.keyCode == 123 || combo.keyCode == 124)
+    }
+
+    static func runSystemEventsKey(_ combo: ShortcutCombo, logger: (String) -> Void) -> ShortcutInjectionResult {
+        let direction = combo.keyCode == 123 ? "left" : "right"
+        let script = "tell application \"System Events\" to key code \(combo.keyCode) using control down"
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        var errorPipe = Pipe()
+        process.standardError = errorPipe
+        process.standardOutput = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            logger("System Events 调用失败: \(error.localizedDescription)")
+            return ShortcutInjectionResult(sent: false, errorCode: "automation-failed",
+                                           message: "无法调用 System Events：\(error.localizedDescription)")
+        }
+        if process.terminationStatus == 0 {
+            logger("已通过 System Events 切换空间 (\(direction))")
+            return ShortcutInjectionResult(sent: true, errorCode: nil, message: "已切换到相邻桌面")
+        }
+        let errText = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        logger("System Events 失败: \(errText)")
+        if errText.contains("-1743") || errText.lowercased().contains("not allowed") {
+            return ShortcutInjectionResult(sent: false, errorCode: "automation-required",
+                                           message: "需要「自动化」权限：系统设置 → 隐私与安全性 → 自动化 → 允许 MacAppControlDeck 控制 System Events")
+        }
+        return ShortcutInjectionResult(sent: false, errorCode: "automation-failed",
+                                       message: "桌面切换失败：\(errText.isEmpty ? "System Events 返回错误" : errText)")
     }
 
     static func helperURL() -> URL? {

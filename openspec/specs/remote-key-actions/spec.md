@@ -82,13 +82,20 @@ TBD - created by archiving change add-remote-quick-actions. Update Purpose after
 
 ### Requirement: 桌面空间切换
 
-系统 SHALL 通过注入系统默认快捷键（Ctrl+←/→）实现向左/向右切换桌面空间，不调用私有 API。
+系统 SHALL 通过 System Events 发送系统默认快捷键（Ctrl+←/→）实现向左/向右切换桌面空间，不调用私有 API。
+直接以 CGEvent 注入的合成按键不会被 WindowServer 的系统快捷键处理（实测），因此该动作需要一次性「自动化」授权（允许本程序控制 System Events）。
 
 #### Scenario: 向右切换桌面
 
 - **WHEN** 用户点击"桌面右"快捷操作
 - **THEN** 注入 Ctrl+→，由系统切换到右侧相邻空间
 - **AND** 若当前已在最右侧空间，系统保持不动（属系统行为，不报错）
+
+#### Scenario: 未授予自动化权限
+
+- **WHEN** 触发桌面切换但未允许本程序控制 System Events
+- **THEN** 返回"需要自动化权限"的明确提示与设置路径
+- **AND** 不报告为成功
 
 #### Scenario: 用户改过 Mission Control 快捷键
 
