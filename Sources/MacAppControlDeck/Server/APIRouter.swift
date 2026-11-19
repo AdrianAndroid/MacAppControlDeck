@@ -89,12 +89,8 @@ final class APIRouter {
             return .error("payload-too-large", message: "请求体过大", status: 413)
         }
 
-        if let host = request.header("Host") {
-            let hostNoPort = host.split(separator: ":").first.map(String.init) ?? host
-            let localCandidates = [LANAddress.localIPv4(), "127.0.0.1", "localhost", "::1"].compactMap { $0 }
-            if !localCandidates.contains(hostNoPort) {
-                return .error("bad-host", message: "拒绝的请求来源", status: 403)
-            }
+        if let host = request.header("Host"), !HostPolicy.isAllowed(host) {
+            return .error("bad-host", message: "拒绝的请求来源", status: 403)
         }
 
         switch (request.method, path) {
@@ -276,6 +272,52 @@ final class APIRouter {
             return .error("not-found", message: "未找到", status: 404)
         }
         return .error("not-found", message: "路径不存在", status: 404)
+    }
+}
+
+enum HostPolicy {
+    /// 防 DNS rebinding：只接受"指向本机"的 Host——
+    /// 本机各局域网 IPv4、回环、私有/链路本地 IP 字面量、localhost 与 .local 名称。
+    /// 不再固定比较单一 en0 地址，避免 Wi-Fi(en1) 或手输正确 IP 被误拒。
+    static func isAllowed(_ rawHost: String) -> Bool {
+        let host = stripPort(rawHost).lowercased()
+        guard !host.isEmpty else { return false }
+        if host == "localhost" { return true }
+        if host.hasSuffix(".local") { return true }
+        if LANAddress.localIPv4s().contains(host) { return true }
+        if isLoopbackOrLocalIPv4(host) { return true }
+        if isLocalIPv6(host) { return true }
+        return false
+    }
+
+    private static func stripPort(_ raw: String) -> String {
+        if raw.hasPrefix("[") {                       // [IPv6]:port
+            guard let end = raw.firstIndex(of: "]") else { return raw }
+            return String(raw[raw.index(after: raw.startIndex)..<end])
+        }
+        let parts = raw.split(separator: ":", omittingEmptySubsequences: false)
+        if parts.count == 2, parts[1].allSatisfy({ $0.isNumber }) {
+            return String(parts[0])                   // IPv4:port
+        }
+        return raw
+    }
+
+    private static func isLoopbackOrLocalIPv4(_ host: String) -> Bool {
+        let parts = host.split(separator: ".").compactMap { UInt8($0) }
+        guard parts.count == 4, host.split(separator: ".").count == 4 else { return false }
+        switch (parts[0], parts[1]) {
+        case (127, _), (10, _), (192, 168), (169, 254): return true
+        case (172, 16...31): return true
+        default: return false
+        }
+    }
+
+    private static func isLocalIPv6(_ host: String) -> Bool {
+        guard host.contains(":") else { return false }
+        if host == "::1" { return true }
+        if host.hasPrefix("fe80:") || host.hasPrefix("fe80::") { return true }
+        if host.hasPrefix("fc") || host.hasPrefix("fd") { return true }   // ULA fc00::/7
+        return false
     }
 }
 
