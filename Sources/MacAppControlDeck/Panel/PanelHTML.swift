@@ -21,7 +21,7 @@ enum PanelHTML {
       .btn, .page, .pages { touch-action: manipulation; }
       html, body { height: 100%; }
       body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--fg);
-             display:flex; flex-direction:column; height:100vh; height:100dvh;
+             display:flex; flex-direction:column; height:100vh; height:-webkit-fill-available; height:100dvh;
              padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px); }
       header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex:0 0 auto; }
       h1 { font-size:16px; margin:0; font-weight:600; }

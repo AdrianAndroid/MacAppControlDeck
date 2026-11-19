@@ -252,7 +252,11 @@ final class APIRouter {
         let route = path == "/" ? "/panel/" : path
 
         if route == "/panel" || route == "/panel/" {
-            return .html(PanelHTML.content)
+            var response = HTTPResponse.html(PanelHTML.content)
+            // 面板改版后 Safari 必须立即拿到新版本（避免旧缓存导致布局问题复现）
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            response.rawHeaders["Cache-Control"] = "no-store, must-revalidate"
+            return response
         }
         if route.hasPrefix("/icons/") {
             let name = String(route.dropFirst("/icons/".count))

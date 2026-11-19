@@ -198,7 +198,12 @@ final class HTTPRequestReader {
         var head = "HTTP/1.1 \(response.status) \(HTTPResponse.statusText(response.status))\r\n"
         head += "Content-Type: \(response.contentType)\r\n"
         head += "Content-Length: \(response.body.count)\r\n"
-        head += "Connection: close\r\n\r\n"
+        head += "Connection: close\r\n"
+        let reserved = ["Content-Type", "Content-Length", "Connection", "content-type", "content-length", "connection"]
+        for (key, value) in response.headers where !reserved.contains(key) {
+            head += "\(key): \(value)\r\n"
+        }
+        head += "\r\n"
         var data = Data(head.utf8)
         data.append(response.body)
         connection.send(content: data, completion: .contentProcessed { [weak self] _ in
