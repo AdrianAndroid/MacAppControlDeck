@@ -100,15 +100,37 @@ enum PanelHTML {
       const deviceName=localStorage.getItem('deck_device')||'iPhone';
       // iOS Safari：100dvh 不扣除底部工具栏，改用 visualViewport 实际可视高度
       function fitViewportHeight(){
-        const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
-        document.body.style.height = Math.round(h) + 'px';
+        const vv = (window.visualViewport && window.visualViewport.height) || 0;
+        const h = Math.max(window.innerHeight || 0, vv);
+        if (h > 0) document.body.style.height = Math.round(h) + 'px';
       }
       fitViewportHeight();
+      if (location.search.includes('debug=1')) {
+        setTimeout(updateDebug, 600);
+        setTimeout(updateDebug, 1500);
+      }
       window.addEventListener('resize', fitViewportHeight);
       window.addEventListener('orientationchange', ()=>setTimeout(fitViewportHeight, 120));
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', fitViewportHeight);
         window.visualViewport.addEventListener('scroll', fitViewportHeight);
+      }
+
+      const debugMode = location.search.includes('debug=1');
+      function updateDebug(){
+        if(!debugMode) return;
+        let el=document.getElementById('dbg');
+        if(!el){ el=document.createElement('div'); el.id='dbg';
+          el.style.cssText='position:fixed;left:8px;bottom:8px;background:#000a;color:#0f0;font:11px ui-monospace;padding:6px;border-radius:6px;white-space:pre;z-index:99;';
+          document.body.appendChild(el);
+        }
+        const vv=window.visualViewport;
+        el.innerHTML =
+          'inner=' + window.innerHeight + ' vv=' + (vv?Math.round(vv.height):'-') +
+          '<br>body=' + Math.round(document.body.getBoundingClientRect().height) +
+          '<br>appsPages=' + Math.round(appsPagesEl.clientHeight) +
+          ' scPages=' + Math.round(shortcutPagesEl.getBoundingClientRect().height) +
+          '<br>pageBottom=' + Math.round(shortcutPagesEl.getBoundingClientRect().bottom);
       }
 
       const queues = new Map();   // id -> { items: [], running: false, el }
@@ -165,7 +187,7 @@ enum PanelHTML {
 
         // 快捷操作区高度固定为行数 × 行高，避免最后一行被截断
         const scCell=72, scGap=10;
-        shortcutPagesEl.style.height=(scRows*scCell+(scRows-1)*scGap+4)+'px';
+        shortcutPagesEl.style.height=(scRows*scCell+(scRows-1)*scGap+10)+'px';
 
         const renderAll=()=>{
           const h=appsPagesEl.clientHeight;
