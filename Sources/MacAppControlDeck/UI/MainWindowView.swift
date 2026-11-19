@@ -1,0 +1,440 @@
+import SwiftUI
+import AppKit
+import ApplicationServices
+
+final class DeckState: ObservableObject {
+    static let shared = DeckState()
+    @Published var serverStatus = ServerStatus(running: false, port: 0, errorText: nil)
+    @Published var panelURL: URL?
+    @Published var pairingCode: String?
+    @Published var pairingExpiryText: String = ""
+    @Published var buttons: [ButtonConfig] = []
+    @Published var devices: [DeviceRecord] = []
+    @Published var installedApps: [InstalledApp] = []
+    @Published var accessibilityReady = AXIsProcessTrusted()
+
+    let store: ConfigStore
+    let pairing = PairingManager()
+    private let server: DeckHTTPServer
+    private var expiryTimer: Timer?
+    private var accessibilityTimer: Timer?
+
+    init(injectedServer: DeckHTTPServer? = nil) {
+        store = ConfigStore()
+        let router = APIRouter(store: store, pairing: pairing, activator: AppControl())
+        server = injectedServer ?? DeckHTTPServer(router: router)
+        refreshAll()
+    }
+
+    func start() {
+        guard !serverStatus.running else { return }
+        serverStatus = server.start()
+        panelURL = LANAddress.panelURL(port: server.port)
+        refreshAll()
+        pollAccessibility()
+    }
+
+    /// 定期轮询辅助功能授权状态，用户在系统设置授权后面板状态自动变绿。
+    private func pollAccessibility() {
+        accessibilityTimer?.invalidate()
+        accessibilityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.accessibilityReady = AXIsProcessTrusted()
+            }
+        }
+    }
+
+    func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func stop() {
+        server.stop()
+        serverStatus = ServerStatus(running: false, port: 0, errorText: nil)
+    }
+
+    func refreshAll() {
+        buttons = store.sortedButtons()
+        devices = store.devices
+    }
+
+    func generatePairingCode() {
+        pairingCode = pairing.newCode()
+        startExpiryTimer()
+    }
+
+    private func startExpiryTimer() {
+        expiryTimer?.invalidate()
+        expiryTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                guard let expiry = self.pairing.expiresAt else {
+                    self.pairingCode = nil
+                    self.pairingExpiryText = ""
+                    self.expiryTimer?.invalidate()
+                    return
+                }
+                let remaining = Int(expiry.timeIntervalSinceNow)
+                self.pairingExpiryText = remaining > 0
+                    ? String(format: "剩余 %d:%02d", remaining / 60, remaining % 60)
+                    : ""
+                if remaining <= 0 {
+                    self.pairingCode = nil
+                    self.pairingExpiryText = ""
+                }
+            }
+        }
+    }
+
+    func revoke(_ device: DeviceRecord) {
+        store.revokeDevice(token: device.token)
+        devices = store.devices
+    }
+
+    func addInstalledApp(_ app: InstalledApp) {
+        store.addButton(name: app.name, bundleID: app.bundleID, appPath: app.path)
+        refreshAll()
+    }
+
+    func rename(_ button: ButtonConfig, to name: String) {
+        store.renameButton(id: button.id, to: name)
+        refreshAll()
+    }
+
+    func delete(_ button: ButtonConfig) {
+        store.deleteButton(id: button.id)
+        refreshAll()
+    }
+
+    func move(_ button: ButtonConfig, offset: Int) {
+        store.moveButton(id: button.id, offset: offset)
+        refreshAll()
+    }
+}
+
+struct MainWindowView: View {
+    @ObservedObject private var state = DeckState.shared
+    @Environment(\.openWindow) private var openWindow
+    @State private var pendingDelete: ButtonConfig?
+    @State private var showAddSheet = false
+    @State private var pendingRevoke: DeviceRecord?
+    @State private var pendingRename: ButtonConfig?
+    @State private var renameText = ""
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                headerCard
+                pairingCard
+                buttonsCard
+                devicesCard
+                noteCard
+            }
+            .padding(20)
+            .frame(maxWidth: 780, alignment: .leading)
+        }
+        .frame(minWidth: 760, minHeight: 600)
+        .sheet(isPresented: $showAddSheet) {
+            AddButtonSheet(state: state)
+        }
+        .confirmationDialog("确定删除按钮「\(pendingDelete?.name ?? "")」？", isPresented: Binding(
+            get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
+            Button("删除", role: .destructive) {
+                if let button = pendingDelete { state.delete(button) }
+                pendingDelete = nil
+            }
+            Button("取消", role: .cancel) { pendingDelete = nil }
+        }
+        .confirmationDialog("撤销设备「\(pendingRevoke?.name ?? "")」的配对？撤销后该设备需要重新配对。", isPresented: Binding(
+            get: { pendingRevoke != nil }, set: { if !$0 { pendingRevoke = nil } }), titleVisibility: .visible) {
+            Button("撤销配对", role: .destructive) {
+                if let device = pendingRevoke { state.revoke(device) }
+                pendingRevoke = nil
+            }
+            Button("取消", role: .cancel) { pendingRevoke = nil }
+        }
+        .alert("重命名按钮", isPresented: Binding(
+            get: { pendingRename != nil }, set: { if !$0 { pendingRename = nil } })) {
+            TextField("按钮名称", text: $renameText)
+            Button("保存") {
+                if let button = pendingRename, !renameText.isEmpty {
+                    state.rename(button, to: renameText)
+                }
+                pendingRename = nil
+            }
+            Button("取消", role: .cancel) { pendingRename = nil }
+        }
+        .onAppear { state.start() }
+    }
+
+    private var headerCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(state.serverStatus.running ? Color.green : Color.red)
+                        .frame(width: 10, height: 10)
+                    Text(state.serverStatus.running
+                         ? "服务运行中 · 端口 \(String(state.serverStatus.port))"
+                         : "服务未运行\(state.serverStatus.errorText.map { "（\($0)）" } ?? "")")
+                        .font(.headline)
+                    Spacer()
+                    Button(state.serverStatus.running ? "重新启动服务" : "启动服务") {
+                        state.stop()
+                        state.start()
+                    }
+                }
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(state.accessibilityReady ? Color.green : Color.orange)
+                        .frame(width: 10, height: 10)
+                    Text(state.accessibilityReady
+                         ? "辅助功能权限：已授权（跨桌面切换可用）"
+                         : "辅助功能权限：未授权（无法自动切换到其他桌面）")
+                        .font(.subheadline)
+                    Spacer()
+                    if !state.accessibilityReady {
+                        Button("去授权（打开系统设置）") { state.openAccessibilitySettings() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                HStack {
+                    Text(state.panelURL?.absoluteString ?? "未获取到局域网地址")
+                        .font(.system(size: 14, design: .monospaced))
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    Button("复制地址") {
+                        if let url = state.panelURL { UIPasteboardLike.copy(url.absoluteString) }
+                    }
+                    .disabled(state.panelURL == nil)
+                }
+                Text("手机和 Mac 连接同一局域网，用 Safari 打开上面的地址。明文 HTTP 可能被同网段设备嗅探，仅建议在可信网络使用。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(4)
+        } label: {
+            Text("服务状态").font(.headline)
+        }
+    }
+
+    @ViewBuilder
+    private var pairingCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                if let code = state.pairingCode {
+                    HStack(alignment: .center, spacing: 16) {
+                        Text(code)
+                            .font(.system(size: 44, weight: .bold, design: .monospaced))
+                            .textSelection(.enabled)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(state.pairingExpiryText)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Text("错误 3 次将作废")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("复制") { UIPasteboardLike.copy(code) }
+                        Button("作废") {
+                            state.pairing.invalidate()
+                            state.pairingCode = nil
+                        }
+                    }
+                    Text("在手机面板输入此配对码完成配对。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack {
+                        Button("生成 6 位配对码（2 分钟有效）") { state.generatePairingCode() }
+                            .buttonStyle(.borderedProminent)
+                        Text("配对成功后手机会获得随机凭证，可在下方撤销。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Text("设备配对").font(.headline)
+        }
+    }
+
+    private var buttonsCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Button("添加应用按钮…") {
+                        state.installedApps = AppEnumerator.installedApps()
+                        showAddSheet = true
+                    }
+                    Spacer()
+                    Text("共 \(state.buttons.count) 个")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if state.buttons.isEmpty {
+                    Text("还没有按钮，点击「添加应用按钮…」创建一个。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                } else {
+                    ForEach(state.buttons.sorted { $0.sortOrder < $1.sortOrder }) { button in
+                        buttonRow(button)
+                        if button.id != state.buttons.sorted(by: { $0.sortOrder < $1.sortOrder }).last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+            .padding(4)
+        } label: {
+            Text("按钮配置").font(.headline)
+        }
+    }
+
+    private func buttonRow(_ button: ButtonConfig) -> some View {
+        let installed = FileManager.default.fileExists(atPath: button.appPath)
+        return HStack(spacing: 12) {
+            AppIconView(path: button.appPath)
+                .frame(width: 36, height: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(button.name).font(.callout).lineLimit(1)
+                Text(installed ? button.bundleID : "应用缺失：\(button.bundleID)")
+                    .font(.caption2)
+                    .foregroundStyle(installed ? Color.secondary : Color.orange)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
+                .help("上移")
+            Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
+                .help("下移")
+            Menu {
+                Button("重命名…") {
+                    pendingRename = button
+                    renameText = button.name
+                }
+                Button("删除…") { pendingDelete = button }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var devicesCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                if state.devices.isEmpty {
+                    Text("暂无已配对设备。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(state.devices) { device in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(device.name).font(.callout)
+                                Text("配对于 \(device.pairedAt.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("撤销配对") { pendingRevoke = device }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            .padding(4)
+        } label: {
+            Text("已配对设备").font(.headline)
+        }
+    }
+
+    private var noteCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("跨桌面空间切换依赖系统设置：系统设置 → 桌面与程序坞 → 「切换到某个应用程序时，切换到具有该应用程序打开窗口的空间」（默认开启）。全屏空间与多显示器可能不完全跟随该设置，属系统行为。")
+                Text("应用最小化窗口的恢复由系统与目标应用决定；无法确认时面板会显示“未确认”，不会谎报成功。")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(4)
+        } label: {
+            Text("说明与限制").font(.headline)
+        }
+    }
+}
+
+struct AppIconView: View {
+    var path: String
+    var size: CGFloat { 34 }
+    var body: some View {
+        if let image = NSImage(contentsOfFile: path) {
+            Image(nsImage: image).resizable().frame(width: size, height: size)
+        } else {
+            RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.35))
+                .overlay(Image(systemName: "app.dashed").foregroundStyle(.secondary))
+                .frame(width: size, height: size)
+        }
+    }
+}
+
+enum UIPasteboardLike {
+    static func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+}
+
+struct AddButtonSheet: View {
+    @ObservedObject var state: DeckState
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("选择要绑定的应用").font(.headline)
+                Spacer()
+                Button("完成") { dismiss() }
+            }.padding(12)
+            TextField("搜索应用名称", text: $searchText).textFieldStyle(.roundedBorder).padding(.horizontal, 12)
+            List(filteredApps) { app in
+                HStack {
+                    AppIconView(path: app.path).frame(width: 30, height: 30)
+                    VStack(alignment: .leading) {
+                        Text(app.name).font(.callout)
+                        Text(app.bundleID).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if state.buttons.contains(where: { $0.bundleID == app.bundleID }) {
+                        Text("已添加").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Button("添加") { state.addInstalledApp(app) }.buttonStyle(.bordered)
+                    }
+                }
+            }
+            .listStyle(.inset)
+        }
+        .frame(width: 480, height: 500)
+    }
+
+    private var filteredApps: [InstalledApp] {
+        searchText.isEmpty ? state.installedApps
+            : state.installedApps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+}

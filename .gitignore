@@ -1,0 +1,9 @@
+# 构建产物
+.build/
+build/
+*.xcodeproj/xcuserdata/
+.DS_Store
+
+# 本地工具配置
+.myflicker/
+*.local.json
