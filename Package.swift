@@ -5,8 +5,13 @@ let package = Package(
     name: "MacAppControlDeck",
     platforms: [.macOS(.v14)],
     targets: [
+        .target(
+            name: "MacShotKit",
+            path: "Sources/MacShotKit"
+        ),
         .executableTarget(
             name: "MacAppControlDeck",
+            dependencies: ["MacShotKit"],
             path: "Sources/MacAppControlDeck"
         ),
         .executableTarget(
@@ -15,7 +20,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MacAppControlDeckTests",
-            dependencies: ["MacAppControlDeck"],
+            dependencies: ["MacAppControlDeck", "MacShotKit"],
             path: "Tests/MacAppControlDeckTests"
         )
     ]

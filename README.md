@@ -2,6 +2,8 @@
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
+同时按“功能模块”组织：电脑遥控与截图/录屏是两个独立模块，各自拥有服务、数据、权限和生命周期。截图/录屏在 Mac 本机使用，不经过手机。
+
 需求与设计见 `openspec/`（OpenSpec 管理，变更 `add-core-control-loop`）。
 
 ---
@@ -12,6 +14,10 @@
 - **跨桌面切换**：通过「按下 Dock 图标」实现，与真人点击 Dock 完全等价，复用系统调度中心的跨空间规则
 - **按钮管理**：Mac 端搜索添加应用（按 Bundle ID 绑定）、重命名、排序、删除（有确认）
 - **配对与撤销**：6 位一次性配对码（2 分钟、错 3 次作废），已配对设备可随时撤销
+- **菜单栏常驻**：应用只占菜单栏，不占 Dock；下拉菜单直接点应用 / 快捷操作 / 命令
+- **截图与录屏（Mac 本机模块）**：全屏 / 区域 / 窗口 / 滚动截图，截图延时、快速保存、快速 OCR；标注编辑器（矩形、椭圆、直线、箭头、画笔、荧光笔、文字、序号、马赛克、模糊、聚光灯、测量、裁剪）；OCR、钉图、最近截图历史；PNG/JPEG/HEIC/WebP/AVIF 输出
+- **录屏（Mac 本机模块）**：区域 / 全屏 / 窗口 MP4（H.264 + 系统音频），15/30/60/120 fps；区域 GIF（5/10/15 fps）；顶部录制 HUD，菜单栏停止
+- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控与截图录屏，关闭一个不影响另一个
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
 
 ## 环境要求
@@ -58,21 +64,34 @@ open /Applications/MacAppControlDeck.app
 - 判断方法：**手动点 Dock 图标也不跳桌面 → 就是这个开关的问题**
 - 本程序不修改该设置
 
+## Mac 端使用（菜单栏）
+
+1. 启动后应用只出现在菜单栏（`slider.horizontal.3` 图标），没有 Dock 图标，也不开主窗口
+2. 点菜单栏图标打开下拉菜单：
+   - 顶部显示当前面板地址，可直接「在浏览器打开面板」或「复制面板地址」
+   - 「应用」「快捷操作」子菜单就是已配置的功能按钮，点一下立即执行（应用带真实图标）
+   - 「截图与录屏」子菜单：全屏 / 区域 / 窗口 / 滚动截图；快速保存、快速 OCR；录制 MP4 / GIF；截图延时；最近截图；输出到 `~/Pictures/MacAppControlDeck` 与 `~/Movies/MacAppControlDeck`
+   - 「配对手机…」生成 6 位配对码并打开设置
+   - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
+3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
+
 ## 手机端使用
 
 1. 手机与 Mac 连接同一 Wi-Fi
 2. Safari 打开 Mac 端显示的面板地址
-3. 点击 Mac 端「生成 6 位配对码（2 分钟有效）」，在手机输入 → 配对成功，显示按钮列表
+3. 点击 Mac 菜单栏「配对手机…」（或设置 → 通用 → 生成 6 位配对码），在手机输入 → 配对成功，显示按钮列表
 4. （可选）Safari 分享 → 添加到主屏幕，之后像 App 一样全屏使用
 
 点击按钮后的状态行会如实显示结果（`已切换到前台` / `已启动并切到前台` / 具体失败原因）。
 
 ## 添加 / 管理按钮（Mac 端）
 
-- 「添加应用按钮…」→ 搜索选择应用（按 Bundle ID 绑定）
+菜单栏 →「设置…」→「按钮」标签页：
+
+- 「添加按钮」→「添加应用按钮…」搜索选择应用（按 Bundle ID 绑定）；也可添加「快捷操作」或「命令按钮」
 - 每行支持「⋯ → 重命名…」、↑↓ 排序、「⋯ → 删除…」（删除有确认）
 - 应用被删除/移动后按钮显示「应用缺失」，可回到 App 列表重新绑定
-- 「已配对设备」区可撤销任意设备（撤销后旧凭证立即失效）
+- 「设备」标签页可撤销任意设备的配对（撤销后旧凭证立即失效）
 
 ## 激活策略（简述）
 
@@ -92,7 +111,7 @@ open /Applications/MacAppControlDeck.app
 - 手机只能执行白名单动作：列出按钮、激活某个已配置按钮；**不能**执行任意 shell / 任意应用
 - 所有接口要求配对换发的随机 token（配对码 2 分钟有效、错 3 次作废）
 - 通信为**明文 HTTP**：同网段设备理论上可嗅探到 token/配对码，请仅在可信家庭局域网使用；HTTPS 为后续评估项
-- 程序不修改系统设置、不默认开机自启；除可选的辅助功能授权外不申请其他权限（不使用自动化、屏幕录制）
+- 程序不修改系统设置、不默认开机自启；电脑遥控使用可选的辅助功能授权，截图/录屏使用屏幕录制授权（仅在使用 capture 模块时申请），两者互不影响
 - 数据存放在 `~/Library/Application Support/MacAppControlDeck/`（`buttons.json` / `devices.json` / `icons/`），程序重启后保留
 
 ## 快捷操作与命令按钮
@@ -109,7 +128,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 36 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 41 项，含真实 TCP 服务器与真实应用激活的端到端用例
 ```
 
 ## 已知限制
@@ -120,6 +139,8 @@ swift test     # 36 项，含真实 TCP 服务器与真实应用激活的端到�
 - iOS 主屏幕 Web App 与 Safari 的 localStorage 互相独立，两端需分别配对一次
 - Mac IP 变化后需重新扫码打开新地址（可能需重新配对）
 - Mac 休眠/锁屏/退出后不可用，手机会显示「Mac 未连接」（属设计行为）
+- 滚动截图是自动向下滚动 + 重叠拼接；如果选区包含固定侧栏/固定工具栏，长图里会重复出现这些固定区域，建议只框选可滚动内容
+- 上传（Google Drive / imgbb / S3）、翻译、Sparkle 自动更新、账号体系不移植；详细对照见 [Docs/architecture/MACSHOT_PORT.md](Docs/architecture/MACSHOT_PORT.md)
 
 ## 故障排查
 
@@ -147,24 +168,38 @@ swift test     # 36 项，含真实 TCP 服务器与真实应用激活的端到�
 
 ```
 Sources/MacAppControlDeck/
-├── App/DeckApp.swift            # 入口：MenuBarExtra + 窗口
+├── App/DeckApp.swift            # 入口：菜单栏应用（无主窗口）
+├── App/DeckState.swift          # remote 模块运行状态（服务/权限/配对/按钮/设备）
+├── Core/                        # 模块协议、注册表、菜单/设置壳（不放业务逻辑）
+├── Modules/
+│   ├── RemoteControl/           # 电脑遥控模块：HTTP 服务/配对/手机面板/按钮
+│   └── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
-├── Server/                      # NWListener HTTP 服务、路由、局域网地址
-├── Store/                       # 配置持久化、配对管理
-├── UI/MainWindowView.swift      # 设置窗口（服务状态、权限状态、配对、按钮管理）
-└── Panel/PanelHTML.swift        # 手机端单页 Web 面板
+├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
+├── Server/                      # remote 模块：NWListener HTTP 服务、路由
+├── Store/                       # remote 模块：配置持久化、配对管理
+├── UI/MenuBarController.swift   # NSStatusItem + NSMenu（按模块拼接菜单）
+├── UI/SettingsView.swift        # 统一设置壳：按模块分区
+├── UI/ButtonsSettingsView.swift # remote 模块：按钮管理
+└── Panel/PanelHTML.swift        # remote 模块：手机端单页 Web 面板
+Sources/MacShotKit/              # macshot 上游功能代码，只允许 capture 模块 import
 Build/
 ├── build.sh                     # 构建/签名/打包（含图标），产出到 BuildOutput/
 ├── setup-signing.sh             # 一次性创建稳定自签名证书
 ├── make-icon.swift              # 生成 AppIcon.iconset
 └── Info.plist                   # Bundle 元数据（含 Automation 用途说明）
 BuildOutput/                     # 构建产物（.gitignore）
-openspec/                        # 规格与设计（proposal / design / tasks / specs）
+Docs/architecture/MODULES.md     # 【强制】模块边界与隔离规则
 Docs/archive/                    # 历史归档
 ```
+
+> 模块边界是硬约束：`remote` 与 `capture` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
 
 ## 归档
 
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)
 - 2026-11-19 远程快捷操作（快捷键 / 命令按钮 / 桌面切换）经验总结：[Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md](Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md)
 - 2026-11-19 构建补齐、局域网地址与面板配对修复：[Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md](Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md)
+- 2026-11-19 菜单栏常驻 + 首选项结构重构：[Docs/archive/2026-11-19-menubar-restructure/SUMMARY.md](Docs/archive/2026-11-19-menubar-restructure/SUMMARY.md)
+- 2026-11-19 模块骨架与本机全屏截图（P0 + P1）：[Docs/archive/2026-11-19-module-shell-and-capture/SUMMARY.md](Docs/archive/2026-11-19-module-shell-and-capture/SUMMARY.md)
+- 2026-11-20 macshot 截图/录屏能力移植：[Docs/archive/2026-11-20-macshot-port/SUMMARY.md](Docs/archive/2026-11-20-macshot-port/SUMMARY.md)

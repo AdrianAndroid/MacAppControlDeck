@@ -19,6 +19,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 cp "$BIN_DIR/KeySender" "$APP/Contents/MacOS/KeySender"
 cp "$ROOT/Build/Info.plist" "$APP/Contents/Info.plist"
+cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
 echo "==> 生成图标"
 ICONSET="$BUILD_ROOT/AppIcon.iconset"
