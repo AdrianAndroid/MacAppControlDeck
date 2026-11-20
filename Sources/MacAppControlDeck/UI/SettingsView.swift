@@ -3,6 +3,7 @@ import ServiceManagement
 
 enum SettingsTab: Hashable {
     case general
+    case menu
     case modules
     case capture
     case buttons
@@ -19,11 +20,12 @@ struct SettingsView: View {
             List(selection: $selection) {
                 Section("应用") {
                     sidebarRow(.general, "通用", "gearshape")
+                    sidebarRow(.menu, "菜单", "list.bullet.rectangle")
                 }
                 Section("模块") {
                     sidebarRow(.modules, "模块", "square.stack.3d.up")
                 }
-                Section("电脑遥控") {
+                Section("电脑控制") {
                     sidebarRow(.buttons, "按钮", "square.grid.2x2")
                     sidebarRow(.devices, "设备", "iphone")
                 }
@@ -51,6 +53,8 @@ struct SettingsView: View {
         switch selection {
         case .general:
             GeneralSettingsView()
+        case .menu:
+            MenuSettingsView()
         case .modules:
             ModulesSettingsView(onOpenCaptureSettings: { selection = .capture })
         case .capture:

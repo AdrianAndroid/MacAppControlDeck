@@ -25,6 +25,7 @@ final class CaptureModule: FeatureModule {
         syncDirectories()
         let parent = NSMenuItem(title: "截图与录屏", action: nil, keyEquivalent: "")
         parent.image = NSImage(systemSymbolName: systemImage, accessibilityDescription: nil)
+        parent.identifier = NSUserInterfaceItemIdentifier("capture.root")
 
         let submenu = NSMenu(title: "截图与录屏")
 
@@ -39,6 +40,7 @@ final class CaptureModule: FeatureModule {
 
         let delayItem = NSMenuItem(title: "截图延时", action: nil, keyEquivalent: "")
         delayItem.image = NSImage(systemSymbolName: "timer", accessibilityDescription: nil)
+        delayItem.identifier = NSUserInterfaceItemIdentifier("capture.delay")
         let delayMenu = NSMenu(title: "截图延时")
         for seconds in [0, 3, 5, 10, 30] {
             let title = seconds == 0 ? "无延时" : "\(seconds) 秒"
@@ -47,6 +49,7 @@ final class CaptureModule: FeatureModule {
                                    keyEquivalent: "")
             child.target = self
             child.representedObject = seconds
+            child.identifier = NSUserInterfaceItemIdentifier("capture.delay.\(seconds)")
             child.state = Int(MacShotController.shared.captureDelay) == seconds ? .on : .off
             delayMenu.addItem(child)
         }
@@ -55,6 +58,7 @@ final class CaptureModule: FeatureModule {
 
         let presetItem = NSMenuItem(title: "选区比例 / 尺寸", action: nil, keyEquivalent: "")
         presetItem.image = NSImage(systemSymbolName: "aspectratio", accessibilityDescription: nil)
+        presetItem.identifier = NSUserInterfaceItemIdentifier("capture.preset")
         let presetMenu = NSMenu(title: "选区比例 / 尺寸")
         for preset in CaptureSelectionPreset.allCases {
             let child = NSMenuItem(title: preset.label,
@@ -79,6 +83,7 @@ final class CaptureModule: FeatureModule {
         submenu.addItem(.separator())
         let historyItem = NSMenuItem(title: "最近截图", action: nil, keyEquivalent: "")
         historyItem.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: nil)
+        historyItem.identifier = NSUserInterfaceItemIdentifier("capture.history")
         let historyMenu = NSMenu(title: "最近截图")
         let urls = CaptureHistoryStore.shared.urls.prefix(12)
         if urls.isEmpty {
@@ -226,6 +231,13 @@ final class CaptureModule: FeatureModule {
         let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
         item.target = self
         item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        item.identifier = NSUserInterfaceItemIdentifier("capture.\(Self.slug(title))")
         return item
+    }
+
+    static func slug(_ title: String) -> String {
+        title.replacingOccurrences(of: "（", with: "-")
+            .replacingOccurrences(of: "）", with: "")
+            .replacingOccurrences(of: " ", with: "")
     }
 }

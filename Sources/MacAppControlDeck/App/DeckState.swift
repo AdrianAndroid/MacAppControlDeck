@@ -259,6 +259,17 @@ final class DeckState: ObservableObject {
         alert.runModal()
     }
 
+    func menuTitle(for button: ButtonConfig) -> String {
+        switch button.kind {
+        case .app:
+            return isInstalled(button) ? button.name : "\(button.name)（缺失）"
+        case .shortcut:
+            return "\(button.name)   \(button.displaySymbol ?? "")"
+        case .command:
+            return button.name
+        }
+    }
+
     /// 菜单项图标：应用用真实图标，快捷操作/命令用 SF Symbol。
     func icon(for button: ButtonConfig) -> NSImage {
         if button.kind == .app, !button.appPath.isEmpty {

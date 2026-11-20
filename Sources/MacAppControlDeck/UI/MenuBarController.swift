@@ -14,13 +14,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     func install() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = item.button {
+        let button = item.button
+        if let button {
             button.image = NSImage(systemSymbolName: "slider.horizontal.3",
                                    accessibilityDescription: "Mac 应用快捷控制台")
             button.image?.isTemplate = true
             button.toolTip = "Mac 应用快捷控制台"
         }
         menu.delegate = self
+        button?.image = nil
+        button?.title = "B"
+        rebuild()
+        button?.title = "A\(menu.items.count)"
         item.menu = menu
         statusItem = item
     }
@@ -33,49 +38,28 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func rebuild() {
         menu.removeAllItems()
-        let remoteEnabled = ModuleRegistry.shared.isEnabled(RemoteControlModule.id)
 
-        if remoteEnabled {
-            // 面板入口与状态
-            let addressItem = NSMenuItem(title: "面板：\(state.panelAddressText)",
-                                         action: nil, keyEquivalent: "")
-            addressItem.image = NSImage(systemSymbolName: "network", accessibilityDescription: nil)
-            addressItem.isEnabled = false
-            menu.addItem(addressItem)
+        // 一级菜单 = 「常用」+ 每个已启用模块一个子菜单。
+        // 模块内的命令顺序、隐藏、置顶都由 MenuCustomization 决定。
+        let customization = MenuCustomization.shared
+        let modules = customization.orderedModules(ModuleRegistry.shared.modules)
+        var pinned: [NSMenuItem] = []
 
-            menu.addItem(actionItem("在浏览器打开面板", #selector(openPanel), image: "safari"))
-            menu.addItem(actionItem("复制面板地址", #selector(copyPanel), image: "doc.on.doc"))
-            menu.addItem(.separator())
-
-            // 功能按钮：与手机面板共用同一份配置
-            if state.buttons.isEmpty {
-                menu.addItem(actionItem("还没有按钮，去设置里添加…", #selector(openSettingsFromMenu), image: "plus"))
-            } else {
-                if !state.appButtons.isEmpty {
-                    menu.addItem(submenuItem("应用", symbol: "square.grid.2x2", buttons: state.appButtons))
+        for module in modules {
+            for raw in module.menuItems() {
+                if let submenu = raw.submenu {
+                    raw.submenu = customized(submenu, moduleID: module.id, pinned: &pinned)
                 }
-                if !state.quickButtons.isEmpty {
-                    menu.addItem(submenuItem("快捷操作", symbol: "keyboard", buttons: state.quickButtons))
-                }
+                menu.addItem(raw)
             }
-
-            menu.addItem(.separator())
-            menu.addItem(actionItem("配对手机…", #selector(pairPhone), image: "iphone"))
-            menu.addItem(actionItem(state.serverStatus.running ? "重启服务" : "启动服务",
-                                    #selector(restartServer), image: "arrow.clockwise"))
-        } else {
-            let off = NSMenuItem(title: "电脑遥控已关闭", action: nil, keyEquivalent: "")
-            off.image = NSImage(systemSymbolName: "iphone.slash", accessibilityDescription: nil)
-            off.isEnabled = false
-            menu.addItem(off)
-            menu.addItem(actionItem("在设置中开启…", #selector(openSettingsFromMenu), image: "gearshape"))
         }
 
-        // 已启用的功能模块各自贡献菜单项；模块之间不共享菜单状态。
-        let moduleItems = ModuleRegistry.shared.menuItems()
-        if !moduleItems.isEmpty {
-            menu.addItem(.separator())
-            moduleItems.forEach { menu.addItem($0) }
+        // 置顶命令直接平铺在一级菜单顶部，点开状态栏下拉即可使用，不再套一层子菜单。
+        if !pinned.isEmpty {
+            for (index, item) in pinned.enumerated() {
+                menu.insertItem(clone(item), at: index)
+            }
+            menu.insertItem(.separator(), at: pinned.count)
         }
 
         menu.addItem(.separator())
@@ -86,34 +70,67 @@ final class MenuBarController: NSObject, NSMenuDelegate {
                                 keyEquivalent: "q"))
     }
 
-    private func submenuItem(_ title: String, symbol: String, buttons: [ButtonConfig]) -> NSMenuItem {
-        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        parent.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        let submenu = NSMenu(title: title)
-        for button in buttons {
-            let item = NSMenuItem(title: menuTitle(for: button),
-                                  action: #selector(performButton(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = button
-            item.image = state.icon(for: button)
-            if !state.isInstalled(button) { item.isEnabled = false }
+    /// 原地重排模块子菜单：按保存顺序排列、去掉隐藏项，并收集置顶命令。
+    /// 不能把旧菜单里的 item 直接加进一个新菜单，AppKit 会抛异常中断装配。
+    private func customized(_ submenu: NSMenu, moduleID: String, pinned: inout [NSMenuItem]) -> NSMenu {
+        let customization = MenuCustomization.shared
+        var commands: [(id: String, item: NSMenuItem)] = []
+        var seen = Set<String>()
+        for item in submenu.items {
+            guard !item.isSeparatorItem else { continue }
+            var identifier = item.identifier?.rawValue ?? ""
+            if identifier.isEmpty {
+                identifier = "\(moduleID).\(MenuCustomization.slug(item.title))"
+            }
+            var unique = identifier
+            var suffix = 2
+            while seen.contains(unique) {
+                unique = "\(identifier)#\(suffix)"
+                suffix += 1
+            }
+            seen.insert(unique)
+            item.identifier = NSUserInterfaceItemIdentifier(unique)
+            commands.append((unique, item))
+        }
+        guard !commands.isEmpty else { return submenu }
+
+        let ids = commands.map(\.id)
+        let ordered = customization.orderedCommandIDs(ids, moduleID: moduleID)
+        let hidden = customization.hiddenCommands(moduleID)
+        var byID: [String: NSMenuItem] = [:]
+        for command in commands { byID[command.id] = command.item }
+
+        submenu.removeAllItems()
+        for id in ordered {
+            guard let item = byID[id] else { continue }
+            if customization.isPinned(id) { pinned.append(item) }
+            if hidden.contains(id) { continue }
             submenu.addItem(item)
         }
-        parent.submenu = submenu
-        return parent
+        if submenu.items.isEmpty {
+            let empty = NSMenuItem(title: "模块内命令已全部隐藏", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+        }
+        return submenu
     }
 
-    private func menuTitle(for button: ButtonConfig) -> String {
-        switch button.kind {
-        case .app:
-            return state.isInstalled(button) ? button.name : "\(button.name)（缺失）"
-        case .shortcut:
-            return "\(button.name)   \(button.displaySymbol ?? "")"
-        case .command:
-            return "\(button.name)"
+    private func clone(_ item: NSMenuItem) -> NSMenuItem {
+        let copy = NSMenuItem(title: item.title, action: item.action, keyEquivalent: item.keyEquivalent)
+        copy.target = item.target
+        copy.representedObject = item.representedObject
+        copy.image = item.image
+        copy.state = item.state
+        copy.isEnabled = item.isEnabled
+        copy.identifier = item.identifier
+        if let sub = item.submenu {
+            let menu = NSMenu(title: sub.title)
+            sub.items.forEach { menu.addItem(clone($0)) }
+            copy.submenu = menu
         }
+        return copy
     }
+
 
     private func actionItem(_ title: String,
                             _ selector: Selector,
@@ -128,28 +145,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     // MARK: - 动作
-
-    @objc private func performButton(_ sender: NSMenuItem) {
-        guard let button = sender.representedObject as? ButtonConfig else { return }
-        state.perform(button)
-    }
-
-    @objc private func openPanel() {
-        state.openPanelInBrowser()
-    }
-
-    @objc private func copyPanel() {
-        state.copyPanelURL()
-    }
-
-    @objc private func pairPhone() {
-        state.generatePairingCode()
-        openSettings(tab: .general)
-    }
-
-    @objc private func restartServer() {
-        state.restart()
-    }
 
     @objc private func openSettingsFromMenu() {
         openSettings()
