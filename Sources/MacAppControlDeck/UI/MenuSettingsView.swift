@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// 菜单定制：一级菜单按模块排序，模块内命令可显示/隐藏、排序、置顶到「常用」。
@@ -9,6 +10,7 @@ struct MenuSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                pinnedCard
                 let modules = customization.orderedModules(registry.modules)
                 ForEach(Array(modules.enumerated()), id: \.element.id) { index, module in
                     moduleCard(module, index: index, total: modules.count)
@@ -29,6 +31,79 @@ struct MenuSettingsView: View {
             Text("显示开关控制命令是否出现在模块子菜单里；上下箭头调整顺序；星标把命令平铺到下拉菜单顶部。新增模块会自动出现在这里。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    /// 置顶区单独排序：这里调整的是一级下拉顶部的实际显示顺序。
+    private var pinnedCard: some View {
+        let pinned = customization.pinnedIDs()
+        let lookup = allMenuCommands()
+        let infos = pinned.compactMap { lookup[$0] }
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "star.fill").foregroundStyle(.orange)
+                Text("置顶命令").font(.title3.bold())
+                Text("一级下拉顶部按此顺序显示").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Text("\(infos.count) 条").font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 10)
+            Divider()
+            if infos.isEmpty {
+                Text("还没有置顶命令。在下面的模块命令里点星标即可加入。")
+                    .font(.callout).foregroundStyle(.secondary).padding(.vertical, 10)
+            } else {
+                ForEach(Array(infos.enumerated()), id: \.element.id) { index, command in
+                    HStack(spacing: 10) {
+                        Text("\(index + 1)").font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary).frame(width: 18)
+                        if let image = command.image {
+                            Image(nsImage: image).resizable().frame(width: 16, height: 16)
+                        }
+                        Text(command.title).lineLimit(1)
+                        Spacer()
+                        Button { customization.movePinned(command.id, offset: -1) } label: {
+                            Image(systemName: "chevron.up")
+                        }
+                        .buttonStyle(.borderless).disabled(index == 0)
+                        .help("在一级菜单里上移")
+                        Button { customization.movePinned(command.id, offset: 1) } label: {
+                            Image(systemName: "chevron.down")
+                        }
+                        .buttonStyle(.borderless).disabled(index == infos.count - 1)
+                        .help("在一级菜单里下移")
+                        Button { customization.togglePin(command.id) } label: {
+                            Image(systemName: "star.fill").foregroundStyle(.orange)
+                        }
+                        .buttonStyle(.borderless).help("取消置顶")
+                    }
+                    .padding(.vertical, 6)
+                    if index < infos.count - 1 { Divider().padding(.leading, 28) }
+                }
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+    }
+
+    private func allMenuCommands() -> [String: MenuCommandInfo] {
+        var result: [String: MenuCommandInfo] = [:]
+        for module in registry.modules {
+            for root in module.menuItems() {
+                if let submenu = root.submenu { collectCommands(in: submenu, into: &result) }
+            }
+        }
+        return result
+    }
+
+    private func collectCommands(in menu: NSMenu, into result: inout [String: MenuCommandInfo]) {
+        for item in menu.items where !item.isSeparatorItem {
+            let id = item.identifier?.rawValue ?? ""
+            if !id.isEmpty, result[id] == nil {
+                result[id] = MenuCommandInfo(id: id, title: item.title,
+                                             image: item.image, isSubmenu: item.submenu != nil)
+            }
+            if let submenu = item.submenu { collectCommands(in: submenu, into: &result) }
         }
     }
 

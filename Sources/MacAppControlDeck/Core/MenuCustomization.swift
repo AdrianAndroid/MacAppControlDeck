@@ -24,9 +24,9 @@ final class MenuCustomization: ObservableObject {
     /// 首次运行给置顶区预置几条高频命令；之后用户自己取消也不会再加回来。
     private func applyDefaultPins() {
         guard !defaults.bool(forKey: defaultPinsKey) else { return }
-        var set = pinnedIDs()
-        Self.defaultPinnedIDs.forEach { set.insert($0) }
-        defaults.set(Array(set), forKey: pinnedKey)
+        var order = pinnedIDs()
+        for id in Self.defaultPinnedIDs where !order.contains(id) { order.append(id) }
+        defaults.set(order, forKey: pinnedKey)
         defaults.set(true, forKey: defaultPinsKey)
     }
 
@@ -109,16 +109,31 @@ final class MenuCustomization: ObservableObject {
 
     // MARK: - 置顶
 
-    func pinnedIDs() -> Set<String> {
-        Set(defaults.stringArray(forKey: pinnedKey) ?? [])
+    /// 置顶项按数组顺序平铺，顺序即用户在一级菜单里看到的顺序。
+    func pinnedIDs() -> [String] {
+        defaults.stringArray(forKey: pinnedKey) ?? []
     }
 
     func isPinned(_ commandID: String) -> Bool { pinnedIDs().contains(commandID) }
 
     func togglePin(_ commandID: String) {
-        var set = pinnedIDs()
-        if set.contains(commandID) { set.remove(commandID) } else { set.insert(commandID) }
-        defaults.set(Array(set), forKey: pinnedKey)
+        var order = pinnedIDs()
+        if let index = order.firstIndex(of: commandID) {
+            order.remove(at: index)
+        } else {
+            order.append(commandID)
+        }
+        defaults.set(order, forKey: pinnedKey)
+        bump()
+    }
+
+    func movePinned(_ commandID: String, offset: Int) {
+        var order = pinnedIDs()
+        guard let index = order.firstIndex(of: commandID) else { return }
+        let target = index + offset
+        guard target >= 0, target < order.count else { return }
+        order.swapAt(index, target)
+        defaults.set(order, forKey: pinnedKey)
         bump()
     }
 

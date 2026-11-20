@@ -56,7 +56,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             }
         }
 
-        // 置顶命令直接平铺在一级菜单顶部，点开状态栏下拉即可使用，不再套一层子菜单。
+        // 置顶命令直接平铺在一级菜单顶部，顺序以设置页保存的置顶顺序为准。
+        let pinOrder = customization.pinnedIDs()
+        pinned.sort { lhs, rhs in
+            let left = pinOrder.firstIndex(of: lhs.identifier?.rawValue ?? "") ?? Int.max
+            let right = pinOrder.firstIndex(of: rhs.identifier?.rawValue ?? "") ?? Int.max
+            return left < right
+        }
         if !pinned.isEmpty {
             for (index, item) in pinned.enumerated() {
                 menu.insertItem(clone(item), at: index)
