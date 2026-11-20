@@ -10,13 +10,14 @@ final class PinWindowController {
 
     private var pins: [NSPanel] = []
 
-    func pin(_ image: CGImage) {
+    /// `at` 不为空时，贴图窗口精确落在该屏幕区域（原地贴图，不偏移）。
+    func pin(_ image: CGImage, at frame: CGRect? = nil) {
         let imageSize = CGSize(width: image.width, height: image.height)
         let maxSize = CGSize(width: 720, height: 520)
         let scale = min(1, min(maxSize.width / imageSize.width,
                                maxSize.height / imageSize.height))
-        let displaySize = CGSize(width: imageSize.width * scale,
-                                 height: imageSize.height * scale)
+        let displaySize = frame.map { CGSize(width: $0.width, height: $0.height) }
+            ?? CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
 
         let window = NSPanel(contentRect: CGRect(origin: .zero, size: displaySize),
                              styleMask: [.borderless, .nonactivatingPanel],
@@ -67,6 +68,13 @@ final class PinWindowController {
             window.setFrame(frame, display: true)
         }
         window.contentView = hosting
+
+        if let frame {
+            window.setFrame(frame, display: true)
+            self.pins.append(window)
+            window.orderFrontRegardless()
+            return
+        }
 
         let mouse = NSEvent.mouseLocation
         let visible = (NSScreen.main?.visibleFrame ?? .zero)

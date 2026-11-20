@@ -412,7 +412,12 @@ private final class SelectionView: NSView {
             MacShotController.shared.showToast("已复制到剪贴板")
             controller?.cancel()
         case "pin":
-            if let image { PinWindowController.shared.pin(image) }
+            if let image, let rect {
+                let frame = CGRect(x: unionFrame.minX + rect.minX,
+                                   y: unionFrame.minY + rect.minY,
+                                   width: rect.width, height: rect.height)
+                PinWindowController.shared.pin(image, at: frame)
+            }
             controller?.cancel()
         case "ocr":
             if let image { OCRResultController.shared.recognize(image) }
