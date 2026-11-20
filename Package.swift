@@ -9,7 +9,7 @@ let package = Package(
             name: "MacShotKit",
             path: "Sources/MacShotKit",
             swiftSettings: [.define("OFFLINE")],
-            linkerSettings: [.linkedFramework("ScreenCaptureKit")]
+            linkerSettings: [.linkedFramework("ScreenCaptureKit"), .unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "ScreenCaptureKit"])]
         ),
         .executableTarget(
             name: "MacAppControlDeck",
@@ -24,7 +24,7 @@ let package = Package(
             name: "MacAppControlDeckTests",
             dependencies: ["MacAppControlDeck", "MacShotKit"],
             path: "Tests/MacAppControlDeckTests",
-            linkerSettings: [.linkedFramework("ScreenCaptureKit")]
+            linkerSettings: [.linkedFramework("ScreenCaptureKit"), .unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "ScreenCaptureKit"])]
         )
     ]
 )

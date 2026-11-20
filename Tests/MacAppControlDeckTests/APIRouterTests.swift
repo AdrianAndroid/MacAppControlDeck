@@ -135,7 +135,13 @@ final class APIRouterTests: XCTestCase {
     }
 
     func test_panelServedWithoutToken() async {
-        let response = await makeRouter().handle(makeRequest("GET", "/panel/"))
+        let router = makeRouter()
+        let entry = await router.handle(makeRequest("GET", "/panel/"))
+        XCTAssertEqual(entry.status, 302, "面板入口应带版本参数跳转，避免缓存旧页面")
+        guard let location = entry.headers["Location"] else {
+            return XCTFail("缺少 Location 跳转地址")
+        }
+        let response = await router.handle(makeRequest("GET", location))
         XCTAssertEqual(response.status, 200)
         XCTAssertTrue(String(data: response.body, encoding: .utf8)!.contains("Mac 应用快捷控制台"))
     }
