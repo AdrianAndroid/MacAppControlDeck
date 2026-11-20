@@ -162,6 +162,10 @@ final class CaptureModule: FeatureModule {
         CapturePreferences.shared.captureDelay = seconds
     }
 
+    @objc func reopenLastCapture(_ sender: NSMenuItem) {
+        MacShotController.shared.reopenLastEditSession()
+    }
+
     @objc func openRecentCapture(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         MacShotController.shared.openRecentCapture(url)

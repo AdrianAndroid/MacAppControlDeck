@@ -20,6 +20,7 @@ final class RecordingHUDController {
     private var stopHandler: (() -> Void)?
     private var pauseHandler: ((Bool) -> Void)?
 
+    private var borderWindow: NSWindow?
     private let hudHeight: CGFloat = 32
     private let cornerRadius: CGFloat = 10
     private let totalWidth: CGFloat = 164
@@ -44,6 +45,10 @@ final class RecordingHUDController {
         isPaused = false
         stopHandler = onStop
         pauseHandler = onTogglePause
+
+        if let screenRect {
+            showBorder(around: screenRect)
+        }
 
         let panel = NSPanel(contentRect: CGRect(x: 0, y: 0, width: totalWidth, height: hudHeight),
                             styleMask: [.borderless, .nonactivatingPanel],
@@ -139,7 +144,26 @@ final class RecordingHUDController {
         _ = format
     }
 
+    private func showBorder(around rect: CGRect) {
+        borderWindow?.orderOut(nil)
+        let w = NSWindow(contentRect: rect, styleMask: .borderless,
+                         backing: .buffered, defer: false)
+        w.isOpaque = false
+        w.backgroundColor = .clear
+        w.hasShadow = false
+        w.ignoresMouseEvents = true
+        w.level = .statusBar + 1
+        w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        w.isReleasedWhenClosed = false
+        let view = RecordingBorderView(frame: CGRect(origin: .zero, size: rect.size))
+        w.contentView = view
+        w.orderFrontRegardless()
+        borderWindow = w
+    }
+
     func hide() {
+        borderWindow?.orderOut(nil)
+        borderWindow = nil
         timer?.invalidate()
         timer = nil
         panel?.orderOut(nil)
@@ -234,5 +258,15 @@ private final class HUDContainerView: NSView {
     override func resetCursorRects() {
         addCursorRect(CGRect(x: bounds.width - 28, y: 0, width: 28, height: bounds.height),
                       cursor: .openHand)
+    }
+}
+
+
+private final class RecordingBorderView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlAccentColor.withAlphaComponent(0.95).setStroke()
+        let path = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
+        path.lineWidth = 2.5
+        path.stroke()
     }
 }

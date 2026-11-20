@@ -25,8 +25,14 @@ final class CaptureEditorModel: ObservableObject {
     @Published var textStrikethrough = false
     @Published var textAlign: TextAlign = .left
     @Published var textBackground = false
+    @Published var textOutline = false
+    @Published var textBackgroundColor: Color = .black
     @Published var stampEmoji = "😀"
     @Published var loupeZoom: CGFloat = 2
+    @Published var censorMode: CensorMode = .pixelate
+    @Published var numberFormat: NumberFormat = .arabic
+    @Published var measureUnit: MeasureUnit = .pixel
+    @Published var spotlightDim: CGFloat = 0.55
 
     // Image effects / Beautify
     @Published var brightness: Double = 0
@@ -39,8 +45,10 @@ final class CaptureEditorModel: ObservableObject {
     @Published var beautifyCorner: CGFloat = 12
     @Published var beautifyShadow = true
     @Published var beautifyGradient = 0
+    @Published var beautifyWindowChrome = false
     @Published var outputWidth = 0
     @Published var outputHeight = 0
+    @Published var outputScale: CGFloat = 2
 
     private var undoStack: [[CaptureAnnotation]] = []
     private var redoStack: [[CaptureAnnotation]] = []
@@ -48,8 +56,9 @@ final class CaptureEditorModel: ObservableObject {
     private var lastSelectPoint: CGPoint?
     private var selectStartBounds: CGRect?
 
-    init(image: CGImage) {
+    init(image: CGImage, annotations: [CaptureAnnotation] = []) {
         baseImage = image
+        self.annotations = annotations
     }
 
     var imageWidth: CGFloat { CGFloat(baseImage.width) }
@@ -87,7 +96,13 @@ final class CaptureEditorModel: ObservableObject {
         annotation.textStrikethrough = textStrikethrough
         annotation.textAlign = textAlign
         annotation.textBackground = textBackground
+        annotation.textBackgroundColor = NSColor(textBackgroundColor)
+        annotation.textOutline = textOutline
         annotation.stampEmoji = stampEmoji
+        annotation.censorMode = censorMode
+        annotation.numberFormat = numberFormat
+        annotation.measureUnit = measureUnit
+        annotation.spotlightDim = spotlightDim
         if tool == .pen || tool == .marker {
             annotation.points = [point]
         }
@@ -139,6 +154,22 @@ final class CaptureEditorModel: ObservableObject {
         isDirty = true
     }
 
+    func addImage(_ cg: CGImage, at point: CGPoint? = nil) {
+        pushUndo()
+        let maxW = imageWidth * 0.45
+        let scale = min(1, maxW / CGFloat(max(cg.width, 1)))
+        let w = CGFloat(cg.width) * scale
+        let h = CGFloat(cg.height) * scale
+        let origin = point ?? CGPoint(x: (imageWidth - w) / 2, y: (imageHeight - h) / 2)
+        var annotation = CaptureAnnotation(tool: .image, start: origin,
+                                           end: CGPoint(x: origin.x + w, y: origin.y + h),
+                                           color: nsColor, lineWidth: 2)
+        annotation.image = cg
+        annotations.append(annotation)
+        selectedID = annotation.id
+        isDirty = true
+    }
+
     func addText(_ text: String, at point: CGPoint) {
         guard !text.isEmpty else { return }
         pushUndo()
@@ -155,6 +186,8 @@ final class CaptureEditorModel: ObservableObject {
         annotation.textStrikethrough = textStrikethrough
         annotation.textAlign = textAlign
         annotation.textBackground = textBackground
+        annotation.textBackgroundColor = NSColor(textBackgroundColor)
+        annotation.textOutline = textOutline
         annotations.append(annotation)
         selectedID = annotation.id
         isDirty = true
@@ -408,12 +441,18 @@ final class CaptureEditorModel: ObservableObject {
                                               padding: beautifyPadding,
                                               corner: beautifyCorner,
                                               shadow: beautifyShadow,
-                                              gradient: beautifyGradient)
+                                              gradient: beautifyGradient,
+                                              windowChrome: beautifyWindowChrome)
         }
         if outputWidth > 0, outputHeight > 0 {
             output = CaptureExporter.resize(output,
                                             width: outputWidth,
                                             height: outputHeight)
+        }
+        if outputScale < 1.5 {
+            output = CaptureExporter.resize(output,
+                                            width: Int(CGFloat(output.width) / 2),
+                                            height: Int(CGFloat(output.height) / 2))
         }
         return output
     }

@@ -47,7 +47,9 @@ final class GlobalHotKeys {
             Binding(id: 5, keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(cmdKey | shiftKey),
                     action: { MacShotController.shared.startRecording(format: .mp4, target: .area) }),
             Binding(id: 6, keyCode: UInt32(kVK_ANSI_O), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.quickOCRArea() })
+                    action: { MacShotController.shared.quickOCRArea() }),
+            Binding(id: 7, keyCode: UInt32(kVK_ANSI_E), modifiers: UInt32(cmdKey | shiftKey),
+                    action: { MacShotController.shared.reopenLastEditSession() })
         ]
 
         for binding in bindings {

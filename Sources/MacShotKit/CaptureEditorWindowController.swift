@@ -8,15 +8,17 @@ final class CaptureEditorWindowController {
     private var model: CaptureEditorModel?
     private var keyMonitor: Any?
 
-    func show(image: CGImage) {
+    func show(image: CGImage, annotations: [CaptureAnnotation] = []) {
         close()
-        let model = CaptureEditorModel(image: image)
+        let model = CaptureEditorModel(image: image, annotations: annotations)
         self.model = model
 
         let root = CaptureEditorView(
             model: model,
             onSave: { image in
-                MacShotController.shared.saveEditedImage(image)
+                MacShotController.shared.saveEditedImage(image,
+                                                        base: model.previewBaseImage(),
+                                                        annotations: model.annotations)
             },
             onCopy: { image in
                 CaptureExporter.copyToPasteboard(image)
@@ -77,6 +79,12 @@ final class CaptureEditorWindowController {
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
             if mods.contains(.command) {
                 switch chars {
+                case "v":
+                    if let cg = Self.pasteboardImage() {
+                        model.addImage(cg)
+                        MacShotController.shared.showToast("已添加剪贴板图片")
+                    }
+                    return nil
                 case "c":
                     if let image = model.render() {
                         CaptureExporter.copyToPasteboard(image)
@@ -125,6 +133,20 @@ final class CaptureEditorWindowController {
         window?.close()
         window = nil
         model = nil
+    }
+}
+
+extension CaptureEditorWindowController {
+    static func pasteboardImage() -> CGImage? {
+        let pb = NSPasteboard.general
+        if let data = pb.data(forType: .png),
+           let rep = NSBitmapImageRep(data: data), let cg = rep.cgImage { return cg }
+        if let objects = pb.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
+           let image = objects.first {
+            var rect = CGRect(origin: .zero, size: image.size)
+            return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        }
+        return nil
     }
 }
 

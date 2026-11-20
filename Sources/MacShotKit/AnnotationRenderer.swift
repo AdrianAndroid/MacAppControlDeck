@@ -63,6 +63,10 @@ enum AnnotationRenderer {
         if annotation.textStrikethrough {
             attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
         }
+        if annotation.textOutline {
+            attrs[.strokeWidth] = -3.0
+            attrs[.strokeColor] = NSColor.black.withAlphaComponent(0.85)
+        }
         let paragraph = NSMutableParagraphStyle()
         switch annotation.textAlign {
         case .left: paragraph.alignment = .left
@@ -188,24 +192,37 @@ enum AnnotationRenderer {
                 .font: NSFont.boldSystemFont(ofSize: annotation.fontSize),
                 .foregroundColor: NSColor.white
             ]
-            let label = "\(value)" as NSString
+            let label = annotation.numberFormat.label(value) as NSString
             let size = label.size(withAttributes: attributes)
             label.draw(at: CGPoint(x: circleRect.midX - size.width / 2,
                                    y: circleRect.midY - size.height / 2),
                        withAttributes: attributes)
 
         case .pixelate:
-            drawPixelate(annotation, in: rect, cropOrigin: cropOrigin, source: source)
+            switch annotation.censorMode {
+            case .solid:
+                NSColor.black.withAlphaComponent(0.96).setFill()
+                NSBezierPath(rect: rect).fill()
+            case .erase:
+                drawSmartErase(in: rect, cropOrigin: cropOrigin, source: source)
+            case .pixelate:
+                drawPixelate(annotation, in: rect, cropOrigin: cropOrigin, source: source)
+            }
 
         case .blur:
-            drawBlur(annotation, in: rect, cropOrigin: cropOrigin, source: source)
+            if annotation.censorMode == .solid {
+                NSColor.black.withAlphaComponent(0.96).setFill()
+                NSBezierPath(rect: rect).fill()
+            } else {
+                drawBlur(annotation, in: rect, cropOrigin: cropOrigin, source: source)
+            }
 
         case .highlight:
             let region = CGRect(x: min(start.x, end.x), y: min(start.y, end.y),
                                 width: abs(end.x - start.x), height: abs(end.y - start.y))
                 .intersection(rect)
             guard region.width > 2, region.height > 2 else { break }
-            NSColor.black.withAlphaComponent(0.55).setFill()
+            NSColor.black.withAlphaComponent(annotation.spotlightDim).setFill()
             NSBezierPath(rect: CGRect(x: rect.minX, y: rect.minY,
                                       width: rect.width, height: region.minY - rect.minY)).fill()
             NSBezierPath(rect: CGRect(x: rect.minX, y: region.maxY,
@@ -223,7 +240,8 @@ enum AnnotationRenderer {
             drawLine(start, end, width: max(1, annotation.lineWidth), color: color)
             let dx = abs(annotation.end.x - annotation.start.x)
             let dy = abs(annotation.end.y - annotation.start.y)
-            let label = "\(Int(dx)) × \(Int(dy)) px"
+            let unit = annotation.measureUnit
+            let label = "\(Int(dx / unit.divisor)) × \(Int(dy / unit.divisor)) \(unit.title)"
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: max(11, annotation.fontSize * 0.55),
                                                         weight: .medium),
@@ -239,6 +257,16 @@ enum AnnotationRenderer {
             drawLoupe(annotation, start: start, end: end,
                       cropOrigin: cropOrigin, source: source)
 
+        case .image:
+            if let cg = annotation.image {
+                let r = CGRect(x: min(start.x, end.x), y: min(start.y, end.y),
+                               width: abs(end.x - start.x), height: abs(end.y - start.y))
+                NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+                    .draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
+                color.withAlphaComponent(0.5).setStroke()
+                NSBezierPath(rect: r).stroke()
+            }
+
         case .stamp:
             let text = annotation.stampEmoji as NSString
             let attrs: [NSAttributedString.Key: Any] = [
@@ -249,6 +277,29 @@ enum AnnotationRenderer {
                                   y: start.y - size.height / 2),
                       withAttributes: attrs)
         }
+    }
+
+    private static func drawSmartErase(in rect: CGRect, cropOrigin: CGPoint, source: CGImage) {
+        let px = Int((rect.midX + cropOrigin.x).rounded())
+        let py = Int((rect.midY + cropOrigin.y).rounded())
+        let region = CGRect(x: px - 12, y: py - 12, width: 24, height: 24)
+            .intersection(CGRect(x: 0, y: 0, width: source.width, height: source.height))
+        let color = averageColor(source, region: region) ?? NSColor.black
+        color.withAlphaComponent(0.97).setFill()
+        NSBezierPath(rect: rect).fill()
+    }
+
+    private static func averageColor(_ image: CGImage, region: CGRect) -> NSColor? {
+        guard region.width >= 1, region.height >= 1,
+              let cropped = image.cropping(to: region.integral) else { return nil }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8,
+                                      bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .medium
+        context.draw(cropped, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return NSColor(srgbRed: CGFloat(pixel[0]) / 255, green: CGFloat(pixel[1]) / 255,
+                       blue: CGFloat(pixel[2]) / 255, alpha: 1)
     }
 
     private static func drawLine(_ start: CGPoint, _ end: CGPoint,

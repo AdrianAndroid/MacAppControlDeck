@@ -162,25 +162,84 @@ public final class MacShotController {
         DispatchQueue.main.asyncAfter(deadline: .now() + captureDelay, execute: action)
     }
 
-    func openEditor(_ image: CGImage) {
-        CaptureEditorWindowController.shared.show(image: image)
+    func openEditor(_ image: CGImage, annotations: [CaptureAnnotation] = []) {
+        CaptureEditorWindowController.shared.show(image: image, annotations: annotations)
     }
 
-    func saveEditedImage(_ image: CGImage) {
-        saveEditorImage(image, notify: true)
+    func saveEditedImage(_ image: CGImage, base: CGImage? = nil,
+                         annotations: [CaptureAnnotation] = []) {
+        saveEditorImage(image, base: base, annotations: annotations, notify: true)
     }
 
-    private func saveEditorImage(_ image: CGImage, notify: Bool) {
+    private func saveEditorImage(_ image: CGImage, base: CGImage? = nil,
+                                 annotations: [CaptureAnnotation] = [], notify: Bool) {
         do {
             let ext = imageFormat == "jpeg" ? "jpg" : imageFormat
             let url = try nextFileURL(in: outputDirectory, prefix: "Screenshot", ext: ext)
             try CaptureExporter.write(image, to: url, format: imageFormat, quality: imageQuality)
             CaptureExporter.copyToPasteboard(image)
             CaptureHistoryStore.shared.add(url)
+            if let base { persistEditSession(savedURL: url, base: base, annotations: annotations) }
             if notify { showToast("已保存 \(url.lastPathComponent)，并复制到剪贴板") }
         } catch {
             showAlert("保存失败", error.localizedDescription)
         }
+    }
+
+    // MARK: - Editable history
+
+    private var editSessionDirectory: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory,
+                                           in: .userDomainMask)[0]
+            .appendingPathComponent("MacAppControlDeck/EditSessions", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private func persistEditSession(savedURL: URL, base: CGImage,
+                                    annotations: [CaptureAnnotation]) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let name = "Session-\(formatter.string(from: Date()))-\(UUID().uuidString.prefix(6))"
+        let dir = editSessionDirectory.appendingPathComponent(name, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let baseURL = dir.appendingPathComponent("base.png")
+            let rep = NSBitmapImageRep(cgImage: base)
+            guard let data = rep.representation(using: .png, properties: [:]) else { return }
+            try data.write(to: baseURL)
+            let session = CaptureEditSession(savedPath: savedURL.path,
+                                             baseFile: "base.png",
+                                             annotations: annotations.map(CaptureAnnotationArchive.init))
+            let json = try JSONEncoder().encode(session)
+            try json.write(to: dir.appendingPathComponent("session.json"))
+        } catch {
+            // Session persistence is best-effort; the saved image is unaffected.
+        }
+    }
+
+    public func reopenLastEditSession() {
+        let dir = editSessionDirectory
+        guard let children = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else {
+            showToast("暂无可重新编辑的会话"); return
+        }
+        let sessions = children
+            .filter { $0.hasDirectoryPath && FileManager.default.fileExists(atPath: $0.appendingPathComponent("session.json").path) }
+            .sorted { a, b in
+                let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return da > db
+            }
+        guard let latest = sessions.first,
+              let data = try? Data(contentsOf: latest.appendingPathComponent("session.json")),
+              let session = try? JSONDecoder().decode(CaptureEditSession.self, from: data),
+              let baseImage = NSImage(contentsOf: latest.appendingPathComponent(session.baseFile)) else {
+            showToast("暂无可重新编辑的会话"); return
+        }
+        var rect = CGRect(origin: .zero, size: baseImage.size)
+        guard let cg = baseImage.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return }
+        openEditor(cg, annotations: session.annotations.map(\.annotation))
     }
 
     // MARK: - 录屏
@@ -236,6 +295,7 @@ public final class MacShotController {
                 self?.recorder = nil
                 self?.recordingTarget = nil
                 RecordingHUDController.shared.hide()
+                ClickHighlightController.shared.stop()
                 switch result {
                 case .success(let url):
                     self?.showToast("已保存 \(url.lastPathComponent)")
@@ -267,6 +327,7 @@ public final class MacShotController {
                                          options: recordingOptions,
                                          outputURL: url)
                 self.isRecording = true
+                ClickHighlightController.shared.start()
                 let anchor = Self.anchor(for: target)
                 RecordingHUDController.shared.show(
                     format: format,

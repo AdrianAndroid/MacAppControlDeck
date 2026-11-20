@@ -37,6 +37,8 @@ private struct VideoEditorView: View {
     @State private var trimEnd: Double = 1
     @State private var keepSystemAudio = true
     @State private var keepMicAudio = true
+    @State private var systemVolume: Double = 1
+    @State private var micVolume: Double = 1
     @State private var exporting = false
 
     var body: some View {
@@ -61,8 +63,28 @@ private struct VideoEditorView: View {
             .padding(.horizontal, 12)
 
             HStack(spacing: 18) {
-                Toggle("保留系统声音", isOn: $keepSystemAudio)
-                Toggle("保留麦克风旁白", isOn: $keepMicAudio)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("保留系统声音", isOn: $keepSystemAudio)
+                    if keepSystemAudio {
+                        HStack {
+                            Image(systemName: "speaker.wave.2")
+                            Slider(value: $systemVolume, in: 0...1).frame(width: 90)
+                            Text("\(Int(systemVolume * 100))%")
+                                .font(.system(size: 10, design: .monospaced))
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("保留麦克风旁白", isOn: $keepMicAudio)
+                    if keepMicAudio {
+                        HStack {
+                            Image(systemName: "mic")
+                            Slider(value: $micVolume, in: 0...1).frame(width: 90)
+                            Text("\(Int(micVolume * 100))%")
+                                .font(.system(size: 10, design: .monospaced))
+                        }
+                    }
+                }
                 Spacer()
                 Button("在 Finder 显示") {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -107,6 +129,8 @@ private struct VideoEditorView: View {
                                        end: trimEnd,
                                        keepSystemAudio: keepSystemAudio,
                                        keepMicAudio: keepMicAudio,
+                                       systemVolume: Float(systemVolume),
+                                       micVolume: Float(micVolume),
                                        to: dest) { result in
                 DispatchQueue.main.async {
                     exporting = false
@@ -143,10 +167,13 @@ enum VideoEditorExporter {
                        end: Double,
                        keepSystemAudio: Bool,
                        keepMicAudio: Bool,
+                       systemVolume: Float = 1,
+                       micVolume: Float = 1,
                        to dest: URL,
                        completion: @escaping (Result<Void, Error>) -> Void) {
         let asset = AVURLAsset(url: source)
         let composition = AVMutableComposition()
+        var audioMix: AVMutableAudioMix?
         guard let videoTrack = asset.tracks(withMediaType: .video).first,
               let compVideo = composition.addMutableTrack(withMediaType: .video,
                                                           preferredTrackID: kCMPersistentTrackID_Invalid)
@@ -160,12 +187,21 @@ enum VideoEditorExporter {
         do {
             try compVideo.insertTimeRange(range, of: videoTrack, at: .zero)
             let audioTracks = asset.tracks(withMediaType: .audio)
+            var params: [AVMutableAudioMixInputParameters] = []
             for (i, track) in audioTracks.prefix(2).enumerated() {
                 let keep = i == 0 ? keepSystemAudio : keepMicAudio
                 if keep, let compAudio = composition.addMutableTrack(
                     withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                     try? compAudio.insertTimeRange(range, of: track, at: .zero)
+                    let param = AVMutableAudioMixInputParameters(track: compAudio)
+                    param.setVolume(i == 0 ? systemVolume : micVolume, at: .zero)
+                    params.append(param)
                 }
+            }
+            if !params.isEmpty {
+                let mix = AVMutableAudioMix()
+                mix.inputParameters = params
+                audioMix = mix
             }
         } catch {
             completion(.failure(error)); return
@@ -179,6 +215,7 @@ enum VideoEditorExporter {
         }
         session.outputURL = dest
         session.outputFileType = .mp4
+        if let audioMix { session.audioMix = audioMix }
         session.shouldOptimizeForNetworkUse = true
         session.exportAsynchronously {
             switch session.status {

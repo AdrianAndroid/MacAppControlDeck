@@ -35,6 +35,10 @@ struct CaptureEditorView: View {
     @State private var resizeStartBounds: CGRect?
     @State private var editingText = false
     @State private var showingEffects = false
+    @State private var zoom: CGFloat = 1
+    @State private var zoomGestureBase: CGFloat = 1
+    @State private var rotationStart: CGFloat?
+    @State private var rotationOffset: CGFloat = 0
 
     private var bottomTools: [CaptureTool] {
         [.select, .pen, .line, .arrow, .rectangle, .ellipse, .marker,
@@ -44,7 +48,7 @@ struct CaptureEditorView: View {
 
     /// 13 tools + color + undo + redo, same arithmetic as ToolbarStripView.layoutButtons().
     private var bottomStripWidth: CGFloat {
-        let count = CGFloat(bottomTools.count + 3)
+        let count = CGFloat(bottomTools.count + 4)
         return count * ShotUI.button
             + max(0, count - 1) * ShotUI.buttonSpacing
             + ShotUI.stripPadding * 2
@@ -55,7 +59,7 @@ struct CaptureEditorView: View {
         case .select, .pen, .marker, .line, .arrow, .rectangle, .filledRectangle,
              .ellipse, .text, .number, .measure, .loupe, .stamp, .crop:
             return true
-        case .pixelate, .blur, .highlight, .eyedropper:
+        case .pixelate, .blur, .highlight, .eyedropper, .image:
             return false
         }
     }
@@ -106,6 +110,11 @@ struct CaptureEditorView: View {
         .onChange(of: model.textStrikethrough) { _ in applySelectionStyle() }
         .onChange(of: model.textAlign) { _ in applySelectionStyle() }
         .onChange(of: model.textBackground) { _ in applySelectionStyle() }
+        .onChange(of: model.textOutline) { _ in applySelectionStyle() }
+        .onChange(of: model.censorMode) { _ in applySelectionStyle() }
+        .onChange(of: model.numberFormat) { _ in applySelectionStyle() }
+        .onChange(of: model.measureUnit) { _ in applySelectionStyle() }
+        .onChange(of: model.spotlightDim) { _ in applySelectionStyle() }
         .sheet(isPresented: $showingEffects) {
             effectsPanel
         }
@@ -175,6 +184,54 @@ struct CaptureEditorView: View {
             .fixedSize()
             .padding(.leading, 4)
 
+            Menu {
+                Button("Retina 2x（原始）") { model.outputScale = 2 }
+                Button("1x（缩小文件）") { model.outputScale = 1 }
+            } label: {
+                Text(model.outputScale < 1.5 ? "1x" : "2x")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.8))
+                    .padding(.horizontal, 6)
+                    .frame(height: 22)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.08)))
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .padding(.leading, 4)
+
+            Menu {
+                Button("50%") { zoom = 0.5 }
+                Button("100%") { zoom = 1 }
+                Button("200%") { zoom = 2 }
+                Button("400%") { zoom = 4 }
+                Divider()
+                Button("放大 (+)，快捷键 ⌘+") { zoom = min(8, zoom * 1.25) }
+                Button("缩小 (-)，快捷键 ⌘-") { zoom = max(0.1, zoom / 1.25) }
+                Button("重置 (⌘0)") { zoom = 1 }
+            } label: {
+                Text(zoom == 1 ? "缩放" : "\(Int(zoom * 100))%")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.8))
+                    .padding(.horizontal, 6)
+                    .frame(height: 22)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.08)))
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .padding(.leading, 4)
+
+            ChromeButton(symbol: "photo.badge.plus", title: "添加图片", size: 24, iconSize: 13, radius: 5) {
+                addImageFromFile()
+            }
+            .padding(.leading, 4)
+
+            ChromeButton(symbol: "doc.on.clipboard", title: "粘贴图片", size: 24, iconSize: 13, radius: 5) {
+                if let cg = CaptureEditorWindowController.pasteboardImage() {
+                    model.addImage(cg)
+                }
+            }
+            .padding(.leading, 4)
+
             ChromeButton(symbol: "wand.and.stars", title: "美化与滤镜",
                          size: 24, iconSize: 13, radius: 5) {
                 showingEffects = true
@@ -225,6 +282,7 @@ struct CaptureEditorView: View {
             ChromeButton(symbol: "square.and.arrow.down.fill", title: "保存") {
                 if let image = model.render() { onSave(image) }
             }
+            .keyboardShortcut("s", modifiers: .command)
             ChromeButton(symbol: "pin.fill", title: "钉图") {
                 if let image = model.render() { onPin(image) }
             }
@@ -261,6 +319,7 @@ struct CaptureEditorView: View {
                 }
 
                 colorSwatch
+                paletteMenu
 
                 ChromeButton(symbol: "arrow.uturn.backward", title: "撤销",
                              disabled: !model.canUndo) {
@@ -368,6 +427,24 @@ struct CaptureEditorView: View {
                     Slider(value: $model.loupeZoom, in: 1.5...4)
                         .frame(width: 70).controlSize(.small).tint(ShotUI.accent)
                 }
+                if model.tool == .pixelate || model.tool == .blur {
+                    optionMenu("打码", selection: $model.censorMode,
+                               items: CensorMode.allCases.map { ($0.title, $0) })
+                }
+                if model.tool == .number {
+                    optionMenu("编号", selection: $model.numberFormat,
+                               items: NumberFormat.allCases.map { ($0.title, $0) })
+                }
+                if model.tool == .measure {
+                    optionMenu("单位", selection: $model.measureUnit,
+                               items: MeasureUnit.allCases.map { ($0.title, $0) })
+                }
+                if model.tool == .highlight {
+                    Text("压暗").font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Slider(value: $model.spotlightDim, in: 0.2...0.9)
+                        .frame(width: 70).controlSize(.small).tint(ShotUI.accent)
+                }
                 if model.tool == .text {
                     styleToggle("B", active: $model.textBold)
                     styleToggle("I", active: $model.textItalic)
@@ -375,6 +452,7 @@ struct CaptureEditorView: View {
                     styleToggle("S", active: $model.textStrikethrough)
                     alignMenu
                     styleToggle("▧", active: $model.textBackground, help: "文字底色")
+                    styleToggle("O", active: $model.textOutline, help: "文字描边")
                 }
                 Spacer(minLength: 4)
             }
@@ -477,9 +555,14 @@ struct CaptureEditorView: View {
             sliderRow("圆角", value: Binding(
                 get: { Double(model.beautifyCorner) },
                 set: { model.beautifyCorner = CGFloat($0) }), range: 0...40)
-            Toggle("阴影", isOn: $model.beautifyShadow)
+            HStack {
+                Toggle("阴影", isOn: $model.beautifyShadow)
+                Spacer()
+                Toggle("窗口标题栏", isOn: $model.beautifyWindowChrome)
+            }
             HStack(spacing: 8) {
                 Text("背景").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(30), spacing: 6), count: 10), spacing: 6) {
                 ForEach(BeautifyComposer.gradients.indices, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 4)
                         .fill(LinearGradient(colors: BeautifyComposer.gradients[i].map { Color(nsColor: $0) },
@@ -489,6 +572,7 @@ struct CaptureEditorView: View {
                             .stroke(model.beautifyGradient == i ? Color.accentColor : Color.clear,
                                     lineWidth: 2))
                         .onTapGesture { model.beautifyGradient = i }
+                    }
                 }
             }
         }
@@ -522,6 +606,31 @@ struct CaptureEditorView: View {
         .frame(width: ShotUI.button, height: ShotUI.button)
         .contentShape(Rectangle())
         .help("颜色")
+    }
+
+    private var paletteMenu: some View {
+        Menu {
+            ForEach([Color.red, .orange, .yellow, .green, .blue, .purple,
+                     .pink, .black, .white, Color(white: 0.5)], id: \.self) { c in
+                Button {
+                    model.color = c
+                } label: {
+                    Label {
+                        Text(c == .black ? "黑" : c == .white ? "白" : "")
+                    } icon: {
+                        Circle().fill(c)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "square.grid.2x2")
+                .font(.system(size: 12))
+                .frame(width: 26, height: 26)
+                .foregroundStyle(Color.white.opacity(0.8))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("常用颜色")
     }
 
     private var colorReadout: some View {
@@ -558,6 +667,12 @@ struct CaptureEditorView: View {
         model.textStrikethrough = a.textStrikethrough
         model.textAlign = a.textAlign
         model.textBackground = a.textBackground
+        model.textBackgroundColor = Color(nsColor: a.textBackgroundColor)
+        model.textOutline = a.textOutline
+        model.censorMode = a.censorMode
+        model.numberFormat = a.numberFormat
+        model.measureUnit = a.measureUnit
+        model.spotlightDim = a.spotlightDim
     }
 
     private func applySelectionStyle() {
@@ -575,6 +690,12 @@ struct CaptureEditorView: View {
             a.textStrikethrough = model.textStrikethrough
             a.textAlign = model.textAlign
             a.textBackground = model.textBackground
+            a.textBackgroundColor = model.nsColor == .clear ? a.textBackgroundColor : NSColor(model.textBackgroundColor)
+            a.textOutline = model.textOutline
+            a.censorMode = model.censorMode
+            a.numberFormat = model.numberFormat
+            a.measureUnit = model.measureUnit
+            a.spotlightDim = model.spotlightDim
             if a.tool == .text { a.fontSize = max(18, model.lineWidth * 7) }
             if a.tool == .stamp { a.fontSize = max(24, model.lineWidth * 8) }
         }
@@ -590,6 +711,15 @@ struct CaptureEditorView: View {
             }
             .clipped()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .captureEditorZoomIn)) { _ in
+            zoom = min(8, zoom * 1.25)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .captureEditorZoomOut)) { _ in
+            zoom = max(0.1, zoom / 1.25)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .captureEditorResetZoom)) { _ in
+            zoom = 1
+        }
     }
 
     private func imageAndCanvas(size: CGSize) -> some View {
@@ -598,8 +728,16 @@ struct CaptureEditorView: View {
         let container = CGRect(x: 40, y: 40,
                                width: max(size.width - 40 - 60, 1),
                                height: max(size.height - 40 - 84, 1))
-        let fit = fitRect(imageSize: CGSize(width: model.imageWidth, height: model.imageHeight),
-                          in: container)
+        let base = fitRect(imageSize: CGSize(width: model.imageWidth, height: model.imageHeight),
+                           in: container)
+        let fit: CGRect
+        if zoom == 1 {
+            fit = base
+        } else {
+            let w = base.width * zoom
+            let h = base.height * zoom
+            fit = CGRect(x: base.midX - w / 2, y: base.midY - h / 2, width: w, height: h)
+        }
         return ZStack(alignment: .topLeading) {
             Image(nsImage: NSImage(cgImage: model.previewBaseImage(),
                                    size: NSSize(width: model.imageWidth, height: model.imageHeight)))
@@ -614,6 +752,14 @@ struct CaptureEditorView: View {
             .frame(width: size.width, height: size.height)
             .contentShape(Rectangle())
             .gesture(drawingGesture(fit: fit))
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { value in
+                        if zoomGestureBase == 0 { zoomGestureBase = zoom }
+                        zoom = min(8, max(0.1, zoomGestureBase * value))
+                    }
+                    .onEnded { _ in zoomGestureBase = 0 }
+            )
 
             if model.tool == .select, let selected = model.selectedAnnotation {
                 selectionHandles(for: selected, fit: fit)
@@ -649,6 +795,40 @@ struct CaptureEditorView: View {
                     .position(item.1)
                     .gesture(resizeGesture(handle: item.0, fit: fit))
             }
+            Circle()
+                .fill(Color.white)
+                .frame(width: 11, height: 11)
+                .overlay(Circle().stroke(ShotUI.accent, lineWidth: 1.5))
+                .position(x: r.midX, y: r.minY - 22)
+                .gesture(rotateGesture(center: CGPoint(x: r.midX, y: r.midY)))
+        }
+    }
+
+    private func rotateGesture(center: CGPoint) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .onChanged { value in
+                guard let selected = model.selectedAnnotation else { return }
+                if rotationStart == nil { rotationStart = selected.rotation }
+                let angle = atan2(value.location.y - center.y, value.location.x - center.x)
+                    * 180 / .pi + 90
+                var target = angle
+                if NSEvent.modifierFlags.contains(.shift) {
+                    target = (target / 90).rounded() * 90
+                }
+                model.updateSelected { $0.rotation = target }
+            }
+            .onEnded { _ in rotationStart = nil }
+    }
+
+    private func addImageFromFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic, .gif]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url,
+           let image = NSImage(contentsOf: url),
+           let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            model.addImage(cg)
         }
     }
 
@@ -768,6 +948,12 @@ struct CaptureEditorView: View {
         switch annotation.tool {
         case .select, .eyedropper, .crop:
             break
+        case .image:
+            if let cg = annotation.image {
+                let rect = normRect(annotation.start, annotation.end)
+                context.draw(Image(decorative: cg, scale: 1), in: rect)
+                context.stroke(Path(rect), with: .color(ShotUI.accent.opacity(0.5)), lineWidth: 1)
+            }
         case .rectangle, .filledRectangle, .ellipse:
             let rect = normRect(annotation.start, annotation.end)
             let path: Path

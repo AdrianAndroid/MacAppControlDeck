@@ -2,7 +2,7 @@ import AppKit
 import CoreImage
 
 enum ImageEffectPreset: String, CaseIterable, Identifiable {
-    case none, noir, mono, sepia, chrome, fade, instant, vivid
+    case none, noir, mono, sepia, chrome, fade, instant, vivid, invert
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -14,6 +14,7 @@ enum ImageEffectPreset: String, CaseIterable, Identifiable {
         case .fade: return "Fade"
         case .instant: return "Instant"
         case .vivid: return "Vivid"
+        case .invert: return "反色"
         }
     }
 }
@@ -63,12 +64,13 @@ enum ImageEffectsPipeline {
         case .fade: return "CIPhotoEffectFade"
         case .instant: return "CIPhotoEffectInstant"
         case .vivid: return "CIPhotoEffectProcess"
+        case .invert: return "CIColorInvert"
         }
     }
 }
 
 enum BeautifyComposer {
-    static let gradients: [[NSColor]] = [
+    private static let baseGradients: [[NSColor]] = [
         [NSColor(srgbRed: 0.16, green: 0.18, blue: 0.24, alpha: 1),
          NSColor(srgbRed: 0.34, green: 0.24, blue: 0.48, alpha: 1)],
         [NSColor(srgbRed: 0.98, green: 0.52, blue: 0.36, alpha: 1),
@@ -83,8 +85,16 @@ enum BeautifyComposer {
          NSColor(srgbRed: 0.93, green: 0.72, blue: 0.86, alpha: 1)]
     ]
 
+    static let gradients: [[NSColor]] = baseGradients + (0..<24).map { i in
+        let h = CGFloat(i) / 24
+        let a = NSColor(hue: h, saturation: 0.55, brightness: 0.85, alpha: 1)
+        let b = NSColor(hue: (h + 0.08).truncatingRemainder(dividingBy: 1),
+                        saturation: 0.75, brightness: 0.55, alpha: 1)
+        return [a, b]
+    }
+
     static func compose(_ image: CGImage, padding: CGFloat, corner: CGFloat,
-                        shadow: Bool, gradient: Int) -> CGImage {
+                        shadow: Bool, gradient: Int, windowChrome: Bool = false) -> CGImage {
         let w = CGFloat(image.width) + padding * 2
         let h = CGFloat(image.height) + padding * 2
         guard let ctx = CGContext(data: nil, width: Int(w), height: Int(h),
@@ -118,6 +128,19 @@ enum BeautifyComposer {
         path.addClip()
         NSImage(cgImage: image, size: rect.size)
             .draw(in: rect, from: .zero, operation: .copy, fraction: 1)
+        if windowChrome {
+            let barHeight: CGFloat = min(22, rect.height * 0.12)
+            let bar = CGRect(x: rect.minX, y: rect.maxY - barHeight,
+                             width: rect.width, height: barHeight)
+            NSColor(white: 0.14, alpha: 0.92).setFill()
+            NSBezierPath(roundedRect: bar, xRadius: corner, yRadius: corner).fill()
+            NSColor(white: 0.78, alpha: 1).setFill()
+            for (i, c) in [NSColor.systemRed, .systemYellow, .systemGreen].enumerated() {
+                c.setFill()
+                NSBezierPath(ovalIn: CGRect(x: bar.minX + 8 + CGFloat(i) * 12,
+                                            y: bar.midY - 4, width: 8, height: 8)).fill()
+            }
+        }
         NSGraphicsContext.current = previous
         return ctx.makeImage() ?? image
     }

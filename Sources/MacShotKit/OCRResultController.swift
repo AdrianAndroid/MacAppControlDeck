@@ -27,7 +27,13 @@ final class OCRResultController {
             }
         }
         request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["zh-Hans", "en-US"]
+        if let supported = try? VNRecognizeTextRequest.supportedRecognitionLanguages(
+            for: .accurate, revision: VNRecognizeTextRequestRevision3), !supported.isEmpty {
+            request.recognitionLanguages = supported
+        } else {
+            request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR",
+                                            "fr-FR", "de-DE", "es-ES", "ru-RU", "pt-BR", "it-IT"]
+        }
         request.usesLanguageCorrection = true
 
         DispatchQueue.global(qos: .userInitiated).async {

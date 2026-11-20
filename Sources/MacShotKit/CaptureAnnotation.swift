@@ -40,6 +40,57 @@ enum TextAlign: String, CaseIterable, Identifiable {
     }
 }
 
+enum CensorMode: String, CaseIterable, Identifiable {
+    case pixelate, solid, erase
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .pixelate: return "马赛克"
+        case .solid: return "纯色覆盖"
+        case .erase: return "智能擦除"
+        }
+    }
+}
+
+enum NumberFormat: String, CaseIterable, Identifiable {
+    case arabic, roman, alphaLower, alphaUpper
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .arabic: return "1 2 3"
+        case .roman: return "I II III"
+        case .alphaLower: return "a b c"
+        case .alphaUpper: return "A B C"
+        }
+    }
+    func label(_ n: Int) -> String {
+        switch self {
+        case .arabic: return "\(n)"
+        case .roman: return NumberFormat.roman(n)
+        case .alphaLower: return NumberFormat.alpha(n).lowercased()
+        case .alphaUpper: return NumberFormat.alpha(n)
+        }
+    }
+    private static func roman(_ n: Int) -> String {
+        let table = [(10,"X"),(9,"IX"),(5,"V"),(4,"IV"),(1,"I")]
+        var value = max(1, n), out = ""
+        for (v, sym) in table { while value >= v { out += sym; value -= v } }
+        return out
+    }
+    private static func alpha(_ n: Int) -> String {
+        let letters = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        let i = (max(1, n) - 1) % letters.count
+        return String(letters[i])
+    }
+}
+
+enum MeasureUnit: String, CaseIterable, Identifiable {
+    case pixel, point
+    var id: String { rawValue }
+    var title: String { self == .pixel ? "px" : "pt" }
+    var divisor: CGFloat { self == .pixel ? 1 : 2 }
+}
+
 enum CaptureTool: String, CaseIterable, Identifiable {
     case select
     case rectangle
@@ -59,6 +110,7 @@ enum CaptureTool: String, CaseIterable, Identifiable {
     case stamp
     case eyedropper
     case crop
+    case image
 
     var id: String { rawValue }
 
@@ -82,6 +134,7 @@ enum CaptureTool: String, CaseIterable, Identifiable {
         case .stamp: return "印章"
         case .eyedropper: return "取色"
         case .crop: return "裁剪"
+        case .image: return "图片"
         }
     }
 
@@ -105,6 +158,7 @@ enum CaptureTool: String, CaseIterable, Identifiable {
         case .stamp: return "face.smiling"
         case .eyedropper: return "eyedropper"
         case .crop: return "crop"
+        case .image: return "photo"
         }
     }
 
@@ -142,8 +196,14 @@ struct CaptureAnnotation: Identifiable {
     var textAlign: TextAlign = .left
     var textBackground = false
     var textBackgroundColor: NSColor = .black
+    var textOutline = false
     var stampEmoji: String = "😀"
     var loupeZoom: CGFloat = 2
+    var image: CGImage?
+    var censorMode: CensorMode = .pixelate
+    var numberFormat: NumberFormat = .arabic
+    var measureUnit: MeasureUnit = .pixel
+    var spotlightDim: CGFloat = 0.55
 
     var unrotatedBounds: CGRect {
         if !points.isEmpty {
