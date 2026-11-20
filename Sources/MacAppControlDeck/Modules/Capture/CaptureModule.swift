@@ -253,6 +253,16 @@ import SwiftUI
         MacShotController.shared.saveToFile = prefs.saveToFile
         MacShotController.shared.copyToClipboard = prefs.copyToClipboard
         MacShotController.shared.showFloatingThumbnail = prefs.showFloatingThumbnail
+
+        // 覆盖层/录屏引擎使用上游的 UserDefaults 键，这里保持与模块偏好一致，
+        // 避免覆盖层里显示的帧率/音频选项与实际录制不一致。
+        let defaults = UserDefaults.standard
+        defaults.set(prefs.recordingFPS, forKey: "recordingFPS")
+        defaults.set(prefs.recordingSystemAudio, forKey: "recordSystemAudio")
+        defaults.set(prefs.recordingMicrophone, forKey: "recordMicAudio")
+        defaults.set(prefs.captureDelay, forKey: "captureDelaySeconds")
+        defaults.set(prefs.recordingCursor, forKey: "captureCursor")
+        defaults.set(prefs.showFloatingThumbnail, forKey: "showFloatingThumbnail")
     }
 
     private func item(_ title: String, _ selector: Selector, _ symbol: String) -> NSMenuItem {

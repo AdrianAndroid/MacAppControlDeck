@@ -6,10 +6,15 @@
 
 - 上游：https://github.com/sw33tLie/macshot
 - 许可证：GPL-3.0
-- 引入方式：只移植功能代码，不引入其独立 App 外壳（菜单栏 App、Sparkle 更新、URL Scheme、XPC OCR 服务、独立设置 App 等）。
-- 已引入文件：
-  - `Sources/MacShotKit/ScreenCaptureManager.swift`（截图引擎，首期用于验证同进程集成）
-- 后续计划引入：截图 Overlay、标注编辑器、录屏、历史等（均放在 `Sources/MacShotKit/`，仅允许 `capture` 模块 import）。
+- 引入方式：原样 vendor 功能源码，只通过薄适配层接入；不引入其独立 App 外壳（菜单栏 App、Sparkle 更新、URL Scheme、XPC OCR 服务、独立设置 App 等）。
+- 已引入目录（均位于 `Sources/MacShotKit/Upstream/`）：
+  - `Overlay/`：截图覆盖层、工具栏、标注、钉图/OCR 出口、滚动 HUD 与预览
+  - `Recording/`：录屏引擎、MP4 writer、麦克风、指针/按键 telemetry
+  - `VideoEditor/`：时间线编辑器、导出、GIF、光标/键盘叠加渲染
+  - `Capture/`：滚动截图采集、帧匹配、拼接
+  - `Windows/`：倒计时等共享窗口
+- 适配层：`Sources/MacShotKit/OverlayCoordinator.swift`、`Sources/MacShotKit/MacShotController.swift`
+- 集成方法与验收标准见 `Docs/architecture/UPSTREAM_PORTING.md`。
 
 ## 说明
 

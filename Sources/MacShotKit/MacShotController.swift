@@ -54,12 +54,77 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
     private var recordingIntent: RecordingFormat = .mp4
     private var toastPanel: NSPanel?
     private var toastTimer: Timer?
+    private var delayCountdownWindow: NSWindow?
+    private var delayCountdownTimer: Timer?
+    private var delayEscMonitor: Any?
 
     // MARK: - 截图
 
+    /// 截图延时：先在全屏中央显示倒计时，结束后再开始抓屏流程。
+    /// 与上游一致，按 Esc 可取消本次截图。
+    private func runWithCaptureDelay(_ action: @escaping @MainActor () -> Void) {
+        let seconds = Int(captureDelay)
+        guard seconds > 0,
+              let screen = NSScreen.preferred ?? NSScreen.main else {
+            action()
+            return
+        }
+        cancelDelayCountdown()
+
+        let size = NSSize(width: 140, height: 140)
+        let origin = NSPoint(x: screen.frame.midX - size.width / 2,
+                             y: screen.frame.midY - size.height / 2)
+        let window = NSWindow(contentRect: NSRect(origin: origin, size: size),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.level = .floating
+        window.hasShadow = false
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let view = CountdownView(frame: NSRect(origin: .zero, size: size))
+        view.remaining = seconds
+        window.contentView = view
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        delayCountdownWindow = window
+
+        delayEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return event }
+            self?.cancelDelayCountdown()
+            return nil
+        }
+
+        var remaining = seconds
+        delayCountdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            remaining -= 1
+            guard let self else { timer.invalidate(); return }
+            if remaining <= 0 {
+                self.cancelDelayCountdown()
+                action()
+            } else {
+                view.remaining = remaining
+                view.needsDisplay = true
+            }
+        }
+    }
+
+    private func cancelDelayCountdown() {
+        delayCountdownTimer?.invalidate()
+        delayCountdownTimer = nil
+        delayCountdownWindow?.orderOut(nil)
+        delayCountdownWindow = nil
+        if let monitor = delayEscMonitor {
+            NSEvent.removeMonitor(monitor)
+            delayEscMonitor = nil
+        }
+    }
+
     public func captureFullScreen() {
         guard ensurePermission() else { return }
-        OverlayCoordinator.shared.beginOverlay(fullScreen: true)
+        runWithCaptureDelay {
+            OverlayCoordinator.shared.beginOverlay(fullScreen: true)
+        }
     }
 
     public func captureAllScreens() {
@@ -73,27 +138,37 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
 
     public func captureArea() {
         guard ensurePermission() else { return }
-        overlayController = OverlayCoordinator.shared.beginOverlay()
+        runWithCaptureDelay {
+            self.overlayController = OverlayCoordinator.shared.beginOverlay()
+        }
     }
 
     public func captureWindow() {
         guard ensurePermission() else { return }
-        overlayController = OverlayCoordinator.shared.beginOverlay()
+        runWithCaptureDelay {
+            self.overlayController = OverlayCoordinator.shared.beginOverlay()
+        }
     }
 
     public func quickSaveArea() {
         guard ensurePermission() else { return }
-        overlayController = OverlayCoordinator.shared.beginOverlay(auto: .quickSave)
+        runWithCaptureDelay {
+            self.overlayController = OverlayCoordinator.shared.beginOverlay(auto: .quickSave)
+        }
     }
 
     public func quickOCRArea() {
         guard ensurePermission() else { return }
-        overlayController = OverlayCoordinator.shared.beginOverlay(auto: .ocr)
+        runWithCaptureDelay {
+            self.overlayController = OverlayCoordinator.shared.beginOverlay(auto: .ocr)
+        }
     }
 
     public func scrollCapture() {
         guard ensurePermission() else { return }
-        OverlayCoordinator.shared.beginScrollSelection()
+        runWithCaptureDelay {
+            OverlayCoordinator.shared.beginScrollSelection()
+        }
     }
 
     public func openRecentCapture(_ url: URL) {
@@ -188,7 +263,9 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
         switch mode {
         case .fullScreen:
             guard let screen = NSScreen.main else { return }
-            beginRecording(target: .screen(screen), format: format)
+            runWithCaptureDelay { [weak self] in
+                self?.beginRecording(target: .screen(screen), format: format)
+            }
         case .area:
             OverlayCoordinator.shared.beginRecordingSelection(initialFormat: format)
         case .window:
@@ -206,27 +283,28 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
         }
     }
 
-    func beginRecording(target: RecordingTarget, format: RecordingFormat) {
+    func beginRecording(target: RecordingTarget, format: RecordingFormat,
+                        fpsOverride: Int? = nil, appName: String? = nil, hideHUD: Bool = false) {
         Task { @MainActor in
         recordingIntent = (format == .gif) ? .gif : recordingIntent
         let options = recordingOptions
-        let defaults = UserDefaults.standard
-        defaults.set(options.fps, forKey: "recordingFPS")
-        defaults.set(options.systemAudio, forKey: "recordSystemAudio")
-        defaults.set(options.microphone, forKey: "recordMicAudio")
+        let fps = fpsOverride ?? options.fps
+        let effectiveFormat: RecordingFormat = (recordingIntent == .gif) ? .gif : format
 
         let engine = RecordingEngine()
         let anchor = Self.anchor(for: target)
-        // 先显示 HUD 并拿到窗口号，让录制引擎把这些 UI 窗口从像素里排除。
-        RecordingHUDController.shared.show(
-            format: format,
-            relativeTo: anchor.rect,
-            screen: anchor.screen,
-            onTogglePause: { paused in
-                if paused { engine.pauseRecording() } else { engine.resumeRecording() }
-            },
-            onStop: { [weak self] in self?.stopRecording() })
-        let excluded = RecordingHUDController.shared.windowNumbers
+        // 默认显示 HUD；用户在覆盖层勾选“隐藏 HUD”时跳过，停止入口仍在菜单栏。
+        if !hideHUD {
+            RecordingHUDController.shared.show(
+                format: effectiveFormat,
+                relativeTo: anchor.rect,
+                screen: anchor.screen,
+                onTogglePause: { paused in
+                    if paused { engine.pauseRecording() } else { engine.resumeRecording() }
+                },
+                onStop: { [weak self] in self?.stopRecording() })
+        }
+        let excluded = hideHUD ? [] : RecordingHUDController.shared.windowNumbers
 
         engine.onCompletion = { [weak self] url, error in
             Task { @MainActor in
@@ -244,9 +322,16 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
                     self.showAlert("录制失败", "没有生成录制文件。")
                     return
                 }
+                // 与菜单栏承诺一致：MP4 录制完成后同时落到 ~/Movies/MacAppControlDeck。
+                // 编辑器仍使用会话内的原始 take，复制件供 Finder/其他应用直接使用。
+                var publishedURL: URL?
+                if self.recordingIntent != .gif {
+                    publishedURL = self.publishRecording(url, appName: appName)
+                }
                 self.showToast(self.recordingIntent == .gif
                     ? "录制完成，正在准备 GIF 编辑"
-                    : "录制完成，正在打开编辑器")
+                    : (publishedURL.map { "已保存 \($0.lastPathComponent)，正在打开编辑器" }
+                        ?? "录制完成，正在打开编辑器"))
                 VideoEditorWindowController.open(
                     url: url,
                     deleteOnClose: false,
@@ -255,26 +340,26 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
         }
         self.recordingEngine = engine
         self.recordingTarget = target
-        self.recordingFormat = format
+        self.recordingFormat = effectiveFormat
         self.isRecording = true
 
         // 只有“区域”录制需要按选区裁剪；全屏/窗口沿用对应范围。
         switch target {
         case .area(let screen, let rect):
             engine.startRecording(rect: rect, screen: screen,
-                                  fpsOverride: options.fps,
-                                  excludeWindowNumbers: excluded)
+                                  fpsOverride: fps, excludeWindowNumbers: excluded,
+                                  appName: appName)
         case .screen(let screen):
             engine.startRecording(rect: screen.frame, screen: screen,
-                                  fpsOverride: options.fps,
-                                  excludeWindowNumbers: excluded)
+                                  fpsOverride: fps, excludeWindowNumbers: excluded,
+                                  appName: appName)
         case .window(let window):
             let screen = NSScreen.screens.first { $0.frame.contains(CGPoint(x: window.bounds.midX,
                                                                             y: window.bounds.midY)) }
             if let screen {
                 engine.startRecording(rect: window.bounds, screen: screen,
-                                      fpsOverride: options.fps,
-                                      excludeWindowNumbers: excluded)
+                                      fpsOverride: fps, excludeWindowNumbers: excluded,
+                                      appName: appName)
             } else {
                 self.isRecording = false
                 self.recordingEngine = nil
@@ -286,6 +371,23 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
         if UserDefaults.standard.object(forKey: "recordMouseHighlight") as? Bool ?? true {
             ClickHighlightController.shared.start()
         }
+        }
+    }
+
+    private func publishRecording(_ source: URL, appName: String?) -> URL? {
+        do {
+            try FileManager.default.createDirectory(at: recordingDirectory,
+                                                    withIntermediateDirectories: true)
+            let destination = try FilenameFormatter.makeURL(
+                directory: recordingDirectory,
+                template: FilenameFormatter.template(forRecording: true),
+                appName: appName,
+                fileExtension: "mp4")
+            try FileManager.default.copyItem(at: source, to: destination)
+            return destination
+        } catch {
+            showToast("录制已保留在会话目录，复制到影片文件夹失败：\(error.localizedDescription)")
+            return nil
         }
     }
 

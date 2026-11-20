@@ -8,6 +8,8 @@ BuildOutput/
 # 构建脚本目录（Build/ 不是产物；注意 macOS 上 build/ 与 Build/ 是同一目录，需反选）
 !Build/
 
-# 本地工具配置
-.myflicker/
+# 本地工具配置（skills 随仓库共享，其余本地文件忽略）
+.myflicker/*
+!.myflicker/skills/
+!.myflicker/skills/**
 *.local.json
