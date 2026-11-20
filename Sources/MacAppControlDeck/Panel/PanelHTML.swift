@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-20.2"
+    static let version = "2026-11-20.3"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -42,14 +42,15 @@ enum PanelHTML {
       #shortcutsZone { position:fixed; left:calc(env(safe-area-inset-left, 0px) + 12px); right:calc(env(safe-area-inset-right, 0px) + 12px);
                        bottom:0; z-index:5; background:var(--bg);
                        border-top:1px solid var(--line); padding-top:6px;
-                       padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 6px); }
+                       padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 2px); }
       .zone-title { font-size:11px; color:var(--muted); margin:2px 0 4px; letter-spacing:.5px; }
       .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
       #appsPages { flex:1 1 auto; min-height:0; }
       #shortcutPages { flex:0 0 auto; overflow-y:visible; }
       .pages::-webkit-scrollbar { display:none; }
       .page { flex:0 0 100%; width:100%; height:100%; scroll-snap-align:start; display:grid; gap:10px; padding:2px; align-content:start; }
-      .dots { display:flex; justify-content:center; gap:6px; padding:4px 0 2px; min-height:14px; }
+      .dots { display:flex; justify-content:center; gap:6px; padding:4px 0 2px; }
+      .dots:empty { display:none; }
       .dots i { width:6px; height:6px; border-radius:50%; background:#3a4270; }
       .dots i.on { background:var(--muted); }
       .btn { background:var(--card); border:1px solid var(--line); border-radius:16px; min-height:76px; color:var(--fg);
@@ -206,7 +207,7 @@ enum PanelHTML {
 
         // 快捷操作区高度固定为行数 × 行高，避免最后一行被截断
         const scCell=72, scGap=10;
-        shortcutPagesEl.style.height=(scRows*scCell+(scRows-1)*scGap+10)+'px';
+        shortcutPagesEl.style.height=(scRows*scCell+(scRows-1)*scGap+2)+'px';
 
         const renderAll=()=>{
           const h=appsPagesEl.clientHeight;
@@ -240,7 +241,8 @@ enum PanelHTML {
           const page=document.createElement('div');
           page.className='page';
           page.style.gridTemplateColumns='repeat('+cols+',1fr)';
-          page.style.gridAutoRows= kind==='shortcut' ? '72px' : '92px';
+          page.style.gridAutoRows= kind==='shortcut' ? '72px' : '1fr';
+          page.style.gridTemplateRows = kind==='shortcut' ? '' : ('repeat(' + rows + ', 1fr)');
           itemsInPage.forEach(b=>page.appendChild(makeButton(b,kind)));
           if (kind==='shortcut') {
             // 空白占位卡片：补满整页（固定 3 排的视觉）
