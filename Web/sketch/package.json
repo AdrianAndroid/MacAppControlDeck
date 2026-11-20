@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/copy-fonts.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare:libraries": "node scripts/prepare-libraries.mjs",
+    "prebuild": "node scripts/prepare-libraries.mjs"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",

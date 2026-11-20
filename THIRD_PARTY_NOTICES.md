@@ -48,3 +48,36 @@
 
 - 未打包 `Xiaolai`（小赖中文手写体），中文回退系统「苹方」。
 - 字体完整许可证以各 npm 包内 `LICENSE` / `OFL.txt` 为准。
+
+## UI 草图内置素材库（`Web/sketch/libraries`）
+
+以下 16 组素材库来自 Excalidraw 官方素材库仓库
+https://github.com/excalidraw/excalidraw-libraries ，均标注 **MIT License**。
+原始文件以 `.excalidrawlib` 形式保存在 `Web/sketch/libraries/`，构建时由
+`Web/sketch/scripts/prepare-libraries.mjs` 统一转换为 Excalidraw 0.18 的
+`libraryItems` 结构，并打包进 `Resources/Sketch` 离线使用。
+
+| 素材库 | 作者 / 来源 | 组件数 |
+|---|---|---:|
+| Basic UX/wireframing elements | gabrielamacakova | 69 |
+| Lo-Fi Wireframing Kit | spfr | 23 |
+| Web Kit | excacomp | 9 |
+| Mobile Kit | excacomp | 3 |
+| Forms | g-script | 26 |
+| HTML input elements | marwinburesch | 8 |
+| Universal UI kit | manuelernestog | 22 |
+| Dropdowns | h7y | 3 |
+| Apple Devices Frames | franky47 | 13 |
+| Awesome Icons | ferminrp | 24 |
+| Basic shapes | pgilfernandez | 32 |
+| Sticky Notes | ferminrp | 13 |
+| Bubbles | ocapraro | 4 |
+| Gadgets | morgemoensch | 5 |
+| Software Architecture | youritjang | 7 |
+| System Design Components | rohanp | 24 |
+
+- 素材仅保存在本地，不请求 libraries.excalidraw.com 或 Excalidraw 云服务。
+- MIT License 允许商用、修改与再分发，但分发时须保留原作者的版权与许可声明；
+  完整仓库级许可见上游 `LICENSE`。
+- 页面「精选素材」面板底部保留来源与许可标识；用户从面板或原生「素材库」按钮
+  均可访问这些素材。

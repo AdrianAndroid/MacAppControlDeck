@@ -9,6 +9,7 @@ import {
 } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import "./sketch.css";
+import libraryBundle from "./libraries.generated.json";
 
 const MESSAGE_HANDLER = "deckSketch";
 
@@ -33,6 +34,58 @@ let boardUI = { boards: [], activeID: "" };
 let boardUISetter = null;
 let switchingSetter = null;
 let switchStartedAt = 0;
+
+const LIBRARY_SEED_KEY = `deck.librarySeed.v${libraryBundle.version}`;
+const LIBRARY_LOADED_KEY = `deck.libraryLoaded.v${libraryBundle.version}`;
+
+function loadedLibraryIDs() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LIBRARY_LOADED_KEY) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markLibrariesLoaded(entries) {
+  const ids = new Set([...loadedLibraryIDs(), ...entries.map((entry) => entry.id)]);
+  localStorage.setItem(LIBRARY_LOADED_KEY, JSON.stringify([...ids]));
+}
+
+function libraryItemsFor(entries) {
+  return entries.flatMap((library) => library.items || []);
+}
+
+async function mergeSelectedLibraries(entries, openLibraryMenu = false) {
+  if (!excalidrawAPI) throw new Error("画板还没有准备好");
+  const libraryItems = libraryItemsFor(entries);
+  if (libraryItems.length === 0) throw new Error("素材库为空");
+  await excalidrawAPI.updateLibrary({
+    libraryItems,
+    merge: true,
+    openLibraryMenu,
+    defaultStatus: "published"
+  });
+  return libraryItems.length;
+}
+
+async function seedLibraries() {
+  if (!excalidrawAPI) return;
+  try {
+    if (localStorage.getItem(LIBRARY_SEED_KEY) === "done") return;
+    await mergeSelectedLibraries(libraryBundle.libraries);
+    localStorage.setItem(LIBRARY_SEED_KEY, "done");
+    markLibrariesLoaded(libraryBundle.libraries);
+  } catch (error) {
+    console.warn("seed libraries failed", error);
+  }
+}
+
+function openLibrarySidebar() {
+  excalidrawAPI?.updateScene({
+    appState: { openSidebar: { name: "default", tab: "library" } }
+  });
+}
 
 function getNonDeletedElements(elements) {
   return elements.filter((element) => !element.isDeleted);
@@ -598,6 +651,188 @@ function BoardSwitcher({ ui, switching }) {
   );
 }
 
+function LibraryIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2" y="2.5" width="5" height="5" rx="1" />
+      <rect x="9" y="2.5" width="5" height="5" rx="1" />
+      <rect x="2" y="8.5" width="5" height="5" rx="1" />
+      <rect x="9" y="8.5" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function LibraryPicker() {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [busyID, setBusyID] = useState("");
+  const rootRef = React.useRef(null);
+  const searchRef = React.useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    requestAnimationFrame(() => searchRef.current?.focus());
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [open]);
+
+  const needle = query.trim().toLowerCase();
+  const loaded = loadedLibraryIDs();
+  const visible = needle
+    ? libraryBundle.libraries.filter((library) =>
+        `${library.label} ${library.name} ${library.description || ""}`
+          .toLowerCase()
+          .includes(needle)
+      )
+    : libraryBundle.libraries;
+
+  const importLibraries = async (entries) => {
+    if (busyID) return;
+    const alreadyLoaded = loadedLibraryIDs();
+    const pending = entries.filter((entry) => !alreadyLoaded.has(entry.id));
+    if (pending.length === 0) {
+      setOpen(false);
+      openLibrarySidebar();
+      showToast("该素材已在素材库中，直接打开素材库");
+      return;
+    }
+    const key = entries.length === libraryBundle.libraries.length ? "all" : entries[0]?.id;
+    setBusyID(key);
+    try {
+      const count = await mergeSelectedLibraries(pending, true);
+      markLibrariesLoaded(pending);
+      setOpen(false);
+      showToast(
+        pending.length === entries.length
+          ? `已载入 ${pending.length} 组素材库 · ${count} 个组件`
+          : `已补充 ${pending.length} 组素材库 · ${count} 个组件`
+      );
+    } catch (error) {
+      console.error("load library failed", error);
+      showToast("素材库载入失败", "error");
+    } finally {
+      setBusyID("");
+    }
+  };
+
+  return (
+    <div className="deck-library-picker" ref={rootRef}>
+      <button
+        type="button"
+        className={`deck-action deck-library-trigger${open ? " is-open" : ""}`}
+        title="浏览内置的精选素材库"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <LibraryIcon />
+        精选素材
+        <span className="deck-library-badge">{libraryBundle.totalItems}</span>
+      </button>
+
+      {open ? (
+        <div className="deck-library-panel" role="dialog" aria-label="精选素材库">
+          <div className="deck-library-head">
+            <div>
+              <div className="deck-library-title">精选素材库</div>
+              <div className="deck-library-subtitle">
+                {libraryBundle.libraries.length} 组 / {libraryBundle.totalItems} 个组件 · 离线可用
+              </div>
+            </div>
+            <button
+              type="button"
+              className="deck-library-collapse"
+              title="关闭"
+              onClick={() => setOpen(false)}
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="deck-library-search">
+            <span className="deck-library-search-glyph" aria-hidden="true">
+              ⌕
+            </span>
+            <input
+              ref={searchRef}
+              value={query}
+              placeholder="搜索素材类别"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query ? (
+              <button type="button" title="清空搜索" onClick={() => setQuery("")}>
+                ×
+              </button>
+            ) : null}
+          </div>
+
+          <div className="deck-library-list">
+            {visible.length === 0 ? (
+              <div className="deck-library-empty">没有匹配的素材库</div>
+            ) : (
+              visible.map((library) => (
+                <button
+                  type="button"
+                  className="deck-library-row"
+                  key={library.id}
+                  disabled={!!busyID}
+                  onClick={() => importLibraries([library])}
+                >
+                  <span className="deck-library-row-main">
+                    <span className="deck-library-row-title">
+                      {library.label}
+                      <span className="deck-library-row-count">{library.itemCount}</span>
+                    </span>
+                    <span className="deck-library-row-desc">
+                      {library.name}
+                      {library.author ? ` · ${library.author}` : ""}
+                    </span>
+                  </span>
+                  <span className="deck-library-row-action">
+                    {busyID === library.id ? "载入中" : loaded.has(library.id) ? "已载入" : "载入"}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+
+          <div className="deck-library-foot">
+            <button
+              type="button"
+              className="deck-library-open"
+              onClick={() => {
+                setOpen(false);
+                openLibrarySidebar();
+              }}
+            >
+              打开素材库
+            </button>
+            <button
+              type="button"
+              className="deck-library-load-all"
+              disabled={!!busyID}
+              onClick={() => importLibraries(libraryBundle.libraries)}
+            >
+              {busyID === "all" ? "载入中" : "全部载入"}
+            </button>
+          </div>
+          <div className="deck-library-source">
+            素材来自 libraries.excalidraw.com · MIT License
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function isEditingText() {
   const active = document.activeElement;
   return (
@@ -670,7 +905,10 @@ function App() {
         excalidrawAPI={(api) => {
           excalidrawAPI = api;
           if (pendingScene) loadScene(pendingScene);
-          setTimeout(() => post("ready"), 80);
+          setTimeout(() => {
+            seedLibraries();
+            post("ready");
+          }, 80);
         }}
         onChange={(elements, appState) => {
           if (!hydrated) return;
@@ -681,6 +919,7 @@ function App() {
         }}
         renderTopRightUI={() => (
           <div className="deck-actions">
+            <LibraryPicker />
             <button
               type="button"
               className="deck-action"
