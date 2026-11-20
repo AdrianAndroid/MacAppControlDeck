@@ -34,6 +34,7 @@ struct HTTPResponse {
         case 400: return "Bad Request"
         case 401: return "Unauthorized"
         case 403: return "Forbidden"
+        case 302: return "Found"
         case 404: return "Not Found"
         case 405: return "Method Not Allowed"
         case 413: return "Payload Too Large"
@@ -87,6 +88,15 @@ final class APIRouter {
         }
         guard request.body.count <= maxBodySize else {
             return .error("payload-too-large", message: "请求体过大", status: 413)
+        }
+
+        // 面板入口强制带版本参数，避免 Web App / Safari 使用旧缓存页面
+        if request.method == "GET",
+           request.path == "/panel" || request.path == "/panel/" || request.path == "/panel/index.html" {
+            var resp = HTTPResponse(status: 302, contentType: "text/plain; charset=utf-8", body: Data())
+            resp.headers["Location"] = "/panel/?v=\(PanelHTML.version)"
+            resp.headers["Cache-Control"] = "no-store, must-revalidate"
+            return resp
         }
 
         if let host = request.header("Host"), !HostPolicy.isAllowed(host) {

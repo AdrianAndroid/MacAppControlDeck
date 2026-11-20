@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-20.1"
+    static let version = "2026-11-20.2"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -112,6 +112,14 @@ enum PanelHTML {
         setTimeout(updateDebug, 600);
         setTimeout(updateDebug, 1500);
       }
+
+      (function(){
+        const m=document.querySelector('meta[name="panel-version"]');
+        const d=document.createElement('div');
+        d.style.cssText='position:fixed;right:6px;top:calc(env(safe-area-inset-top, 0px) + 4px);font:9px ui-monospace;color:#555c85;z-index:50;pointer-events:none';
+        d.textContent = (m?m.content:'?');
+        document.body.appendChild(d);
+      })();
 
       const debugMode = location.search.includes('debug=1');
       function updateDebug(){
