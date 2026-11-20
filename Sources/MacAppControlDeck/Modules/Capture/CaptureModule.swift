@@ -28,6 +28,14 @@ final class CaptureModule: FeatureModule {
         parent.identifier = NSUserInterfaceItemIdentifier("capture.root")
 
         let submenu = NSMenu(title: "截图与录屏")
+        parent.submenu = submenu
+
+        var items: [NSMenuItem] = []
+        if MacShotController.shared.isRecording {
+            let stop = item("停止录屏", #selector(stopRecording), "stop.circle.fill")
+            stop.identifier = NSUserInterfaceItemIdentifier("capture.stop")
+            items.append(stop)
+        }
 
         submenu.addItem(item("全屏截图", #selector(captureFullScreen), "camera"))
         submenu.addItem(item("全屏截图（全部显示器拼接）", #selector(captureAllScreens), "display"))
@@ -113,7 +121,8 @@ final class CaptureModule: FeatureModule {
         submenu.addItem(item("截图与录屏设置…", #selector(openCaptureSettings), "gearshape"))
 
         parent.submenu = submenu
-        return [parent]
+        items.append(parent)
+        return items
     }
 
     func settingsView() -> AnyView {

@@ -73,7 +73,7 @@ final class RecordingHUDController {
         container.layer?.borderColor = NSColor.white.withAlphaComponent(0.1).cgColor
         panel.contentView = container
 
-        let stop = NSButton()
+        let stop = HUDButton()
         stop.bezelStyle = .regularSquare
         stop.isBordered = false
         stop.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: "Stop")?
@@ -87,7 +87,7 @@ final class RecordingHUDController {
         container.addSubview(stop)
         stopButton = stop
 
-        let pause = NSButton()
+        let pause = HUDButton()
         pause.bezelStyle = .regularSquare
         pause.isBordered = false
         pause.contentTintColor = .white
@@ -272,6 +272,11 @@ private final class RecordingBorderView: NSView {
 }
 
 /// 录制前 3-2-1 倒计时（上游 CountdownView 的轻量版）。
+/// HUD 是非激活面板；默认 NSButton 会吞掉第一次点击，导致停止按钮“点一下没反应”。
+private final class HUDButton: NSButton {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 final class RecordingCountdown {
     static let shared = RecordingCountdown()
 

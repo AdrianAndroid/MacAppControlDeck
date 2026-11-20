@@ -22,6 +22,10 @@ enum CaptureToolbarAction: Equatable {
     case pin
     case ocr
     case cancel
+    case startRecord
+    case toggleSystemAudio
+    case toggleMic
+    case recordSettings
 }
 
 struct CaptureToolbarButton {
@@ -31,6 +35,7 @@ struct CaptureToolbarButton {
     var tooltip: String = ""
     var isSelected: Bool = false
     var swatchColor: NSColor?
+    var tintColor: NSColor?
 }
 
 /// 移植自 macshot/UI/Toolbar/ToolbarButtonView.swift（去掉录音电平和主题切换）。
@@ -40,6 +45,7 @@ final class CaptureToolbarButtonView: NSView {
     var text: String?
     var isOn: Bool = false { didSet { if oldValue != isOn { cachedIcon = nil; needsDisplay = true } } }
     var swatchColor: NSColor? { didSet { needsDisplay = true } }
+    var tintColor: NSColor = ToolbarLayout.iconColor { didSet { cachedIcon = nil; needsDisplay = true } }
     var tooltipText: String = ""
 
     private var isHovered = false
@@ -70,6 +76,7 @@ final class CaptureToolbarButtonView: NSView {
         text = data.text
         isOn = data.isSelected
         swatchColor = data.swatchColor
+        tintColor = data.tintColor ?? ToolbarLayout.iconColor
         tooltipText = data.tooltip
         toolTip = data.tooltip
         cachedIcon = nil
@@ -105,7 +112,7 @@ final class CaptureToolbarButtonView: NSView {
         if let text {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
-                .foregroundColor: ToolbarLayout.iconColor,
+                .foregroundColor: tintColor,
             ]
             let size = (text as NSString).size(withAttributes: attrs)
             (text as NSString).draw(at: NSPoint(x: bounds.midX - size.width / 2,
@@ -116,7 +123,7 @@ final class CaptureToolbarButtonView: NSView {
 
         guard let name = sfSymbol else { return }
         if cachedIcon == nil || cachedIconIsOn != isOn {
-            let color = ToolbarLayout.iconColor
+            let color = tintColor
             let key = "\(name)|\(isOn)|\(color.description)"
             if let cached = Self.iconCache[key] {
                 cachedIcon = cached

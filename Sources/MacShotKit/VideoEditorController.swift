@@ -8,8 +8,8 @@ final class VideoEditorController {
     static let shared = VideoEditorController()
     private var window: NSWindow?
 
-    func present(_ url: URL) {
-        let view = VideoEditorView(url: url,
+    func present(_ url: URL, preferGIF: Bool = false) {
+        let view = VideoEditorView(url: url, preferGIF: preferGIF,
                                    onClose: { [weak self] in self?.window?.close(); self?.window = nil })
         if window == nil {
             let hosting = NSHostingController(rootView: view)
@@ -64,6 +64,7 @@ struct VideoEditSpec {
 
 private struct VideoEditorView: View {
     let url: URL
+    var preferGIF = false
     let onClose: () -> Void
 
     @State private var player = AVPlayer()
@@ -166,14 +167,19 @@ private struct VideoEditorView: View {
                     Button("取消") { cancelExport() }
                 }
                 Spacer()
-                Button("导出 GIF…") { exportGIF() }
+                Button(preferGIF ? "导出 GIF（推荐）" : "导出 GIF…") { exportGIF() }
                     .disabled(exporting)
                 Button("在 Finder 显示") {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 }
                 Button(exporting ? "导出中…" : "另存为 MP4…") { saveAs() }
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(preferGIF ? nil : .defaultAction)
                     .disabled(exporting)
+                if preferGIF {
+                    Button("导出 GIF…") { exportGIF() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(exporting)
+                }
                 Button("关闭", action: onClose)
             }
             .padding(.horizontal, 12)

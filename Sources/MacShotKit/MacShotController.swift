@@ -50,6 +50,7 @@ public final class MacShotController {
     public var showFloatingThumbnail = true
     private var recorder: ScreenRecorder?
     private var recordingTarget: RecordingTarget?
+    private var recordingIntent: RecordingFormat = .mp4
     private var toastPanel: NSPanel?
     private var toastTimer: Timer?
 
@@ -276,15 +277,23 @@ public final class MacShotController {
             return
         }
         guard ensurePermission() else { return }
+        recordingIntent = format
 
         switch mode {
         case .fullScreen:
             guard let screen = NSScreen.main else { return }
             beginRecording(target: .screen(screen), format: format)
         case .area:
-            AreaSelectionController.shared.begin { [weak self] screen, rect, _ in
+            AreaSelectionController.shared.beginRecording(initialFormat: format) { [weak self] screen, rect, chosenFormat, fps, sysAudio, mic in
+                guard let self else { return }
+                var options = self.recordingOptions
+                options.fps = fps
+                options.systemAudio = sysAudio && chosenFormat == .mp4
+                options.microphone = mic && chosenFormat == .mp4
+                self.recordingOptions = options
+                self.recordingIntent = chosenFormat
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    self?.beginRecording(target: .area(screen, rect), format: format)
+                    self.beginRecording(target: .area(screen, rect), format: .mp4)
                 }
             }
         case .window:
@@ -301,7 +310,9 @@ public final class MacShotController {
     }
 
     private func beginRecording(target: RecordingTarget, format: RecordingFormat) {
-        let ext = format == .gif ? "gif" : "mp4"
+        recordingIntent = (format == .gif) ? .gif : recordingIntent
+        // 录制始终产出 MP4 take；GIF 通过视频编辑器导出（与 macshot 一致）。
+        let ext = "mp4"
         let url: URL
         do {
             try FileManager.default.createDirectory(at: recordingDirectory,
@@ -325,9 +336,12 @@ public final class MacShotController {
                 ClickHighlightController.shared.stop()
                 switch result {
                 case .success(let url):
-                    self?.showToast("已保存 \(url.lastPathComponent)")
+                    self?.showToast(self?.recordingIntent == .gif
+                        ? "录制完成，正在准备 GIF 编辑"
+                        : "已保存 \(url.lastPathComponent)")
                     if url.pathExtension.lowercased() == "mp4" {
-                        VideoEditorController.shared.present(url)
+                        VideoEditorController.shared.present(url,
+                                                            preferGIF: self?.recordingIntent == .gif)
                     }
                 case .failure(let error):
                     self?.showAlert("录制失败", error.localizedDescription)

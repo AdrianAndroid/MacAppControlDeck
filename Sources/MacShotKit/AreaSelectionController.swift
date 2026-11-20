@@ -7,6 +7,7 @@ final class AreaSelectionController {
     private var window: SelectionWindow?
     private var view: SelectionView?
     private var completion: ((NSScreen, CGRect, CGImage?) -> Void)?
+    private var recordingCompletion: ((NSScreen, CGRect, RecordingFormat, Int, Bool, Bool) -> Void)?
     private var escapeMonitor: Any?
     private var snapshot: CGImage?
     private var unionFrame: CGRect = .zero
@@ -14,6 +15,19 @@ final class AreaSelectionController {
     var isActive: Bool { window != nil }
 
     func begin(completion: @escaping (NSScreen, CGRect, CGImage?) -> Void) {
+        start(recording: false, completion: completion)
+    }
+
+    /// 录制模式：覆盖层只显示录制设置（开始/取消/系统声音/麦克风/格式与帧率），
+    /// 不显示标注工具；确认后把选区交给调用方开始录制（与 macshot 一致）。
+    func beginRecording(initialFormat: RecordingFormat = .mp4,
+                        completion: @escaping (NSScreen, CGRect, RecordingFormat, Int, Bool, Bool) -> Void) {
+        recordingCompletion = completion
+        start(recording: true) { _, _, _ in }
+        view?.recordingFormat = initialFormat
+    }
+
+    private func start(recording: Bool, completion: @escaping (NSScreen, CGRect, CGImage?) -> Void) {
         guard window == nil else { return }
         self.completion = completion
         let frames = NSScreen.screens.map(\.frame)
@@ -24,6 +38,14 @@ final class AreaSelectionController {
         let view = SelectionView(frame: CGRect(origin: .zero, size: unionFrame.size))
         view.controller = self
         view.preset = MacShotController.shared.selectionPreset
+        view.isRecordingSetup = recording
+        if recording {
+            let options = MacShotController.shared.recordingOptions
+            view.recordingFormat = .mp4
+            view.recordingFPS = options.fps
+            view.recordingSystemAudio = options.systemAudio
+            view.recordingMic = options.microphone
+        }
         window.contentView = view
         // 抓冻结帧期间对自己隐藏，避免把遮罩/工具条截进背景；抓完恢复，便于用户截图。
         window.sharingType = .none
@@ -68,6 +90,19 @@ final class AreaSelectionController {
         completion(screen, rectGlobal, image)
     }
 
+    fileprivate func commitRecording(rectGlobal: CGRect) {
+        guard let recordingCompletion, let view else { return }
+        let center = CGPoint(x: rectGlobal.midX, y: rectGlobal.midY)
+        let screen = NSScreen.screens.first(where: { $0.frame.contains(center) })
+            ?? NSScreen.screens.first(where: { $0.frame.intersects(rectGlobal) })
+            ?? NSScreen.main
+        guard let screen else { return }
+        let (format, fps, sysAudio, mic) = (view.recordingFormat, view.recordingFPS,
+                                            view.recordingSystemAudio, view.recordingMic)
+        finish()
+        recordingCompletion(screen, rectGlobal, format, fps, sysAudio, mic)
+    }
+
     func cancel() { finish() }
 
     private func finish() {
@@ -76,6 +111,7 @@ final class AreaSelectionController {
             self.escapeMonitor = nil
         }
         completion = nil
+        recordingCompletion = nil
         window?.orderOut(nil)
         window = nil
         view = nil
@@ -108,6 +144,11 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
     weak var controller: AreaSelectionController?
     var snapshot: CGImage?
     var preset: CaptureSelectionPreset = .free
+    var isRecordingSetup = false
+    var recordingFormat: RecordingFormat = .mp4
+    var recordingFPS = 30
+    var recordingSystemAudio = true
+    var recordingMic = false
 
     private var rect: CGRect?
     private var anchor: CGPoint = .zero
@@ -242,6 +283,17 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         anchor = p
+        if isRecordingSetup {
+            if let r = rect, r.insetBy(dx: -2, dy: -2).contains(p) {
+                mode = .moving; startRect = r
+                return
+            }
+            mode = .creating
+            hoverRect = nil
+            rect = CGRect(origin: p, size: .zero)
+            needsDisplay = true
+            return
+        }
         if editing, let r = rect, r.contains(p), tool != .move {
             if tool == .text { beginTextInput(at: p); return }
             drawingTool = tool
@@ -320,6 +372,11 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { controller?.cancel(); return }
+        if isRecordingSetup {
+            if event.keyCode == 36 || event.keyCode == 76 { startRecording(); return }
+            if event.keyCode == 51 || event.keyCode == 117 { rect = nil; editing = false; hideToolbars(); needsDisplay = true; return }
+            return
+        }
         if editing {
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if mods.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "z" {
@@ -624,6 +681,12 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
 
     private func rebuildToolbars() {
         guard rect != nil else { hideToolbars(); return }
+        if isRecordingSetup {
+            rebuildRecordingToolbars()
+            return
+        }
+        bottomStrip?.isHidden = false
+        optionsStrip?.isHidden = false
         if bottomStrip == nil {
             let strip = CaptureToolbarStripView(orientation: .horizontal)
             strip.onClick = { [weak self] action in self?.handleToolbar(action) }
@@ -656,6 +719,89 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         needsDisplay = true
     }
 
+    private var recordingButtons: [CaptureToolbarButton] {
+        [
+            CaptureToolbarButton(action: .startRecord, sfSymbol: "record.circle",
+                                 text: nil, tooltip: "开始录制",
+                                 tintColor: .systemRed),
+            CaptureToolbarButton(action: .cancel, sfSymbol: "xmark",
+                                 text: nil, tooltip: "取消录制"),
+            CaptureToolbarButton(action: .toggleSystemAudio,
+                                 sfSymbol: recordingSystemAudio ? "speaker.wave.2.fill" : "speaker.slash",
+                                 text: nil, tooltip: "录制系统声音",
+                                 isSelected: recordingSystemAudio),
+            CaptureToolbarButton(action: .toggleMic,
+                                 sfSymbol: recordingMic ? "mic.fill" : "mic.slash",
+                                 text: nil, tooltip: "录制麦克风",
+                                 isSelected: recordingMic),
+            CaptureToolbarButton(action: .recordSettings, sfSymbol: "gearshape",
+                                 text: nil, tooltip: "录制格式 / 帧率"),
+        ]
+    }
+
+    private func rebuildRecordingToolbars() {
+        if rightStrip == nil {
+            let strip = CaptureToolbarStripView(orientation: .vertical)
+            strip.onClick = { [weak self] action in self?.handleToolbar(action) }
+            addSubview(strip)
+            rightStrip = strip
+        }
+        bottomStrip?.isHidden = true
+        optionsStrip?.isHidden = true
+        rightStrip?.isHidden = false
+        rightStrip?.setButtons(recordingButtons)
+        layoutToolbars()
+        needsDisplay = true
+    }
+
+    private func startRecording() {
+        guard let rect, rect.width >= 8, rect.height >= 8 else { NSSound.beep(); return }
+        let global = CGRect(x: unionFrame.minX + rect.minX,
+                            y: unionFrame.minY + rect.minY,
+                            width: rect.width, height: rect.height)
+        controller?.commitRecording(rectGlobal: global)
+    }
+
+    private func showRecordingSettingsMenu() {
+        let menu = NSMenu()
+        let formatItem = NSMenuItem(title: "格式", action: nil, keyEquivalent: "")
+        let formatMenu = NSMenu(title: "格式")
+        for (title, format) in [("MP4", RecordingFormat.mp4), ("GIF", RecordingFormat.gif)] {
+            let item = NSMenuItem(title: title, action: #selector(setRecordingFormat(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = format == .mp4 ? "mp4" : "gif"
+            item.state = recordingFormat == format ? .on : .off
+            formatMenu.addItem(item)
+        }
+        formatItem.submenu = formatMenu
+        menu.addItem(formatItem)
+
+        let fpsItem = NSMenuItem(title: "帧率", action: nil, keyEquivalent: "")
+        let fpsMenu = NSMenu(title: "帧率")
+        for fps in [15, 30, 60, 120] {
+            let item = NSMenuItem(title: "\(fps) fps", action: #selector(setRecordingFPS(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = fps
+            item.state = recordingFPS == fps ? .on : .off
+            fpsMenu.addItem(item)
+        }
+        fpsItem.submenu = fpsMenu
+        menu.addItem(fpsItem)
+
+        let point = convert(window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil)
+        menu.popUp(positioning: nil, at: point, in: self)
+    }
+
+    @objc private func setRecordingFormat(_ sender: NSMenuItem) {
+        recordingFormat = (sender.representedObject as? String) == "gif" ? .gif : .mp4
+        rebuildToolbars()
+    }
+
+    @objc private func setRecordingFPS(_ sender: NSMenuItem) {
+        recordingFPS = sender.representedObject as? Int ?? 30
+        rebuildToolbars()
+    }
+
     private func hideToolbars() {
         bottomStrip?.isHidden = true
         optionsStrip?.isHidden = true
@@ -665,12 +811,27 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
     /// 位置算法移植自 macshot OverlayView.repositionToolbars()：
     /// 横向工具条默认在选区下方（居中），竖向动作条贴在选区右侧并与选区顶对齐。
     private func layoutToolbars() {
-        guard let rect, let bottomStrip, let optionsStrip, let rightStrip else { return }
+        guard let rect, let rightStrip else { return }
         let visible = editing
-        bottomStrip.isHidden = !visible
-        optionsStrip.isHidden = !visible
         rightStrip.isHidden = !visible
         guard visible else { return }
+
+        guard !isRecordingSetup else {
+            bottomStrip?.isHidden = true
+            optionsStrip?.isHidden = true
+            let size = rightStrip.frame.size
+            var rx = rect.maxX + 6
+            if rx + size.width > bounds.maxX - 4 { rx = rect.minX - size.width - 6 }
+            rx = max(bounds.minX + 4, min(rx, bounds.maxX - size.width - 4))
+            var ry = rect.maxY - size.height
+            ry = max(bounds.minY + 4, min(ry, bounds.maxY - size.height - 4))
+            rightStrip.frame.origin = NSPoint(x: rx, y: ry)
+            return
+        }
+
+        guard let bottomStrip, let optionsStrip else { return }
+        bottomStrip.isHidden = false
+        optionsStrip.isHidden = false
 
         let rightSize = rightStrip.frame.size
         let bottomSize = bottomStrip.frame.size
@@ -783,6 +944,16 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
             return
         case .cancel:
             performToolbarAction("cancel")
+            return
+        case .startRecord:
+            startRecording()
+            return
+        case .toggleSystemAudio:
+            recordingSystemAudio.toggle()
+        case .toggleMic:
+            recordingMic.toggle()
+        case .recordSettings:
+            showRecordingSettingsMenu()
             return
         }
         needsDisplay = true

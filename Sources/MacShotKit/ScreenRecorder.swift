@@ -45,6 +45,7 @@ enum RecordingError: LocalizedError {
     case permission
     case writer
     case noFrames
+    case noScreenFrames
 
     var errorDescription: String? {
         switch self {
@@ -52,6 +53,7 @@ enum RecordingError: LocalizedError {
         case .noWindow: return "找不到可录制的窗口"
         case .permission: return "没有屏幕录制权限"
         case .writer: return "录制文件写入失败"
+        case .noScreenFrames: return "没有收到屏幕画面。请在系统设置 → 隐私与安全 → 屏幕录制中删除旧的 MacAppControlDeck 条目，重新添加当前应用并重启后再试。"
         case .noFrames: return "没有采集到画面"
         }
     }
@@ -81,6 +83,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var pausedAt: Date?
     private var totalPaused: TimeInterval = 0
     private var originPTS: CMTime?
+    private var sessionStarted = false
+    private var isRecordingSession: Bool { writer != nil && !isStopping }
+    private var screenFramesReceived = 0
+    private var videoFramesWritten = 0
     private var diskTimer: DispatchSourceTimer?
     private var sleepObserver: NSObjectProtocol?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
@@ -107,6 +113,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         self.isPaused = false
         self.pausedAt = nil
         self.totalPaused = 0
+        self.sessionStarted = false
 
         let content: SCShareableContent
         do {
@@ -231,6 +238,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             guard writer.startWriting() else {
                 throw writer.error ?? RecordingError.writer
             }
+            // 必须先开 session，AVAssetWriterInput 才会进入 ready 状态；
+            // 之前在首个屏幕帧里才调用会导致 isReadyForMoreMediaData 永远为 false。
+            writer.startSession(atSourceTime: .zero)
+            self.sessionStarted = true
             self.writer = writer
         } else {
             self.writer = nil
@@ -255,6 +266,12 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         try await startCapture(stream)
         originPTS = nil
         startDiskMonitor()
+        stateQueue.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            guard let self, self.isRecordingSession, self.format == .mp4,
+                  self.screenFramesReceived == 0 else { return }
+            NSLog("MacShotKit: no screen frames received; likely missing screen-recording trust")
+            self.stop()
+        }
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -366,9 +383,31 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
                          to: targetBuffer,
                          bounds: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight),
                          colorSpace: CGColorSpaceCreateDeviceRGB())
-        if !adaptor.append(targetBuffer, withPresentationTime: frameTime) {
+        if adaptor.append(targetBuffer, withPresentationTime: frameTime) {
+            videoFramesWritten += 1
+        } else {
             NSLog("MacShotKit: video append failed: \(String(describing: writer?.error))")
         }
+    }
+
+    /// 把 SCK 缓冲重绘到可编码的 BGRA 缓冲（尺寸不一致时顺带缩放）。
+    private func renderBuffer(from source: CVPixelBuffer) -> CVPixelBuffer {
+        var created: CVPixelBuffer?
+        let attrs: [String: Any] = [
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+        ]
+        guard CVPixelBufferCreate(kCFAllocatorDefault, pixelWidth, pixelHeight,
+                                  kCVPixelFormatType_32BGRA, attrs as CFDictionary,
+                                  &created) == kCVReturnSuccess,
+              let target = created else { return source }
+        let image = CIImage(cvPixelBuffer: source)
+        ciContext.render(image,
+                         to: target,
+                         bounds: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight),
+                         colorSpace: CGColorSpaceCreateDeviceRGB())
+        return target
     }
 
     /// SCK 偶尔给出与配置尺寸不一致的缓冲；此时缩放一次再写入，避免整段录制失败。
@@ -495,30 +534,15 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         switch type {
         case .screen:
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-            if format == .gif {
-                latestPixelBuffer = pixelBuffer
-                if startedAt == nil {
-                    startedAt = .zero
-                    startFrameTimer()
-                }
-                return
-            }
-            guard !isPaused, let adaptor, let videoInput, videoInput.isReadyForMoreMediaData else { return }
-            let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            if originPTS == nil {
-                originPTS = pts
-                startedAt = .zero
+            latestPixelBuffer = pixelBuffer
+            screenFramesReceived += 1
+            if !sessionStarted {
                 writer?.startSession(atSourceTime: .zero)
+                sessionStarted = true
             }
-            guard let originPTS else { return }
-            var paused = totalPaused
-            if let pausedAt { paused += Date().timeIntervalSince(pausedAt) }
-            var relative = CMTimeSubtract(pts, originPTS)
-            relative = CMTimeSubtract(relative, CMTime(seconds: paused, preferredTimescale: 600))
-            guard relative.seconds >= 0 else { return }
-            let buffer = normalizedBuffer(pixelBuffer)
-            if !adaptor.append(buffer, withPresentationTime: relative) {
-                NSLog("MacShotKit: video append failed: \(String(describing: writer?.error))")
+            if startedAt == nil {
+                startedAt = .zero
+                startFrameTimer()
             }
 
         case .audio:
