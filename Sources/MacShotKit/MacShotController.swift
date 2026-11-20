@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CoreGraphics
 
 public final class MacShotController {
@@ -35,6 +36,19 @@ public final class MacShotController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
                 guard let image = ScreenCaptureService.captureFullScreen() else {
                     self?.showAlert("截图失败", "请确认屏幕录制权限已授权，并重启应用后重试。")
+                    return
+                }
+                self?.openEditor(image)
+            }
+        }
+    }
+
+    public func captureAllScreens() {
+        guard ensurePermission() else { return }
+        scheduleCapture { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+                guard let image = ScreenCaptureService.captureAllScreensStitched() else {
+                    self?.showAlert("多屏截图失败", "请确认屏幕录制权限已授权。")
                     return
                 }
                 self?.openEditor(image)
@@ -204,6 +218,9 @@ public final class MacShotController {
                 switch result {
                 case .success(let url):
                     self?.showToast("已保存 \(url.lastPathComponent)")
+                    if url.pathExtension.lowercased() == "mp4" {
+                        VideoEditorController.shared.present(url)
+                    }
                 case .failure(let error):
                     self?.showAlert("录制失败", error.localizedDescription)
                 }
@@ -214,6 +231,15 @@ public final class MacShotController {
         self.recordingFormat = format
 
         Task { @MainActor in
+            if recordingOptions.microphone {
+                let granted = await AVCaptureDevice.requestAccess(for: .audio)
+                if !granted {
+                    self.recorder = nil
+                    self.isRecording = false
+                    self.showAlert("没有麦克风权限", "请在系统设置中允许麦克风访问后重试。")
+                    return
+                }
+            }
             do {
                 try await recorder.start(target: target,
                                          format: format,

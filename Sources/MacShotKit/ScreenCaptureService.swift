@@ -8,6 +8,32 @@ enum ScreenCaptureService {
         return capture(screen: screen)
     }
 
+    /// 多显示器一次性拼接：按屏幕在桌面上的实际位置合成一张图（1x 点尺寸）。
+    static func captureAllScreensStitched() -> CGImage? {
+        let context = ScreenCaptureManager.makeImmediateCaptureContext()
+        let captures = ScreenCaptureManager.captureAllScreensImmediately(context: context)
+        guard !captures.isEmpty else { return nil }
+        let frames = captures.map(\.screen.frame)
+        let union = frames.reduce(CGRect.null) { $0.union($1) }
+        guard union.width > 0, union.height > 0,
+              let ctx = CGContext(data: nil, width: Int(union.width),
+                                  height: Int(union.height), bitsPerComponent: 8,
+                                  bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        ctx.setFillColor(NSColor.black.cgColor)
+        ctx.fill(CGRect(x: 0, y: 0, width: union.width, height: union.height))
+        for capture in captures {
+            let f = capture.screen.frame
+            let rect = CGRect(x: f.minX - union.minX,
+                              y: union.maxY - f.maxY,
+                              width: f.width, height: f.height)
+            ctx.draw(capture.image, in: rect)
+        }
+        return ctx.makeImage()
+    }
+
     static func capture(screen: NSScreen) -> CGImage? {
         let context = ScreenCaptureManager.makeImmediateCaptureContext()
         let captures = ScreenCaptureManager.captureAllScreensImmediately(context: context)

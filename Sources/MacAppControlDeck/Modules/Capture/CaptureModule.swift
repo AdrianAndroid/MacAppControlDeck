@@ -29,6 +29,7 @@ final class CaptureModule: FeatureModule {
         let submenu = NSMenu(title: "截图与录屏")
 
         submenu.addItem(item("全屏截图", #selector(captureFullScreen), "camera"))
+        submenu.addItem(item("全屏截图（全部显示器拼接）", #selector(captureAllScreens), "display"))
         submenu.addItem(item("区域截图", #selector(captureArea), "selection"))
         submenu.addItem(item("窗口截图", #selector(captureWindow), "rectangle.on.rectangle"))
         submenu.addItem(item("滚动截图（区域）", #selector(scrollCapture), "scroll"))
@@ -98,6 +99,10 @@ final class CaptureModule: FeatureModule {
     }
 
     // MARK: - 截图
+
+    @objc func captureAllScreens() {
+        MacShotController.shared.captureAllScreens()
+    }
 
     @objc func captureFullScreen() {
         syncDirectories()
@@ -183,6 +188,7 @@ final class CaptureModule: FeatureModule {
         MacShotController.shared.recordingDirectory = prefs.recordingDirectoryURL
         MacShotController.shared.recordingOptions.systemAudio = prefs.recordingSystemAudio
         MacShotController.shared.recordingOptions.showsCursor = prefs.recordingCursor
+        MacShotController.shared.recordingOptions.microphone = prefs.recordingMicrophone
         MacShotController.shared.recordingOptions.fps = prefs.recordingFPS
         MacShotController.shared.recordingOptions.gifFPS = prefs.gifFPS
         MacShotController.shared.imageFormat = prefs.imageFormat.rawValue

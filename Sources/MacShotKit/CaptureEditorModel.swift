@@ -11,10 +11,42 @@ final class CaptureEditorModel: ObservableObject {
     @Published var draft: CaptureAnnotation?
     @Published var cropRect: CGRect?
     @Published var isDirty = false
+    @Published var selectedID: UUID?
+    @Published var pickedColorText: String?
+
+    // Advanced style defaults
+    @Published var arrowStyle: ArrowStyle = .single
+    @Published var arrowReversed = false
+    @Published var fillMode: ShapeFillMode = .stroke
+    @Published var cornerRadius: CGFloat = 0
+    @Published var textBold = true
+    @Published var textItalic = false
+    @Published var textUnderline = false
+    @Published var textStrikethrough = false
+    @Published var textAlign: TextAlign = .left
+    @Published var textBackground = false
+    @Published var stampEmoji = "😀"
+    @Published var loupeZoom: CGFloat = 2
+
+    // Image effects / Beautify
+    @Published var brightness: Double = 0
+    @Published var contrast: Double = 1
+    @Published var saturation: Double = 1
+    @Published var sharpness: Double = 0
+    @Published var effectPreset: ImageEffectPreset = .none
+    @Published var beautifyEnabled = false
+    @Published var beautifyPadding: CGFloat = 48
+    @Published var beautifyCorner: CGFloat = 12
+    @Published var beautifyShadow = true
+    @Published var beautifyGradient = 0
+    @Published var outputWidth = 0
+    @Published var outputHeight = 0
 
     private var undoStack: [[CaptureAnnotation]] = []
     private var redoStack: [[CaptureAnnotation]] = []
     private var nextNumber = 1
+    private var lastSelectPoint: CGPoint?
+    private var selectStartBounds: CGRect?
 
     init(image: CGImage) {
         baseImage = image
@@ -25,26 +57,50 @@ final class CaptureEditorModel: ObservableObject {
     var nsColor: NSColor { NSColor(color).usingColorSpace(.sRGB) ?? .systemRed }
     var canUndo: Bool { !undoStack.isEmpty }
     var canRedo: Bool { !redoStack.isEmpty }
+    var selectedAnnotation: CaptureAnnotation? {
+        guard let selectedID else { return nil }
+        return annotations.first { $0.id == selectedID }
+    }
+    var selectedIndex: Int? {
+        guard let selectedID else { return nil }
+        return annotations.firstIndex { $0.id == selectedID }
+    }
 
     func beginDraft(at point: CGPoint) {
         guard tool != .crop else {
             cropRect = CGRect(origin: point, size: .zero)
             return
         }
-        guard tool != .text else { return }
+        guard tool != .text, tool != .select, tool != .eyedropper else { return }
         var annotation = CaptureAnnotation(tool: tool,
                                            start: point,
                                            end: point,
                                            color: nsColor,
                                            lineWidth: lineWidth)
+        annotation.arrowStyle = arrowStyle
+        annotation.arrowReversed = arrowReversed
+        annotation.fillMode = fillMode
+        annotation.cornerRadius = cornerRadius
+        annotation.textBold = textBold
+        annotation.textItalic = textItalic
+        annotation.textUnderline = textUnderline
+        annotation.textStrikethrough = textStrikethrough
+        annotation.textAlign = textAlign
+        annotation.textBackground = textBackground
+        annotation.stampEmoji = stampEmoji
         if tool == .pen || tool == .marker {
             annotation.points = [point]
         }
         if tool == .number {
             annotation.number = nextNumber
         }
+        if tool == .stamp {
+            annotation.fontSize = max(fontSizeForStamp(), lineWidth * 8)
+        }
         draft = annotation
     }
+
+    private func fontSizeForStamp() -> CGFloat { 28 }
 
     func updateDraft(to point: CGPoint) {
         if tool == .crop {
@@ -64,9 +120,7 @@ final class CaptureEditorModel: ObservableObject {
     }
 
     func commitDraft() {
-        if tool == .crop {
-            return
-        }
+        if tool == .crop { return }
         guard let draft else { return }
         self.draft = nil
 
@@ -81,27 +135,160 @@ final class CaptureEditorModel: ObservableObject {
                 || draft.points.count > 2 else { return }
         pushUndo()
         annotations.append(draft)
+        selectedID = draft.id
         isDirty = true
     }
 
     func addText(_ text: String, at point: CGPoint) {
         guard !text.isEmpty else { return }
         pushUndo()
-        annotations.append(CaptureAnnotation(tool: .text,
-                                            start: point,
-                                            end: point,
-                                            color: nsColor,
-                                            lineWidth: lineWidth,
-                                            text: text,
-                                            fontSize: max(18, lineWidth * 7)))
+        var annotation = CaptureAnnotation(tool: .text,
+                                           start: point,
+                                           end: point,
+                                           color: nsColor,
+                                           lineWidth: lineWidth,
+                                           text: text,
+                                           fontSize: max(18, lineWidth * 7))
+        annotation.textBold = textBold
+        annotation.textItalic = textItalic
+        annotation.textUnderline = textUnderline
+        annotation.textStrikethrough = textStrikethrough
+        annotation.textAlign = textAlign
+        annotation.textBackground = textBackground
+        annotations.append(annotation)
+        selectedID = annotation.id
         isDirty = true
     }
+
+    func updateSelectedText(_ text: String) {
+        guard let index = selectedIndex, !text.isEmpty else { return }
+        pushUndo()
+        annotations[index].text = text
+        isDirty = true
+    }
+
+    // MARK: - Selection
+
+    @discardableResult
+    func select(at point: CGPoint) -> UUID? {
+        if let hit = hitTest(point) {
+            selectedID = hit.id
+            lastSelectPoint = point
+            selectStartBounds = hit.unrotatedBounds
+            return hit.id
+        }
+        selectedID = nil
+        lastSelectPoint = nil
+        selectStartBounds = nil
+        return nil
+    }
+
+    func hitTest(_ point: CGPoint) -> CaptureAnnotation? {
+        for annotation in annotations.reversed() {
+            let bounds = annotation.unrotatedBounds
+            var p = point
+            if annotation.rotation != 0 {
+                let center = CGPoint(x: bounds.midX, y: bounds.midY)
+                let t = CGAffineTransform(translationX: center.x, y: center.y)
+                    .rotated(by: -annotation.rotation)
+                    .translatedBy(x: -center.x, y: -center.y)
+                p = point.applying(t)
+            }
+            if bounds.insetBy(dx: -6, dy: -6).contains(p) { return annotation }
+        }
+        return nil
+    }
+
+    func dragSelected(to point: CGPoint) {
+        guard let lastSelectPoint, let index = selectedIndex else { return }
+        let delta = CGPoint(x: point.x - lastSelectPoint.x, y: point.y - lastSelectPoint.y)
+        annotations[index].move(by: delta)
+        self.lastSelectPoint = point
+        isDirty = true
+    }
+
+    func resizeSelected(original: CaptureAnnotation, to rect: CGRect) {
+        guard let index = selectedIndex else { return }
+        var copy = original
+        copy.resize(to: rect)
+        annotations[index] = copy
+        isDirty = true
+    }
+
+    func resizeSelected(to rect: CGRect) {
+        guard let index = selectedIndex else { return }
+        var r = rect
+        if r.width < 8 { r.size.width = 8 }
+        if r.height < 8 { r.size.height = 8 }
+        annotations[index].resize(to: r)
+        isDirty = true
+    }
+
+    func updateSelected(_ mutate: (inout CaptureAnnotation) -> Void) {
+        guard let index = selectedIndex else { return }
+        pushUndo()
+        mutate(&annotations[index])
+        isDirty = true
+    }
+
+    func mutateSelectedWithoutUndo(_ mutate: (inout CaptureAnnotation) -> Void) {
+        guard let index = selectedIndex else { return }
+        mutate(&annotations[index])
+        isDirty = true
+    }
+
+    func deleteSelected() {
+        guard let index = selectedIndex else { return }
+        pushUndo()
+        annotations.remove(at: index)
+        selectedID = nil
+        isDirty = true
+    }
+
+    func selectEnded() {
+        lastSelectPoint = nil
+        selectStartBounds = nil
+    }
+
+    // MARK: - Eyedropper
+
+    func pickColor(at point: CGPoint) {
+        let x = min(max(Int(point.x), 0), baseImage.width - 1)
+        let y = min(max(Int(point.y), 0), baseImage.height - 1)
+        guard let data = baseImage.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(data) else { return }
+        let bpp = baseImage.bitsPerPixel / 8
+        let row = baseImage.bytesPerRow
+        let offset = y * row + x * bpp
+        let r: UInt8, g: UInt8, b: UInt8
+        if baseImage.bitmapInfo.contains(.byteOrder32Little) {
+            b = ptr[offset]; g = ptr[offset + 1]; r = ptr[offset + 2]
+        } else {
+            r = ptr[offset]; g = ptr[offset + 1]; b = ptr[offset + 2]
+        }
+        let c = NSColor(srgbRed: CGFloat(r) / 255,
+                        green: CGFloat(g) / 255,
+                        blue: CGFloat(b) / 255, alpha: 1)
+        color = Color(nsColor: c)
+        pickedColorText = String(format: "R%d G%d B%d  #%02X%02X%02X",
+                                r, g, b, r, g, b)
+    }
+
+    func copyHexFromPicked() {
+        guard let pickedColorText, let hex = pickedColorText.split(separator: "#").last else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString("#\(hex)", forType: .string)
+    }
+
+    // MARK: - Undo
 
     func undo() {
         guard let last = undoStack.popLast() else { return }
         redoStack.append(annotations)
         annotations = last
         draft = nil
+        selectedID = nil
         isDirty = true
     }
 
@@ -110,6 +297,7 @@ final class CaptureEditorModel: ObservableObject {
         undoStack.append(annotations)
         annotations = next
         draft = nil
+        selectedID = nil
         isDirty = true
     }
 
@@ -136,10 +324,9 @@ final class CaptureEditorModel: ObservableObject {
         annotations = transformed
         self.cropRect = nil
         tool = .rectangle
-        // 裁剪会改变底图，旧快照只包含标注，继续撤销会把标注贴回错误的底图。
-        // 裁剪后清空撤销栈，避免产生错位结果。
         undoStack.removeAll()
         redoStack.removeAll()
+        selectedID = nil
         isDirty = true
     }
 
@@ -204,9 +391,39 @@ final class CaptureEditorModel: ObservableObject {
     }
 
     func render() -> CGImage? {
-        AnnotationRenderer.render(image: baseImage,
-                                  annotations: annotations,
-                                  cropRect: cropRect)
+        guard var output = AnnotationRenderer.render(image: baseImage,
+                                                     annotations: annotations,
+                                                     cropRect: cropRect) else { return nil }
+        if effectPreset != .none || brightness != 0 || contrast != 1
+            || saturation != 1 || sharpness != 0 {
+            output = ImageEffectsPipeline.apply(output,
+                                                brightness: brightness,
+                                                contrast: contrast,
+                                                saturation: saturation,
+                                                sharpness: sharpness,
+                                                preset: effectPreset)
+        }
+        if beautifyEnabled {
+            output = BeautifyComposer.compose(output,
+                                              padding: beautifyPadding,
+                                              corner: beautifyCorner,
+                                              shadow: beautifyShadow,
+                                              gradient: beautifyGradient)
+        }
+        if outputWidth > 0, outputHeight > 0 {
+            output = CaptureExporter.resize(output,
+                                            width: outputWidth,
+                                            height: outputHeight)
+        }
+        return output
+    }
+
+    func previewBaseImage() -> CGImage {
+        if effectPreset == .none && brightness == 0 && contrast == 1
+            && saturation == 1 && sharpness == 0 { return baseImage }
+        return ImageEffectsPipeline.apply(baseImage, brightness: brightness,
+                                          contrast: contrast, saturation: saturation,
+                                          sharpness: sharpness, preset: effectPreset)
     }
 
     private func pushUndo() {

@@ -92,3 +92,79 @@ private struct OCRResultView: View {
         .padding(12)
     }
 }
+
+final class QRResultController {
+    static let shared = QRResultController()
+    private var window: NSWindow?
+
+    func detect(_ image: CGImage) {
+        let request = VNDetectBarcodesRequest { [weak self] request, error in
+            DispatchQueue.main.async {
+                if let error {
+                    self?.present(values: ["识别失败：\(error.localizedDescription)"])
+                    return
+                }
+                let results = request.results as? [VNBarcodeObservation] ?? []
+                let values = results.compactMap { $0.payloadStringValue }
+                self?.present(values: values.isEmpty ? ["未识别到二维码或条形码"] : values)
+            }
+        }
+        request.symbologies = [.qr, .code128, .code39, .ean13, .ean8, .pdf417, .aztec, .dataMatrix]
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+            } catch {
+                DispatchQueue.main.async { self.present(values: ["识别失败：\(error.localizedDescription)"]) }
+            }
+        }
+    }
+
+    private func present(values: [String]) {
+        let view = QRResultView(values: values)
+        if window == nil {
+            let hosting = NSHostingController(rootView: view)
+            let w = NSWindow(contentViewController: hosting)
+            w.title = "二维码 / 条形码"
+            w.styleMask = [.titled, .closable, .resizable]
+            w.isReleasedWhenClosed = false
+            w.setContentSize(NSSize(width: 520, height: 320))
+            w.center()
+            window = w
+        } else if let hosting = window?.contentViewController as? NSHostingController<QRResultView> {
+            hosting.rootView = view
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+    }
+}
+
+private struct QRResultView: View {
+    let values: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("识别结果").font(.headline)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(values, id: \.self) { value in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(value).textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Button("复制") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(value, forType: .string)
+                            }
+                            if let url = URL(string: value),
+                               ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                                Button("打开") { NSWorkspace.shared.open(url) }
+                            }
+                        }
+                        Divider()
+                    }
+                }
+                .padding(8)
+            }
+        }
+        .padding(12)
+    }
+}

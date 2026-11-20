@@ -61,6 +61,9 @@ final class CapturePreferences: ObservableObject {
     @Published var recordingSystemAudio: Bool {
         didSet { defaults.set(recordingSystemAudio, forKey: Keys.recordingSystemAudio) }
     }
+    @Published var recordingMicrophone: Bool {
+        didSet { defaults.set(recordingMicrophone, forKey: Keys.recordingMicrophone) }
+    }
     @Published var recordingCursor: Bool {
         didSet { defaults.set(recordingCursor, forKey: Keys.recordingCursor) }
     }
@@ -88,6 +91,7 @@ final class CapturePreferences: ObservableObject {
         static let recordingDirectory = "capture.recordingDirectory"
         static let recordingSystemAudio = "capture.recordingSystemAudio"
         static let recordingCursor = "capture.recordingCursor"
+        static let recordingMicrophone = "capture.recordingMicrophone"
         static let imageFormat = "capture.imageFormat"
         static let imageQuality = "capture.imageQuality"
         static let recordingFPS = "capture.recordingFPS"
@@ -118,6 +122,7 @@ final class CapturePreferences: ObservableObject {
         }
         recordingSystemAudio = defaults.object(forKey: Keys.recordingSystemAudio) as? Bool ?? true
         recordingCursor = defaults.object(forKey: Keys.recordingCursor) as? Bool ?? true
+        recordingMicrophone = defaults.object(forKey: Keys.recordingMicrophone) as? Bool ?? false
         imageFormat = CaptureImageFormat(rawValue: defaults.string(forKey: Keys.imageFormat) ?? "") ?? .png
         let storedQuality = defaults.object(forKey: Keys.imageQuality) as? Double
         imageQuality = storedQuality ?? 0.9

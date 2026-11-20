@@ -31,9 +31,10 @@ final class PinWindowController {
         window.isReleasedWhenClosed = false
         window.isMovableByWindowBackground = true
 
+        let zoom = PinZoomModel(baseSize: displaySize)
         let view = PinImageView(
             image: image,
-            displaySize: displaySize,
+            zoom: zoom,
             onEdit: { [weak self, weak window] in
                 guard let window else { return }
                 self?.edit(image, window: window)
@@ -50,14 +51,20 @@ final class PinWindowController {
                 self?.close(window)
             })
         let hosting = PinHostingView(rootView: view)
-        hosting.onCopy = { CaptureExporter.copyToPasteboard(image) }
-        hosting.onSaveAs = { [weak self, weak window] in
-            guard let window else { return }
-            self?.saveAs(image, window: window)
-        }
+        hosting.zoom = zoom
         hosting.onClose = { [weak self, weak window] in
             guard let window else { return }
             self?.close(window)
+        }
+        zoom.onResize = { [weak window] size in
+            guard let window else { return }
+            let old = window.frame
+            let newSize = NSSize(width: max(size.width, 40), height: max(size.height, 40))
+            var frame = window.frame
+            frame.origin.x = old.midX - newSize.width / 2
+            frame.origin.y = old.midY - newSize.height / 2
+            frame.size = newSize
+            window.setFrame(frame, display: true)
         }
         window.contentView = hosting
 
@@ -116,7 +123,7 @@ final class PinWindowController {
 
 struct PinImageView: View {
     let image: CGImage
-    let displaySize: CGSize
+    @ObservedObject var zoom: PinZoomModel
     let onEdit: () -> Void
     let onCopy: () -> Void
     let onSaveAs: () -> Void
@@ -125,11 +132,13 @@ struct PinImageView: View {
     @State private var hovering = false
 
     var body: some View {
+        let size = zoom.displaySize
         ZStack(alignment: .topTrailing) {
             Image(nsImage: NSImage(cgImage: image,
                                    size: NSSize(width: image.width, height: image.height)))
                 .resizable()
-                .frame(width: displaySize.width, height: displaySize.height)
+                .interpolation(.high)
+                .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -144,9 +153,20 @@ struct PinImageView: View {
                     overlayButton(symbol: "xmark", help: "关闭", action: onClose)
                 }
                 .padding(6)
+
+                Text(String(format: "%.0f%%", zoom.scale * 100))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .frame(height: 20)
+                    .background(Capsule().fill(Color.black.opacity(0.6)))
+                    .padding(.top, 38)
+                    .padding(.trailing, 8)
+                    .onTapGesture { zoom.reset() }
+                    .help("点击恢复 100%")
             }
         }
-        .frame(width: displaySize.width, height: displaySize.height)
+        .frame(width: size.width, height: size.height)
     }
 
     private func overlayButton(symbol: String, help: String,
@@ -163,16 +183,61 @@ struct PinImageView: View {
     }
 }
 
+final class PinZoomModel: ObservableObject {
+    let baseSize: CGSize
+    @Published var scale: CGFloat = 1 {
+        didSet {
+            let clamped = min(max(scale, 0.1), 5)
+            if clamped != scale {
+                scale = clamped
+                return
+            }
+            onResize?(displaySize)
+        }
+    }
+    var onResize: ((CGSize) -> Void)?
+
+    init(baseSize: CGSize) { self.baseSize = baseSize }
+    var displaySize: CGSize {
+        CGSize(width: max(baseSize.width * scale, 40),
+               height: max(baseSize.height * scale, 40))
+    }
+    func reset() { scale = 1 }
+}
 
 /// AppKit context menu, mirroring macshot's PinView.menu(for:).
 /// SwiftUI's `.contextMenu` disabled the Save As item inside a
 /// non-activating panel, so the menu is built explicitly here.
 final class PinHostingView: NSHostingView<PinImageView> {
+    var zoom: PinZoomModel?
     var onCopy: (() -> Void)?
     var onSaveAs: (() -> Void)?
     var onClose: (() -> Void)?
 
+    override var acceptsFirstResponder: Bool { true }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard let zoom else { return }
+        let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY * 0.008
+                                                    : event.scrollingDeltaY * 0.03
+        zoom.scale += delta
+    }
+
+    override func magnify(with event: NSEvent) {
+        guard let zoom else { return }
+        zoom.scale += event.magnification
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            onClose?()
+            return
+        }
+        super.keyDown(with: event)
+    }
+
     override func menu(for event: NSEvent) -> NSMenu? {
+        window?.makeKey()
         let menu = NSMenu()
         menu.autoenablesItems = false
         let copy = NSMenuItem(title: "复制到剪贴板", action: #selector(copyImage), keyEquivalent: "c")

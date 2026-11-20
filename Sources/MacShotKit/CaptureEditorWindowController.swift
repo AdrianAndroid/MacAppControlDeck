@@ -27,6 +27,9 @@ final class CaptureEditorWindowController {
             onOCR: { image in
                 OCRResultController.shared.recognize(image)
             },
+            onQR: { image in
+                QRResultController.shared.detect(image)
+            },
             onClose: { [weak self] in
                 self?.close()
             }

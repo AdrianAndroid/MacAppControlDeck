@@ -105,6 +105,7 @@ struct CaptureSettingsView: View {
                 }
                 Toggle("录屏包含系统声音", isOn: $prefs.recordingSystemAudio)
                 Toggle("录屏包含鼠标指针", isOn: $prefs.recordingCursor)
+                Toggle("录屏包含麦克风旁白", isOn: $prefs.recordingMicrophone)
                 HStack {
                     Text("MP4 帧率")
                     Picker("", selection: $prefs.recordingFPS) {

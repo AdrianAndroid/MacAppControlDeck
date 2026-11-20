@@ -14,17 +14,20 @@ public struct RecordingOptions {
     public var fps: Int
     public var showsCursor: Bool
     public var systemAudio: Bool
+    public var microphone: Bool
     public var gifFPS: Int
     public var gifMaxWidth: Int
 
     public init(fps: Int = 30,
                 showsCursor: Bool = true,
                 systemAudio: Bool = true,
+                microphone: Bool = false,
                 gifFPS: Int = 10,
                 gifMaxWidth: Int = 900) {
         self.fps = fps
         self.showsCursor = showsCursor
         self.systemAudio = systemAudio
+        self.microphone = microphone
         self.gifFPS = gifFPS
         self.gifMaxWidth = gifMaxWidth
     }
@@ -59,6 +62,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
     private var audioInput: AVAssetWriterInput?
+    private var microphoneInput: AVAssetWriterInput?
     private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var outputURL: URL?
     private var format: RecordingFormat = .mp4
@@ -72,6 +76,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var latestPixelBuffer: CVPixelBuffer?
     private var frameTimer: DispatchSourceTimer?
     private var audioStart: CMTime?
+    private var microphoneStart: CMTime?
     private var isPaused = false
     private var pausedAt: Date?
     private var totalPaused: TimeInterval = 0
@@ -95,6 +100,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         self.frameTimer?.cancel()
         self.frameTimer = nil
         self.audioStart = nil
+        self.microphoneStart = nil
         self.isPaused = false
         self.pausedAt = nil
         self.totalPaused = 0
@@ -155,6 +161,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         configuration.queueDepth = 6
         configuration.capturesAudio = format == .mp4 && options.systemAudio
         configuration.excludesCurrentProcessAudio = true
+        if #available(macOS 15.0, *), format == .mp4 && options.microphone {
+            configuration.captureMicrophone = true
+        }
         configuration.sampleRate = 48_000
         configuration.channelCount = 2
         if sourceRect.width > 0, sourceRect.height > 0 {
@@ -201,6 +210,21 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
                 }
             }
 
+            if options.microphone {
+                let micSettings: [String: Any] = [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 48_000,
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderBitRateKey: 96_000
+                ]
+                let mic = AVAssetWriterInput(mediaType: .audio, outputSettings: micSettings)
+                mic.expectsMediaDataInRealTime = true
+                if writer.canAdd(mic) {
+                    writer.add(mic)
+                    self.microphoneInput = mic
+                }
+            }
+
             guard writer.startWriting() else {
                 throw writer.error ?? RecordingError.writer
             }
@@ -209,6 +233,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             self.writer = nil
             self.videoInput = nil
             self.audioInput = nil
+            self.microphoneInput = nil
             self.adaptor = nil
         }
 
@@ -217,6 +242,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
                                    sampleHandlerQueue: stateQueue)
         if format == .mp4 && options.systemAudio {
             try stream.addStreamOutput(self, type: .audio,
+                                       sampleHandlerQueue: stateQueue)
+        }
+        if #available(macOS 15.0, *), format == .mp4 && options.microphone {
+            try stream.addStreamOutput(self, type: .microphone,
                                        sampleHandlerQueue: stateQueue)
         }
         self.stream = stream
@@ -382,6 +411,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         videoInput.markAsFinished()
         audioInput?.markAsFinished()
+        microphoneInput?.markAsFinished()
         writer.finishWriting { [weak self] in
             guard let self else { return }
             self.stream = nil
@@ -438,7 +468,28 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             }
 
         case .microphone:
-            break
+            guard !isPaused, startedAt != nil, let microphoneInput,
+                  microphoneInput.isReadyForMoreMediaData else { return }
+            let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            if microphoneStart == nil { microphoneStart = pts }
+            var paused = totalPaused
+            if let pausedAt { paused += Date().timeIntervalSince(pausedAt) }
+            var relative = CMTimeSubtract(pts, microphoneStart ?? pts)
+            relative = CMTimeSubtract(relative, CMTime(seconds: paused, preferredTimescale: 48_000))
+            if relative.seconds < 0 { relative = .zero }
+            var timing = CMSampleTimingInfo(duration: CMSampleBufferGetDuration(sampleBuffer),
+                                           presentationTimeStamp: relative,
+                                           decodeTimeStamp: .invalid)
+            var retimed: CMSampleBuffer?
+            let status = withUnsafePointer(to: &timing) { ptr in
+                CMSampleBufferCreateCopyWithNewTiming(allocator: kCFAllocatorDefault,
+                                                      sampleBuffer: sampleBuffer,
+                                                      sampleTimingEntryCount: 1,
+                                                      sampleTimingArray: ptr,
+                                                      sampleBufferOut: &retimed)
+            }
+            if status == noErr, let retimed { microphoneInput.append(retimed) }
+            else { microphoneInput.append(sampleBuffer) }
 
         @unknown default:
             break

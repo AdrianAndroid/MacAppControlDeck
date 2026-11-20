@@ -24,15 +24,22 @@ struct CaptureEditorView: View {
     let onCopy: (CGImage) -> Void
     let onPin: (CGImage) -> Void
     let onOCR: (CGImage) -> Void
+    let onQR: (CGImage) -> Void
     let onClose: () -> Void
 
     @State private var pendingTextPoint: CGPoint?
     @State private var textValue = ""
     @State private var showingText = false
+    @State private var selectDragging = false
+    @State private var resizeOriginal: CaptureAnnotation?
+    @State private var resizeStartBounds: CGRect?
+    @State private var editingText = false
+    @State private var showingEffects = false
 
     private var bottomTools: [CaptureTool] {
-        [.pen, .line, .arrow, .rectangle, .ellipse, .marker,
-         .text, .number, .pixelate, .blur, .highlight, .measure, .crop]
+        [.select, .pen, .line, .arrow, .rectangle, .ellipse, .marker,
+         .text, .number, .pixelate, .blur, .highlight, .measure,
+         .loupe, .stamp, .eyedropper, .crop]
     }
 
     /// 13 tools + color + undo + redo, same arithmetic as ToolbarStripView.layoutButtons().
@@ -45,10 +52,10 @@ struct CaptureEditorView: View {
 
     private var showsOptionsRow: Bool {
         switch model.tool {
-        case .pen, .marker, .line, .arrow, .rectangle, .filledRectangle,
-             .ellipse, .text, .number, .measure, .crop:
+        case .select, .pen, .marker, .line, .arrow, .rectangle, .filledRectangle,
+             .ellipse, .text, .number, .measure, .loupe, .stamp, .crop:
             return true
-        case .pixelate, .blur, .highlight:
+        case .pixelate, .blur, .highlight, .eyedropper:
             return false
         }
     }
@@ -72,6 +79,12 @@ struct CaptureEditorView: View {
                     .padding(.bottom, 20)
             }
             .frame(maxWidth: .infinity)
+
+            if model.tool == .eyedropper {
+                colorReadout
+                    .padding(.top, 40)
+                    .padding(.leading, 12)
+            }
         }
         .background(ShotUI.canvas)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -80,6 +93,22 @@ struct CaptureEditorView: View {
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
         .frame(minWidth: 800, minHeight: 400)
+        .onChange(of: model.selectedID) { _ in syncSelectionOptions() }
+        .onChange(of: model.color) { _ in applySelectionStyle() }
+        .onChange(of: model.lineWidth) { _ in applySelectionStyle() }
+        .onChange(of: model.arrowStyle) { _ in applySelectionStyle() }
+        .onChange(of: model.arrowReversed) { _ in applySelectionStyle() }
+        .onChange(of: model.fillMode) { _ in applySelectionStyle() }
+        .onChange(of: model.cornerRadius) { _ in applySelectionStyle() }
+        .onChange(of: model.textBold) { _ in applySelectionStyle() }
+        .onChange(of: model.textItalic) { _ in applySelectionStyle() }
+        .onChange(of: model.textUnderline) { _ in applySelectionStyle() }
+        .onChange(of: model.textStrikethrough) { _ in applySelectionStyle() }
+        .onChange(of: model.textAlign) { _ in applySelectionStyle() }
+        .onChange(of: model.textBackground) { _ in applySelectionStyle() }
+        .sheet(isPresented: $showingEffects) {
+            effectsPanel
+        }
         .sheet(isPresented: $showingText) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("添加文字").font(.headline)
@@ -89,7 +118,7 @@ struct CaptureEditorView: View {
                     .onSubmit { commitText() }
                 HStack {
                     Spacer()
-                    Button("取消") { showingText = false }
+                    Button("取消") { cancelText() }
                     Button("添加") { commitText() }
                         .keyboardShortcut(.defaultAction)
                 }
@@ -102,7 +131,9 @@ struct CaptureEditorView: View {
 
     private var topBar: some View {
         HStack(spacing: 0) {
-            Text("\(Int(model.imageWidth)) × \(Int(model.imageHeight))")
+            Text(model.outputWidth > 0
+                 ? "\(model.outputWidth) × \(model.outputHeight)"
+                 : "\(Int(model.imageWidth)) × \(Int(model.imageHeight))")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .padding(.leading, 12)
@@ -122,6 +153,31 @@ struct CaptureEditorView: View {
             ChromeButton(symbol: "arrow.up.and.down.righttriangle.up.righttriangle.down",
                          title: "垂直翻转", size: 24, iconSize: 13, radius: 5) {
                 model.flipVertically()
+            }
+            .padding(.leading, 4)
+
+            Menu {
+                Button("原始尺寸") { model.outputWidth = 0; model.outputHeight = 0 }
+                Button("1920 × 1080（16:9）") { model.outputWidth = 1920; model.outputHeight = 1080 }
+                Button("1440 × 1080（4:3）") { model.outputWidth = 1440; model.outputHeight = 1080 }
+                Button("1080 × 1080（1:1）") { model.outputWidth = 1080; model.outputHeight = 1080 }
+                Button("1080 × 1920（9:16）") { model.outputWidth = 1080; model.outputHeight = 1920 }
+                Button("2560 × 1440（16:9）") { model.outputWidth = 2560; model.outputHeight = 1440 }
+            } label: {
+                Text("尺寸")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.8))
+                    .padding(.horizontal, 6)
+                    .frame(height: 22)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.08)))
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .padding(.leading, 4)
+
+            ChromeButton(symbol: "wand.and.stars", title: "美化与滤镜",
+                         size: 24, iconSize: 13, radius: 5) {
+                showingEffects = true
             }
             .padding(.leading, 4)
 
@@ -175,6 +231,9 @@ struct CaptureEditorView: View {
             ChromeButton(symbol: "doc.text.viewfinder", title: "OCR") {
                 if let image = model.render() { onOCR(image) }
             }
+            ChromeButton(symbol: "qrcode.viewfinder", title: "识别二维码") {
+                if let image = model.render() { onQR(image) }
+            }
             ChromeButton(symbol: "xmark", title: "关闭", action: onClose)
                 .keyboardShortcut(.cancelAction)
         }
@@ -227,9 +286,7 @@ struct CaptureEditorView: View {
                     .font(.system(size: 9.5, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.4))
                 Spacer(minLength: 8)
-                Button {
-                    model.applyCrop()
-                } label: {
+                Button { model.applyCrop() } label: {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
                         .frame(width: 28, height: 22)
@@ -238,10 +295,7 @@ struct CaptureEditorView: View {
                 .foregroundStyle(model.cropRect == nil ? ShotUI.accent.opacity(0.35) : ShotUI.accent)
                 .disabled(model.cropRect == nil)
                 .help("应用裁剪")
-
-                Button {
-                    model.resetCrop()
-                } label: {
+                Button { model.resetCrop() } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .semibold))
                         .frame(width: 28, height: 22)
@@ -250,22 +304,79 @@ struct CaptureEditorView: View {
                 .foregroundStyle(Color.white.opacity(0.85))
                 .disabled(model.cropRect == nil)
                 .help("取消裁剪")
+            } else if model.tool == .select {
+                if model.selectedAnnotation != nil {
+                    Text("粗细").font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Slider(value: $model.lineWidth, in: 1...30)
+                        .frame(width: 86).controlSize(.small).tint(ShotUI.accent)
+                    optionMenu("箭头", selection: $model.arrowStyle,
+                               items: ArrowStyle.allCases.map { ($0.title, $0) })
+                    optionMenu("填充", selection: $model.fillMode,
+                               items: ShapeFillMode.allCases.map { ($0.title, $0) })
+                    alignMenu
+                    styleToggle("B", active: $model.textBold)
+                    styleToggle("I", active: $model.textItalic)
+                    styleToggle("U", active: $model.textUnderline)
+                    styleToggle("S", active: $model.textStrikethrough)
+                    if model.selectedAnnotation?.tool == .text {
+                        ChromeButton(symbol: "pencil.line", title: "重新编辑文字",
+                                     size: 26, iconSize: 12) {
+                            textValue = model.selectedAnnotation?.text ?? ""
+                            showingText = true
+                            editingText = true
+                        }
+                    }
+                    ChromeButton(symbol: "trash", title: "删除选中", size: 26, iconSize: 12) {
+                        model.deleteSelected()
+                    }
+                } else {
+                    Text("点击画布上的标注进行选中，拖动可移动，拖角点可缩放")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.45))
+                    Spacer(minLength: 8)
+                }
             } else {
                 Text(model.tool == .text ? "字号" : "粗细")
                     .font(.system(size: 9.5, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.4))
-
                 Slider(value: $model.lineWidth, in: 1...30)
-                    .frame(width: 100)
-                    .controlSize(.small)
-                    .tint(ShotUI.accent)
-
+                    .frame(width: 90).controlSize(.small).tint(ShotUI.accent)
                 Text("\(Int(model.lineWidth))px")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.white.opacity(0.6))
                     .frame(width: 28, alignment: .trailing)
-
-                Spacer(minLength: 8)
+                if model.tool == .arrow {
+                    optionMenu("箭头", selection: $model.arrowStyle,
+                               items: ArrowStyle.allCases.map { ($0.title, $0) })
+                    styleToggle("↔", active: $model.arrowReversed, help: "反转箭头方向")
+                }
+                if model.tool == .rectangle || model.tool == .ellipse || model.tool == .filledRectangle {
+                    optionMenu("填充", selection: $model.fillMode,
+                               items: ShapeFillMode.allCases.map { ($0.title, $0) })
+                    Text("圆角").font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Slider(value: $model.cornerRadius, in: 0...40)
+                        .frame(width: 60).controlSize(.small).tint(ShotUI.accent)
+                }
+                if model.tool == .stamp {
+                    emojiMenu
+                }
+                if model.tool == .loupe {
+                    Text("倍率").font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Slider(value: $model.loupeZoom, in: 1.5...4)
+                        .frame(width: 70).controlSize(.small).tint(ShotUI.accent)
+                }
+                if model.tool == .text {
+                    styleToggle("B", active: $model.textBold)
+                    styleToggle("I", active: $model.textItalic)
+                    styleToggle("U", active: $model.textUnderline)
+                    styleToggle("S", active: $model.textStrikethrough)
+                    alignMenu
+                    styleToggle("▧", active: $model.textBackground, help: "文字底色")
+                }
+                Spacer(minLength: 4)
             }
         }
         .padding(.horizontal, 8)
@@ -273,6 +384,127 @@ struct CaptureEditorView: View {
             RoundedRectangle(cornerRadius: ShotUI.radius, style: .continuous)
                 .fill(ShotUI.bg)
         )
+    }
+
+    private func optionMenu<T: Hashable>(_ title: String, selection: Binding<T>,
+                                         items: [(String, T)]) -> some View {
+        Menu {
+            ForEach(items, id: \.1) { item in
+                Button(item.0) { selection.wrappedValue = item.1 }
+            }
+        } label: {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.8))
+                .padding(.horizontal, 6)
+                .frame(height: 22)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.08)))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private var emojiMenu: some View {
+        Menu {
+            ForEach(["😀","😁","😂","🤣","😊","😍","🤔","😎","😱","😡","👍","👎","👏","🙏","🔥","⭐️","✅","❌","❗️","❓","💡"], id: \.self) { e in
+                Button(e) { model.stampEmoji = e }
+            }
+        } label: {
+            Text(model.stampEmoji).font(.system(size: 15))
+                .frame(width: 26, height: 22)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.08)))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private var alignMenu: some View {
+        Menu {
+            ForEach(TextAlign.allCases) { a in
+                Button(a.title) { model.textAlign = a }
+            }
+        } label: {
+            Image(systemName: "text.alignleft")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.8))
+                .frame(width: 24, height: 22)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private func styleToggle(_ label: String, active: Binding<Bool>,
+                             help: String = "") -> some View {
+        Button { active.wrappedValue.toggle() } label: {
+            Text(label)
+                .font(.system(size: label.count > 1 ? 12 : 11, weight: .bold))
+                .frame(width: 22, height: 22)
+                .background(RoundedRectangle(cornerRadius: 5)
+                    .fill(active.wrappedValue ? ShotUI.accent : Color.white.opacity(0.08)))
+                .foregroundStyle(Color.white.opacity(0.9))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private var effectsPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("图像效果").font(.headline)
+                Spacer()
+                Button("完成") { showingEffects = false }
+                    .keyboardShortcut(.defaultAction)
+            }
+            Picker("预设", selection: $model.effectPreset) {
+                ForEach(ImageEffectPreset.allCases) { p in
+                    Text(p.title).tag(p)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            sliderRow("亮度", value: $model.brightness, range: -1...1)
+            sliderRow("对比度", value: $model.contrast, range: 0.5...2)
+            sliderRow("饱和度", value: $model.saturation, range: 0...2)
+            sliderRow("锐度", value: $model.sharpness, range: 0...2)
+
+            Divider()
+
+            Toggle("Beautify 窗口美化", isOn: $model.beautifyEnabled)
+                .font(.subheadline.weight(.semibold))
+            sliderRow("留白", value: Binding(
+                get: { Double(model.beautifyPadding) },
+                set: { model.beautifyPadding = CGFloat($0) }), range: 0...120)
+            sliderRow("圆角", value: Binding(
+                get: { Double(model.beautifyCorner) },
+                set: { model.beautifyCorner = CGFloat($0) }), range: 0...40)
+            Toggle("阴影", isOn: $model.beautifyShadow)
+            HStack(spacing: 8) {
+                Text("背景").font(.caption).foregroundStyle(.secondary)
+                ForEach(BeautifyComposer.gradients.indices, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(LinearGradient(colors: BeautifyComposer.gradients[i].map { Color(nsColor: $0) },
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 30, height: 22)
+                        .overlay(RoundedRectangle(cornerRadius: 4)
+                            .stroke(model.beautifyGradient == i ? Color.accentColor : Color.clear,
+                                    lineWidth: 2))
+                        .onTapGesture { model.beautifyGradient = i }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+
+    private func sliderRow(_ title: String, value: Binding<Double>,
+                           range: ClosedRange<Double>) -> some View {
+        HStack {
+            Text(title).font(.caption).frame(width: 52, alignment: .leading)
+            Slider(value: value, in: range).controlSize(.small)
+            Text(String(format: "%.2f", value.wrappedValue))
+                .font(.system(size: 10, design: .monospaced))
+                .frame(width: 40, alignment: .trailing)
+        }
     }
 
     private var colorSwatch: some View {
@@ -290,6 +522,62 @@ struct CaptureEditorView: View {
         .frame(width: ShotUI.button, height: ShotUI.button)
         .contentShape(Rectangle())
         .help("颜色")
+    }
+
+    private var colorReadout: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(model.color)
+                .frame(width: 22, height: 22)
+            Text(model.pickedColorText ?? "点击画布取色")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.9))
+            if model.pickedColorText != nil {
+                Button("复制 HEX") { model.copyHexFromPicked() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(ShotUI.accent)
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: 6).fill(ShotUI.bg.opacity(0.92)))
+    }
+
+    private func syncSelectionOptions() {
+        guard let a = model.selectedAnnotation else { return }
+        model.color = Color(nsColor: a.color)
+        model.lineWidth = a.lineWidth
+        model.arrowStyle = a.arrowStyle
+        model.arrowReversed = a.arrowReversed
+        model.fillMode = a.fillMode
+        model.cornerRadius = a.cornerRadius
+        model.textBold = a.textBold
+        model.textItalic = a.textItalic
+        model.textUnderline = a.textUnderline
+        model.textStrikethrough = a.textStrikethrough
+        model.textAlign = a.textAlign
+        model.textBackground = a.textBackground
+    }
+
+    private func applySelectionStyle() {
+        guard model.selectedAnnotation != nil else { return }
+        model.mutateSelectedWithoutUndo { a in
+            a.color = model.nsColor
+            a.lineWidth = model.lineWidth
+            a.arrowStyle = model.arrowStyle
+            a.arrowReversed = model.arrowReversed
+            a.fillMode = model.fillMode
+            a.cornerRadius = model.cornerRadius
+            a.textBold = model.textBold
+            a.textItalic = model.textItalic
+            a.textUnderline = model.textUnderline
+            a.textStrikethrough = model.textStrikethrough
+            a.textAlign = model.textAlign
+            a.textBackground = model.textBackground
+            if a.tool == .text { a.fontSize = max(18, model.lineWidth * 7) }
+            if a.tool == .stamp { a.fontSize = max(24, model.lineWidth * 8) }
+        }
     }
 
     // MARK: - Canvas
@@ -313,7 +601,7 @@ struct CaptureEditorView: View {
         let fit = fitRect(imageSize: CGSize(width: model.imageWidth, height: model.imageHeight),
                           in: container)
         return ZStack(alignment: .topLeading) {
-            Image(nsImage: NSImage(cgImage: model.baseImage,
+            Image(nsImage: NSImage(cgImage: model.previewBaseImage(),
                                    size: NSSize(width: model.imageWidth, height: model.imageHeight)))
                 .resizable()
                 .interpolation(.high)
@@ -326,27 +614,101 @@ struct CaptureEditorView: View {
             .frame(width: size.width, height: size.height)
             .contentShape(Rectangle())
             .gesture(drawingGesture(fit: fit))
+
+            if model.tool == .select, let selected = model.selectedAnnotation {
+                selectionHandles(for: selected, fit: fit)
+            }
         }
+    }
+
+    private func selectionHandles(for annotation: CaptureAnnotation,
+                                  fit: CGRect) -> some View {
+        let b = annotation.boundingRect
+        let scaleX = fit.width / max(model.imageWidth, 1)
+        let scaleY = fit.height / max(model.imageHeight, 1)
+        let r = CGRect(x: fit.minX + b.minX * scaleX,
+                       y: fit.minY + b.minY * scaleY,
+                       width: b.width * scaleX, height: b.height * scaleY)
+        let points: [(SelectionHandle, CGPoint)] = [
+            (.tl, CGPoint(x: r.minX, y: r.minY)), (.tm, CGPoint(x: r.midX, y: r.minY)),
+            (.tr, CGPoint(x: r.maxX, y: r.minY)), (.ml, CGPoint(x: r.minX, y: r.midY)),
+            (.mr, CGPoint(x: r.maxX, y: r.midY)), (.bl, CGPoint(x: r.minX, y: r.maxY)),
+            (.bm, CGPoint(x: r.midX, y: r.maxY)), (.br, CGPoint(x: r.maxX, y: r.maxY))
+        ]
+        return ZStack {
+            Rectangle()
+                .stroke(ShotUI.accent, lineWidth: 1.5)
+                .frame(width: max(r.width, 1), height: max(r.height, 1))
+                .position(x: r.midX, y: r.midY)
+                .allowsHitTesting(false)
+            ForEach(points, id: \.0) { item in
+                Circle()
+                    .fill(ShotUI.accent)
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                    .position(item.1)
+                    .gesture(resizeGesture(handle: item.0, fit: fit))
+            }
+        }
+    }
+
+    private func resizeGesture(handle: SelectionHandle, fit: CGRect) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .onChanged { value in
+                guard let selected = model.selectedAnnotation else { return }
+                if resizeOriginal == nil {
+                    resizeOriginal = selected
+                    resizeStartBounds = selected.boundingRect
+                }
+                guard let start = resizeStartBounds else { return }
+                let p = imagePoint(from: value.location, fit: fit)
+                let newRect = handle.adjusted(start, to: p)
+                model.resizeSelected(original: resizeOriginal!, to: newRect)
+            }
+            .onEnded { _ in
+                resizeOriginal = nil
+                resizeStartBounds = nil
+            }
     }
 
     private func drawingGesture(fit: CGRect) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
-                let point = imagePoint(from: value.startLocation, fit: fit)
-                if model.draft == nil && model.tool != .crop {
-                    model.beginDraft(at: point)
+                let point = imagePoint(from: value.location, fit: fit)
+                switch model.tool {
+                case .select:
+                    if !selectDragging {
+                        selectDragging = true
+                        model.select(at: point)
+                    } else {
+                        model.dragSelected(to: point)
+                    }
+                case .eyedropper:
+                    model.pickColor(at: point)
+                case .crop:
+                    let start = imagePoint(from: value.startLocation, fit: fit)
+                    if model.cropRect == nil { model.beginDraft(at: start) }
+                    model.updateDraft(to: point)
+                default:
+                    let start = imagePoint(from: value.startLocation, fit: fit)
+                    if model.draft == nil { model.beginDraft(at: start) }
+                    model.updateDraft(to: point)
                 }
-                let current = imagePoint(from: value.location, fit: fit)
-                model.updateDraft(to: current)
             }
             .onEnded { value in
                 let point = imagePoint(from: value.location, fit: fit)
-                if model.tool == .text {
+                switch model.tool {
+                case .select:
+                    model.selectEnded()
+                    selectDragging = false
+                case .eyedropper:
+                    break
+                case .text:
                     pendingTextPoint = point
                     textValue = ""
                     showingText = true
                     model.draft = nil
-                } else {
+                default:
                     model.commitDraft()
                 }
             }
@@ -393,35 +755,44 @@ struct CaptureEditorView: View {
     private func draw(_ annotation: CaptureAnnotation, context: inout GraphicsContext) {
         let color = Color(nsColor: annotation.color)
         let lineWidth = annotation.lineWidth
+        var ctx = context
+        if annotation.rotation != 0 {
+            let b = annotation.unrotatedBounds
+            let c = CGPoint(x: b.midX, y: b.midY)
+            ctx.translateBy(x: c.x, y: c.y)
+            ctx.rotate(by: .radians(Double(annotation.rotation)))
+            ctx.translateBy(x: -c.x, y: -c.y)
+        }
+        context = ctx
 
         switch annotation.tool {
-        case .rectangle:
+        case .select, .eyedropper, .crop:
+            break
+        case .rectangle, .filledRectangle, .ellipse:
             let rect = normRect(annotation.start, annotation.end)
-            context.stroke(Path(rect), with: .color(color), lineWidth: lineWidth)
-        case .filledRectangle:
-            context.fill(Path(normRect(annotation.start, annotation.end)),
-                         with: .color(color.opacity(0.9)))
-        case .ellipse:
-            let rect = normRect(annotation.start, annotation.end)
-            context.stroke(Path(ellipseIn: rect), with: .color(color), lineWidth: lineWidth)
+            let path: Path
+            if annotation.tool == .ellipse {
+                path = Path(ellipseIn: rect)
+            } else if annotation.cornerRadius > 0 {
+                path = Path(roundedRect: rect, cornerRadius: annotation.cornerRadius)
+            } else {
+                path = Path(rect)
+            }
+            let mode: ShapeFillMode = annotation.tool == .filledRectangle
+                ? (annotation.fillMode == .stroke ? .fill : annotation.fillMode)
+                : annotation.fillMode
+            if mode == .fill || mode == .strokeAndFill {
+                context.fill(path, with: .color(color.opacity(0.9)))
+            }
+            if mode == .stroke || mode == .strokeAndFill {
+                context.stroke(path, with: .color(color), lineWidth: lineWidth)
+            }
         case .line:
             var path = Path()
-            path.move(to: annotation.start)
-            path.addLine(to: annotation.end)
+            path.move(to: annotation.start); path.addLine(to: annotation.end)
             context.stroke(path, with: .color(color), lineWidth: lineWidth)
         case .arrow:
-            var path = Path()
-            path.move(to: annotation.start)
-            path.addLine(to: annotation.end)
-            context.stroke(path, with: .color(color), lineWidth: lineWidth)
-            let head = arrowHead(from: annotation.start, to: annotation.end, width: lineWidth)
-            var headPath = Path()
-            if let first = head.first {
-                headPath.move(to: first)
-                for point in head.dropFirst() { headPath.addLine(to: point) }
-                headPath.closeSubpath()
-            }
-            context.fill(headPath, with: .color(color))
+            drawArrow(annotation, context: &context, color: color)
         case .pen, .marker:
             let points = annotation.points.isEmpty
                 ? [annotation.start, annotation.end] : annotation.points
@@ -433,14 +804,18 @@ struct CaptureEditorView: View {
                            with: .color(annotation.tool == .marker ? color.opacity(0.35) : color),
                            lineWidth: annotation.tool == .marker ? lineWidth * 2.5 : lineWidth)
         case .text:
-            let text = Text(annotation.text ?? "")
-                .font(.system(size: annotation.fontSize, weight: .semibold))
-                .foregroundColor(color)
+            let text = previewText(annotation, color: color)
+            if annotation.textBackground {
+                let size = AnnotationRenderer.textSize(annotation.text ?? "", annotation: annotation)
+                let bg = CGRect(x: annotation.start.x - 4, y: annotation.start.y - 2,
+                                width: size.width + 8, height: size.height + 4)
+                context.fill(Path(roundedRect: bg, cornerRadius: 4),
+                             with: .color(Color(nsColor: annotation.textBackgroundColor).opacity(0.72)))
+            }
             context.draw(text, at: annotation.start, anchor: .topLeading)
         case .number:
             let radius = max(14, annotation.fontSize * 0.9)
-            let rect = CGRect(x: annotation.start.x - radius,
-                              y: annotation.start.y - radius,
+            let rect = CGRect(x: annotation.start.x - radius, y: annotation.start.y - radius,
                               width: radius * 2, height: radius * 2)
             context.fill(Path(ellipseIn: rect), with: .color(color))
             let label = Text("\(annotation.number ?? 1)")
@@ -454,8 +829,7 @@ struct CaptureEditorView: View {
             while x < rect.maxX {
                 var y = rect.minY
                 while y < rect.maxY {
-                    let block = CGRect(x: x, y: y,
-                                       width: min(10, rect.maxX - x),
+                    let block = CGRect(x: x, y: y, width: min(10, rect.maxX - x),
                                        height: min(10, rect.maxY - y))
                     context.stroke(Path(block), with: .color(.black.opacity(0.12)), lineWidth: 0.5)
                     y += 10
@@ -463,12 +837,11 @@ struct CaptureEditorView: View {
                 x += 10
             }
         case .blur:
-            let rect = normRect(annotation.start, annotation.end)
-            context.fill(Path(rect), with: .color(.gray.opacity(0.65)))
+            context.fill(Path(normRect(annotation.start, annotation.end)),
+                         with: .color(.gray.opacity(0.65)))
         case .highlight:
             let region = normRect(annotation.start, annotation.end)
-            context.fill(Path(CGRect(x: 0, y: 0,
-                                     width: 10000, height: 10000)),
+            context.fill(Path(CGRect(x: 0, y: 0, width: 10000, height: 10000)),
                          with: .color(.black.opacity(0.35)))
             context.blendMode = .destinationOut
             context.fill(Path(region), with: .color(.white))
@@ -476,8 +849,7 @@ struct CaptureEditorView: View {
             context.stroke(Path(region), with: .color(.white.opacity(0.8)), lineWidth: 1.5)
         case .measure:
             var path = Path()
-            path.move(to: annotation.start)
-            path.addLine(to: annotation.end)
+            path.move(to: annotation.start); path.addLine(to: annotation.end)
             context.stroke(path, with: .color(color), lineWidth: max(1, lineWidth))
             let dx = abs(annotation.end.x - annotation.start.x)
             let dy = abs(annotation.end.y - annotation.start.y)
@@ -488,9 +860,115 @@ struct CaptureEditorView: View {
                          at: CGPoint(x: (annotation.start.x + annotation.end.x) / 2,
                                      y: (annotation.start.y + annotation.end.y) / 2),
                          anchor: .bottom)
-        case .crop:
-            break
+        case .loupe:
+            let radius = max(24, min(hypot(annotation.end.x - annotation.start.x,
+                                           annotation.end.y - annotation.start.y), 160))
+            let dest = CGRect(x: annotation.start.x - radius, y: annotation.start.y - radius,
+                              width: radius * 2, height: radius * 2)
+            let sampleRadius = radius / max(annotation.loupeZoom, 0.1)
+            let sample = CGRect(x: annotation.start.x - sampleRadius,
+                                y: annotation.start.y - sampleRadius,
+                                width: sampleRadius * 2, height: sampleRadius * 2)
+            if let crop = model.baseImage.cropping(to: sample.integral) {
+                let img = Image(nsImage: NSImage(cgImage: crop, size: dest.size))
+                context.draw(img, in: dest)
+            }
+            context.stroke(Path(ellipseIn: dest), with: .color(.white.opacity(0.9)), lineWidth: 2)
+        case .stamp:
+            let text = Text(annotation.stampEmoji)
+                .font(.system(size: max(20, annotation.fontSize * 1.6)))
+            context.draw(text, at: annotation.start, anchor: .center)
         }
+    }
+
+    private func previewText(_ annotation: CaptureAnnotation, color: Color) -> Text {
+        var text = Text(annotation.text ?? "")
+            .font(.system(size: annotation.fontSize,
+                          weight: annotation.textBold ? .semibold : .regular))
+            .foregroundColor(color)
+        if annotation.textItalic { text = text.italic() }
+        if annotation.textUnderline { text = text.underline() }
+        if annotation.textStrikethrough { text = text.strikethrough() }
+        return text
+    }
+
+    private func drawArrow(_ annotation: CaptureAnnotation,
+                           context: inout GraphicsContext, color: Color) {
+        let from = annotation.arrowReversed ? annotation.end : annotation.start
+        let to = annotation.arrowReversed ? annotation.start : annotation.end
+        let width = annotation.lineWidth
+        switch annotation.arrowStyle {
+        case .single, .tail:
+            strokeLine(annotation.start, annotation.end, width: width, color: color, context: &context)
+            fillHead(from: from, to: to, width: width, color: color, context: &context)
+            if annotation.arrowStyle == .tail {
+                let dx = to.x - from.x, dy = to.y - from.y
+                let len = max(hypot(dx, dy), 1)
+                let ux = dx / len, uy = dy / len
+                let base = CGPoint(x: from.x + ux * min(18, len * 0.4),
+                                   y: from.y + uy * min(18, len * 0.4))
+                let w = width * 3
+                strokeLine(from, CGPoint(x: base.x - uy * w, y: base.y + ux * w),
+                           width: width, color: color, context: &context)
+                strokeLine(from, CGPoint(x: base.x + uy * w, y: base.y - ux * w),
+                           width: width, color: color, context: &context)
+            }
+        case .thick:
+            let dx = to.x - from.x, dy = to.y - from.y
+            let len = max(hypot(dx, dy), 1)
+            let ux = dx / len, uy = dy / len
+            let half = max(width * 2.2, 5)
+            let headLen = min(max(width * 6, 16), len * 0.45)
+            let headHalf = half * 2.1
+            let base = CGPoint(x: to.x - ux * headLen, y: to.y - uy * headLen)
+            var p = Path()
+            p.move(to: to)
+            p.addLine(to: CGPoint(x: base.x - uy * headHalf, y: base.y + ux * headHalf))
+            p.addLine(to: CGPoint(x: base.x - uy * half, y: base.y + ux * half))
+            p.addLine(to: CGPoint(x: from.x - uy * half, y: from.y + ux * half))
+            p.addLine(to: CGPoint(x: from.x + uy * half, y: from.y - ux * half))
+            p.addLine(to: CGPoint(x: base.x + uy * half, y: base.y - ux * half))
+            p.addLine(to: CGPoint(x: base.x + uy * headHalf, y: base.y - ux * headHalf))
+            p.closeSubpath()
+            context.fill(p, with: .color(color))
+        case .double:
+            strokeLine(annotation.start, annotation.end, width: width, color: color, context: &context)
+            fillHead(from: annotation.start, to: annotation.end, width: width, color: color, context: &context)
+            fillHead(from: annotation.end, to: annotation.start, width: width, color: color, context: &context)
+        case .open:
+            strokeLine(annotation.start, annotation.end, width: width, color: color, context: &context)
+            let head = openHead(from: from, to: to, width: width)
+            strokeLine(to, head[0], width: width * 0.8, color: color, context: &context)
+            strokeLine(to, head[1], width: width * 0.8, color: color, context: &context)
+        }
+    }
+
+    private func strokeLine(_ a: CGPoint, _ b: CGPoint, width: CGFloat,
+                            color: Color, context: inout GraphicsContext) {
+        var p = Path(); p.move(to: a); p.addLine(to: b)
+        context.stroke(p, with: .color(color), lineWidth: width)
+    }
+
+    private func fillHead(from: CGPoint, to: CGPoint, width: CGFloat,
+                          color: Color, context: inout GraphicsContext) {
+        var p = Path()
+        let pts = arrowHead(from: from, to: to, width: width)
+        guard let first = pts.first else { return }
+        p.move(to: first)
+        for q in pts.dropFirst() { p.addLine(to: q) }
+        p.closeSubpath()
+        context.fill(p, with: .color(color))
+    }
+
+    private func openHead(from: CGPoint, to: CGPoint, width: CGFloat) -> [CGPoint] {
+        let dx = to.x - from.x, dy = to.y - from.y
+        let len = max(hypot(dx, dy), 1)
+        let ux = dx / len, uy = dy / len
+        let hl = min(max(width * 4.5, 12), len * 0.6)
+        let hw = hl * 0.62
+        let base = CGPoint(x: to.x - ux * hl, y: to.y - uy * hl)
+        return [CGPoint(x: base.x - uy * hw, y: base.y + ux * hw),
+                CGPoint(x: base.x + uy * hw, y: base.y - ux * hw)]
     }
 
     private func normRect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
@@ -513,11 +991,20 @@ struct CaptureEditorView: View {
     }
 
     private func commitText() {
-        if let point = pendingTextPoint {
+        if editingText {
+            model.updateSelectedText(textValue)
+        } else if let point = pendingTextPoint {
             model.addText(textValue, at: point)
         }
         showingText = false
         pendingTextPoint = nil
+        editingText = false
+    }
+
+    private func cancelText() {
+        showingText = false
+        pendingTextPoint = nil
+        editingText = false
     }
 
     private func fitRect(imageSize: CGSize, in container: CGRect) -> CGRect {
@@ -659,5 +1146,28 @@ private struct CheckerboardGlyph: View {
             }
         }
         .frame(width: 16, height: 16)
+    }
+}
+
+
+private enum SelectionHandle: Hashable {
+    case tl, tm, tr, ml, mr, bl, bm, br
+
+    func adjusted(_ start: CGRect, to p: CGPoint) -> CGRect {
+        var minX = start.minX, minY = start.minY
+        var maxX = start.maxX, maxY = start.maxY
+        switch self {
+        case .tl: minX = p.x; minY = p.y
+        case .tm: minY = p.y
+        case .tr: maxX = p.x; minY = p.y
+        case .ml: minX = p.x
+        case .mr: maxX = p.x
+        case .bl: minX = p.x; maxY = p.y
+        case .bm: maxY = p.y
+        case .br: maxX = p.x; maxY = p.y
+        }
+        if maxX - minX < 8 { maxX = minX + 8 }
+        if maxY - minY < 8 { maxY = minY + 8 }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 }
