@@ -27,6 +27,17 @@
 - macOS 14+（构建工具链 Swift 5.9+）
 - 手机与 Mac 在同一局域网
 
+## 下载安装
+
+从 [Releases](https://github.com/AdrianAndroid/MacAppControlDeck/releases) 下载对应芯片的安装包：
+
+| 芯片 | 资产 |
+| --- | --- |
+| Apple Silicon（M 系列） | `MacAppControlDeck-<版本>-arm64.dmg` |
+| Intel | `MacAppControlDeck-<版本>-x86_64.dmg` |
+
+终端执行 `uname -m` 可确认芯片（`arm64` / `x86_64`）。发布包为 ad-hoc 签名、未公证，首次打开需右键「打开」或在「隐私与安全性」中允许。
+
 ## 构建与安装
 
 ```zsh
@@ -40,6 +51,13 @@ open BuildOutput/MacAppControlDeck.app
 ```zsh
 cp -R BuildOutput/MacAppControlDeck.app /Applications/
 open /Applications/MacAppControlDeck.app
+```
+
+生成双架构发布包（DMG + ZIP + 校验和）：
+
+```zsh
+./Build/package-release.sh arm64
+./Build/package-release.sh x86_64
 ```
 
 > **为什么需要稳定证书**：辅助功能授权（TCC）按签名绑定。ad-hoc 签名每次重新构建都会变，系统会保留旧授权条目但实际不信任（表现为「开关是开的、授权却不生效」）。用固定证书（Apple Development 或自签名）后，重新构建不再需要重新授权。
@@ -130,7 +148,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 41 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 40 项，含真实 TCP 服务器与真实应用激活的端到端用例
 ```
 
 ## 已知限制
@@ -188,6 +206,7 @@ Sources/MacAppControlDeck/
 Sources/MacShotKit/              # macshot 上游功能代码，只允许 capture 模块 import
 Build/
 ├── build.sh                     # 构建/签名/打包（含图标），产出到 BuildOutput/
+├── package-release.sh           # 按 arm64 / x86_64 生成可分发 DMG + ZIP
 ├── setup-signing.sh             # 一次性创建稳定自签名证书
 ├── make-icon.swift              # 生成 AppIcon.iconset
 └── Info.plist                   # Bundle 元数据（含 Automation 用途说明）

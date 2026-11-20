@@ -13,3 +13,7 @@ BuildOutput/
 !.myflicker/skills/
 !.myflicker/skills/**
 *.local.json
+
+# 按架构交叉编译的构建目录
+.build-arm64/
+.build-x86_64/
