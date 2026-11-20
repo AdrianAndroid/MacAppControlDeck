@@ -54,7 +54,9 @@
 
 实测：上游引擎录制 28.7 秒，视频 28.687s / 音频 28.640s（相差 0.047s），生成 `cursor.mstl` 遥测与 `session.plist`，停止后自动打开编辑器。
 
-仍待搬运：`OverlayView` / `OverlayWindowController` / `ToolOptionsRowView`（约 1.5 万行，依赖翻译、上传、摄像头等尚未移植的服务），当前覆盖层仍是自实现。
+视频编辑器已整体搬运：`Upstream/VideoEditor/` 40+ 文件（窗口控制器、时间线、检视器、舞台、项目模型、场景渲染、导出管线），录制结束即打开与 macshot 同源的编辑器（左侧轨道 + 舞台 + 多轨时间线 + Copy/Export）。上传/翻译通过 `-DOFFLINE` 关闭。
+
+仍待搬运：`OverlayView` / `OverlayWindowController` / `ToolOptionsRowView`，当前覆盖层仍是自实现。
 
 ## 对照说明
 

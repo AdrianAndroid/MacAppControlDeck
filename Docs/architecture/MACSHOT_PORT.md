@@ -102,7 +102,10 @@
 - 滚动截图：到底自动停止、HUD 显示帧数与停止按钮、两阶段重叠匹配、固定侧栏检测与平铺、去掉固定 6 帧上限（最多 25 帧）
 - 录屏：录制覆盖层（隐藏标注工具，右侧动作栏：开始/取消/鼠标点击高亮/系统声音/麦克风/格式/帧率）→ 直接开始（macshot 默认无倒计时）→ HUD → 统一打开视频编辑器；GIF 录制输出 MP4 take 并在编辑器中以 GIF 为主导出
 - 录屏修复：MP4 写入器 session 提前、SCK 缓冲重绘后编码、首个屏幕帧再启动帧定时器；视频 PTS 使用真实经过时间（不再按帧序号，丢帧也不会音画漂移）；HUD 面板可成为 key window 且按钮接受首次点击；无屏幕帧看门狗与零帧失败
-- 视频编辑器：多段剪切（时间线可视化）、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、编辑器内导出 GIF
+- 视频编辑器整体搬运：`Sources/MacShotKit/Upstream/VideoEditor/`（上游 `VideoEditorWindowController`、`VideoEditorDocument`、`VideoTimelineView`、`VideoInspectorView`、`VideoStageView`、`VideoEditorChrome/Playback/Exporter`、`VideoProject` 与 Zoom/Speed/Cut/Freeze/Censor/Text 段、场景渲染与导出管线等 40+ 文件）
+  - 左侧轨道（Background/Auto Zoom/Zoom/Image/Text）、舞台、多轨时间线、右侧检视、Copy/Export 顶栏与截图完全同源
+  - 录制结束统一打开该编辑器；GIF 录制以 GIF 导出为预设
+  - 上传/在线翻译等由 `-DOFFLINE` 关闭
 - 钉剪贴板内容：图片 / 文件 / RTF / HTML / 纯文本钉图
 
 ## 仍未移植（有意排除或受平台限制）

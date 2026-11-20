@@ -48,7 +48,6 @@ public final class MacShotController {
     public var saveToFile = true
     public var copyToClipboard = true
     public var showFloatingThumbnail = true
-    private var recorder: ScreenRecorder?
     private var recordingEngine: RecordingEngine?
     private var recordingTarget: RecordingTarget?
     private var recordingIntent: RecordingFormat = .mp4
@@ -308,11 +307,7 @@ public final class MacShotController {
 
     public func stopRecording() {
         Task { @MainActor in
-            if let recordingEngine {
-                recordingEngine.stopRecording()
-            } else {
-                recorder?.stop()
-            }
+            recordingEngine?.stopRecording()
         }
     }
 
@@ -357,8 +352,10 @@ public final class MacShotController {
                 self.showToast(self.recordingIntent == .gif
                     ? "录制完成，正在准备 GIF 编辑"
                     : "录制完成，正在打开编辑器")
-                VideoEditorController.shared.present(url,
-                                                     preferGIF: self.recordingIntent == .gif)
+                VideoEditorWindowController.open(
+                    url: url,
+                    deleteOnClose: false,
+                    exportFormat: self.recordingIntent == .gif ? .gif : nil)
             }
         }
         self.recordingEngine = engine

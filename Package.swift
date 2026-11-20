@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .target(
             name: "MacShotKit",
-            path: "Sources/MacShotKit"
+            path: "Sources/MacShotKit",
+            swiftSettings: [.define("OFFLINE")]
         ),
         .executableTarget(
             name: "MacAppControlDeck",
