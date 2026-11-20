@@ -32,6 +32,9 @@ cp "$ROOT/Build/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
+echo "==> 复制 SwiftPM 资源 bundle"
+find "$BIN_DIR" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP/Contents/Resources/" \;
+
 echo "==> 生成图标"
 ICONSET="$OUT/AppIcon.iconset"
 swift "$ROOT/Build/make-icon.swift" "$ICONSET" >/dev/null

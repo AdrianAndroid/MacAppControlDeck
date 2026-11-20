@@ -51,7 +51,9 @@ final class GlobalHotKeys {
             Binding(id: 6, keyCode: UInt32(kVK_ANSI_O), modifiers: UInt32(cmdKey | shiftKey),
                     action: { MainActor.assumeIsolated { MacShotController.shared.quickOCRArea() } }),
             Binding(id: 7, keyCode: UInt32(kVK_ANSI_E), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MainActor.assumeIsolated { MacShotController.shared.reopenLastEditSession() } })
+                    action: { MainActor.assumeIsolated { MacShotController.shared.reopenLastEditSession() } }),
+            Binding(id: 8, keyCode: UInt32(kVK_ANSI_D), modifiers: UInt32(controlKey | optionKey),
+                    action: { MainActor.assumeIsolated { SketchModule.shared.openBoard() } })
         ]
 
         for binding in bindings {

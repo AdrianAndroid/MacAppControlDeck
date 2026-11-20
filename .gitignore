@@ -17,3 +17,7 @@ BuildOutput/
 # 按架构交叉编译的构建目录
 .build-arm64/
 .build-x86_64/
+
+# UI 草图 Web 构建依赖
+Web/sketch/node_modules/
+Web/sketch/.vite/

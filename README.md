@@ -2,7 +2,7 @@
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
-同时按“功能模块”组织：电脑遥控与截图/录屏是两个独立模块，各自拥有服务、数据、权限和生命周期。截图/录屏在 Mac 本机使用，不经过手机。
+同时按“功能模块”组织：电脑遥控、截图/录屏、UI 草图是三个独立模块，各自拥有服务、数据、权限和生命周期。截图/录屏与 UI 草图在 Mac 本机使用，不经过手机。
 
 需求与设计见 `openspec/`（OpenSpec 管理，变更 `add-core-control-loop`）。
 
@@ -18,7 +18,8 @@
 - **截图与录屏（Mac 本机模块）**：全屏 / 区域 / 窗口 / 滚动截图，截图延时、快速保存、快速 OCR；标注编辑器（矩形、椭圆、直线、箭头、画笔、荧光笔、文字、序号、马赛克、模糊、聚光灯、测量、裁剪）；OCR、钉图、最近截图历史；PNG/JPEG/HEIC/WebP/AVIF 输出
 - **录屏（Mac 本机模块）**：区域 / 全屏 / 窗口 MP4（H.264 + 系统音频，真实帧时序），15/30/60/120 fps；区域 GIF（5/10/15 fps）；3-2-1 倒计时；顶部录制 HUD 与录制边框；磁盘不足/休眠自动停止
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
-- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控与截图录屏，关闭一个不影响另一个
+- **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，鼠标手绘 UI 意图；矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；全局快捷键 `⌃⌥D`
+- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏与 UI 草图，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
 
@@ -91,6 +92,7 @@ open /Applications/MacAppControlDeck.app
    - 顶部显示当前面板地址，可直接「在浏览器打开面板」或「复制面板地址」
    - 「应用」「快捷操作」子菜单就是已配置的功能按钮，点一下立即执行（应用带真实图标）
    - 「截图与录屏」子菜单：全屏 / 区域 / 窗口 / 滚动截图；快速保存、快速 OCR；录制 MP4 / GIF；截图延时；最近截图；输出到 `~/Pictures/MacAppControlDeck` 与 `~/Movies/MacAppControlDeck`
+   - 「UI 草图」子菜单：打开画板（`⌃⌥D`）/ 新建 / 复制当前草图（`⌘⇧C`）/ 保存 PNG 与源文件（`⌘S`）/ 最近草图 / 保存目录
    - 「配对手机…」生成 6 位配对码并打开设置
    - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
 3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
@@ -194,7 +196,8 @@ Sources/MacAppControlDeck/
 ├── Core/                        # 模块协议、注册表、菜单/设置壳（不放业务逻辑）
 ├── Modules/
 │   ├── RemoteControl/           # 电脑遥控模块：HTTP 服务/配对/手机面板/按钮
-│   └── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
+│   ├── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
+│   └── Sketch/                  # UI 草图模块：离线 Excalidraw + WKWebView，不接 HTTP
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
 ├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
 ├── Server/                      # remote 模块：NWListener HTTP 服务、路由
@@ -204,6 +207,7 @@ Sources/MacAppControlDeck/
 ├── UI/ButtonsSettingsView.swift # remote 模块：按钮管理
 └── Panel/PanelHTML.swift        # remote 模块：手机端单页 Web 面板
 Sources/MacShotKit/              # macshot 上游功能代码，只允许 capture 模块 import
+Web/sketch/                      # UI 草图 Web 包装层源码（Vite + React + Excalidraw）
 Build/
 ├── build.sh                     # 构建/签名/打包（含图标），产出到 BuildOutput/
 ├── package-release.sh           # 按 arm64 / x86_64 生成可分发 DMG + ZIP
@@ -216,13 +220,14 @@ Docs/architecture/UPSTREAM_PORTING.md # 上游开源集成方法、验收标准�
 Docs/archive/                    # 历史归档
 ```
 
-> 模块边界是硬约束：`remote` 与 `capture` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
+> 模块边界是硬约束：`remote`、`capture` 与 `sketch` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
 
 ## 归档
 
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)
 - 2026-11-19 远程快捷操作（快捷键 / 命令按钮 / 桌面切换）经验总结：[Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md](Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md)
 - 2026-11-19 构建补齐、局域网地址与面板配对修复：[Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md](Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md)
+- 2026-11-20 UI 草图模块（离线 Excalidraw + 复制给 AI）：[Docs/archive/2026-11-20-sketch-module/SUMMARY.md](Docs/archive/2026-11-20-sketch-module/SUMMARY.md)
 - 2026-11-19 菜单栏常驻 + 首选项结构重构：[Docs/archive/2026-11-19-menubar-restructure/SUMMARY.md](Docs/archive/2026-11-19-menubar-restructure/SUMMARY.md)
 - 2026-11-19 模块骨架与本机全屏截图（P0 + P1）：[Docs/archive/2026-11-19-module-shell-and-capture/SUMMARY.md](Docs/archive/2026-11-19-module-shell-and-capture/SUMMARY.md)
 - 2026-11-20 macshot 截图/录屏能力移植：[Docs/archive/2026-11-20-macshot-port/SUMMARY.md](Docs/archive/2026-11-20-macshot-port/SUMMARY.md)

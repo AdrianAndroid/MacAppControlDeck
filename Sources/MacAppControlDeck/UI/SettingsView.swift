@@ -6,6 +6,7 @@ enum SettingsTab: Hashable {
     case menu
     case modules
     case capture
+    case sketch
     case buttons
     case devices
     case about
@@ -31,6 +32,9 @@ struct SettingsView: View {
                 }
                 Section("截图与录屏") {
                     sidebarRow(.capture, "截图与录屏", "camera.viewfinder")
+                }
+                Section("UI 草图") {
+                    sidebarRow(.sketch, "UI 草图", "pencil.and.outline")
                 }
                 Section("关于") {
                     sidebarRow(.about, "关于", "info.circle")
@@ -59,6 +63,8 @@ struct SettingsView: View {
             ModulesSettingsView(onOpenCaptureSettings: { selection = .capture })
         case .capture:
             CaptureSettingsView()
+        case .sketch:
+            SketchSettingsView()
         case .buttons:
             ButtonsSettingsView()
         case .devices:
@@ -129,6 +135,19 @@ struct ModulesSettingsView: View {
                         Button("截图设置…") { onOpenCaptureSettings() }
                             .buttonStyle(.bordered)
                         Text("输出目录、剪贴板、屏幕录制权限。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+
+                if module.id == SketchModule.id, registry.isEnabled(module.id) {
+                    HStack {
+                        Button("UI 草图设置…") {
+                            MenuBarController.shared.openSettings(tab: .sketch)
+                        }
+                        .buttonStyle(.bordered)
+                        Text("保存目录、导出倍率、背景与窗口置顶。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()

@@ -4,12 +4,13 @@
 > 适用范围：`MacAppControlDeck` 全部代码、菜单、设置、路由、数据目录、文档
 > 核心原则：**每个功能是一个独立模块；模块自己的服务、数据、权限、生命周期自己管；模块之间不共享业务状态，不互相调用，不混内容。**
 
-## 1. 当前的两个模块
+## 1. 当前的三个模块
 
 | 模块 | ID | 形态 | 使用者 | 入口 |
 |---|---|---|---|---|
 | 电脑控制 | `remote` | 局域网 HTTP 服务 + 配对 + 手机面板 | 手机 | 菜单栏「电脑控制」子菜单、手机浏览器 |
 | 截图与录屏 | `capture` | Mac 本机 AppKit 能力（截图 / 标注 / 录屏 / 编辑器） | Mac 本机 | 菜单栏「截图与录屏」、本机窗口 |
+| UI 草图 | `sketch` | WKWebView + 离线 Excalidraw 画板 | Mac 本机 | 菜单栏「UI 草图」、`⌃⌥D`、独立窗口 |
 
 ### 1.1 电脑遥控模块（`remote`）
 
@@ -44,6 +45,23 @@
 
 > **明确结论：截图/录屏是 Mac 本机功能，不是手机功能。手机面板不出现截图/录屏入口，`capture` 模块也不注册任何 `/api/*` 路由。**
 
+### 1.3 UI 草图模块（`sketch`）
+
+负责：
+
+- 离线 Excalidraw 画板（手绘、矩形、箭头、文字、便签、粘贴截图）
+- 画板草稿、PNG 与 `.excalidraw` 源文件保存、最近草图
+- 把选中内容或整板导出为 PNG 并写入系统剪贴板
+- 独立的画板窗口、窗口状态与导出偏好
+
+不负责：
+
+- 手机配对、HTTP 服务、手机面板
+- 截图/录屏、标注编辑器、视频编辑
+- `remote` / `capture` 的任何配置、数据或运行时
+
+> **明确结论：`sketch` 是纯本机、纯离线模块；不注册 HTTP，不进入手机面板，不加载任何外部 CDN。**
+
 ## 2. 硬规则（后续开发必须遵守）
 
 ### R1. 模块目录隔离
@@ -54,6 +72,7 @@ Sources/MacAppControlDeck/
   Modules/
     RemoteControl/              # 只放 remote 模块代码
     Capture/                    # 只放 capture 模块代码
+    Sketch/                     # 只放 sketch 模块代码与构建后的离线资源
 Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模块 import
 ```
 
@@ -83,9 +102,11 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 |---|---|---|
 | `remote` | `~/Library/Application Support/MacAppControlDeck/RemoteControl/` | `remote.` |
 | `capture` | `~/Library/Application Support/MacAppControlDeck/Capture/` | `capture.` |
+| `sketch` | `~/Library/Application Support/MacAppControlDeck/Sketch/`（草稿）+ `~/Pictures/MacAppControlDeck/Sketches/`（导出） | `sketch.` |
 
 - 截图历史、录制文件、导出缓存只能落在 `capture` 目录。
 - 设备 token、按钮配置、图标缓存只能落在 `remote` 目录。
+- 草图草稿只能落在 `Sketch/`，导出的 PNG / `.excalidraw` 只能落在用户选择的草图目录。
 - 不允许两个模块共用同一个历史目录或同一个 `devices.json` / `buttons.json`。
 
 ### R5. 权限隔离
@@ -94,6 +115,7 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 |---|---|
 | `remote` | 辅助功能、输入监控、自动化（System Events） |
 | `capture` | 屏幕录制、麦克风、摄像头（按功能启用） |
+| `sketch` | 无系统级权限；只访问自己的草稿与导出目录 |
 
 - 权限状态分别展示在各自模块的设置页，不合并成一个“总权限”。
 - 未授予截图权限时，只禁用截图/录屏功能，不影响手机遥控。
@@ -102,7 +124,7 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 ### R6. 菜单与设置是“壳”，不是混合层
 
 - 菜单栏由 `Core` 的 `ModuleRegistry` 按模块拼接；每个模块只贡献自己的 `NSMenuItem`。
-- 一级菜单结构：顶部平铺置顶命令 → 分隔线 → 各模块根子菜单（电脑控制 / 截图与录屏）→ 设置 / 退出。
+- 一级菜单结构：顶部平铺置顶命令 → 分隔线 → 各模块根子菜单（电脑控制 / 截图与录屏 / UI 草图）→ 设置 / 退出。
 - 置顶命令必须直接平铺可点，不允许做成「常用」二级菜单；置顶项可来自任意层级子菜单，装配时递归收集。
 - 置顶顺序以 `MenuCustomization` 保存的有序数组为准，设置页「置顶命令」卡片可上下移动、取消置顶。
 - 设置窗口统一样式，但左侧导航按模块分区：
@@ -111,6 +133,7 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
   - 模块（模块开关）
   - 电脑控制（remote 自己的设置）
   - 截图与录屏（capture 自己的设置）
+  - UI 草图（sketch 自己的设置）
   - 设备 / 关于
 - 不允许在“通用”页里塞截图选项，也不允许在“截图”页里塞手机配对。
 - 设置壳只负责承载视图，不替模块执行业务动作。
@@ -120,6 +143,7 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 ```
 Core  ←  Modules/RemoteControl
 Core  ←  Modules/Capture → MacShotKit
+Core  ←  Modules/Sketch（WKWebView + 离线 Web 资源，不依赖 MacShotKit）
 ```
 
 - 只允许模块依赖 Core，不允许 Core 反向依赖具体模块。
@@ -129,6 +153,7 @@ Core  ←  Modules/Capture → MacShotKit
 ### R8. 失败隔离
 
 - 截图/录屏失败（权限、显示器休眠、编码失败）只提示本机，不得让 HTTP 服务崩溃或退出。
+- 草图窗口/网页进程失败只影响草图，不得让 HTTP 服务或截图/录屏崩溃。
 - HTTP 服务停止/重启不得中断正在进行的本机截图或录屏（除非用户主动关闭模块）。
 - 一个模块的窗口/面板崩溃不得影响另一个模块的核心服务。
 
@@ -138,17 +163,20 @@ Core  ←  Modules/Capture → MacShotKit
 2. **设置**：统一使用我们自己的 SwiftUI 设置窗口，不把 macshot 的独立设置 App 原样搬进来；按模块分区。
 3. **首期范围**：只做“截图 + 录屏”。上传（Google Drive / imgbb / S3）、翻译、全局热键先不做；后续要做时仍归 `capture` 模块，且不得影响 `remote`。
 4. **截图/录屏的使用场景**：Mac 本机使用，**不做手机端截图/录屏**。
-5. **模块开关**：`remote` 与 `capture` 必须能独立开关；关闭一个不影响另一个。
+5. **模块开关**：`remote`、`capture` 与 `sketch` 必须能独立开关；关闭一个不影响另外两个。
+6. **UI 草图**：单画板 + 自动草稿起步；首版不打包中文手写字体（Xiaolai），中文回退系统苹方，英文/UI 使用 Excalifont。
 
 ## 4. 验收清单（每次改动后自查）
 
 - [ ] 关闭 `remote` 后，截图/录屏仍可用。
 - [ ] 关闭 `capture` 后，手机面板、配对、按钮、激活仍可用。
+- [ ] 关闭 `sketch` 后，手机遥控与截图/录屏仍可用。
 - [ ] 手机面板没有截图/录屏入口。
 - [ ] `APIRouter` 里没有 capture 相关路由。
 - [ ] `Capture` 代码里没有 `DeckState` / `ConfigStore` / `PairingManager` 引用。
 - [ ] `RemoteControl` 代码里没有 `MacShotKit` / `CapturePreferences` 引用。
 - [ ] 截图历史只写 `Capture/` 目录，设备/按钮只写 `RemoteControl/` 目录。
+- [ ] `Sketch` 代码里没有 `DeckState` / `ConfigStore` / `PairingManager` / `MacShotKit` 引用。
 - [ ] 设置页按模块分区，没有跨模块选项混排。
 - [ ] 新增文件在正确的模块目录下，没有放错到 `Core` 或另一个模块。
 
@@ -182,4 +210,16 @@ Core  ←  Modules/Capture → MacShotKit
   - 顶部录制 HUD、菜单栏停止、完成 toast。
 - 未移植的能力、原因与验证记录：`Docs/architecture/MACSHOT_PORT.md`。
 - 边界仍然有效：`capture` 不注册 HTTP、不进入手机面板、不读写 `remote` 的配置/数据。
+
+## 7. 当前落地状态（2026-11-20：UI 草图）
+
+- 新增第三个独立模块 `sketch`，不修改 `remote` / `capture`。
+- 离线 Excalidraw 0.18.1 + WKWebView：自定义 scheme `deck-sketch://local/index.html`，页面内 http/https 请求全部拦截。
+- 画板能力：手绘、矩形、箭头、文字、便签、粘贴截图；有选中复制选中，无选中复制整板。
+- 输出：PNG（白底/透明、1×/2×/3×、24 px padding、最长边 3000 px）+ 同名 `.excalidraw` 源文件。
+- 数据：草稿 `~/Library/Application Support/MacAppControlDeck/Sketch/draft.excalidraw`；导出默认 `~/Pictures/MacAppControlDeck/Sketches`。
+- 入口：菜单栏「UI 草图」与 `⌃⌥D`；设置新增「UI 草图」页。
+- 资源：`Resources/Sketch` 约 4.9 MB（25 个字体文件 / 429 KB），不包含 Xiaolai 中文手写体。
+- 验证：44 项单测通过；实机画矩形、复制 PNG、保存 PNG + 源文件、关闭重开恢复草稿均通过。
+- 归档：`Docs/archive/2026-11-20-sketch-module/SUMMARY.md`。
 

@@ -14,7 +14,8 @@ let package = Package(
         .executableTarget(
             name: "MacAppControlDeck",
             dependencies: ["MacShotKit"],
-            path: "Sources/MacAppControlDeck"
+            path: "Sources/MacAppControlDeck",
+            resources: [.copy("Modules/Sketch/Resources/Sketch")]
         ),
         .executableTarget(
             name: "KeySender",

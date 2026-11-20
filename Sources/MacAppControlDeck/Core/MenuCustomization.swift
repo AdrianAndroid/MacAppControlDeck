@@ -34,7 +34,8 @@ final class MenuCustomization: ObservableObject {
         "capture.全屏截图",
         "capture.区域截图",
         "remote.shortcuts.default.shortcut.missionControl",
-        "remote.shortcuts.default.shortcut.copy"
+        "remote.shortcuts.default.shortcut.copy",
+        "sketch.open"
     ]
 
     // MARK: - 模块顺序
