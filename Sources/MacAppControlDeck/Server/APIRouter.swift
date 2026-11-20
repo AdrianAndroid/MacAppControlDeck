@@ -94,6 +94,9 @@ final class APIRouter {
         }
 
         switch (request.method, path) {
+        case ("GET", "/api/panel-version"):
+            struct PanelVersion: Codable { let version: String }
+            return .json(PanelVersion(version: PanelHTML.version))
         case ("GET", "/api/health"):
             struct Health: Codable { let ok: Bool; let app: String; let version: String }
             return .json(Health(ok: true, app: "MacAppControlDeck", version: "0.1.0"))
