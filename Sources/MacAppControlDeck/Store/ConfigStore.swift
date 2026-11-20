@@ -20,7 +20,80 @@ final class ConfigStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        let firstLaunch = !FileManager.default.fileExists(atPath: buttonsURL.path)
         load()
+        seedDefaultButtons(firstLaunch: firstLaunch)
+    }
+
+    // MARK: - 默认按钮
+
+    /// 首次安装带一组常见应用和快捷启动；老配置只在完全没有快捷按钮时补齐快捷启动，绝不覆盖用户已有按钮。
+    private func seedDefaultButtons(firstLaunch: Bool) {
+        let seededKey = "config.defaults.seeded.v1"
+        let alreadySeeded = UserDefaults.standard.bool(forKey: seededKey)
+        let shortcuts = Self.defaultShortcuts()
+        var changed = false
+
+        if firstLaunch {
+            buttons = Self.defaultApps() + shortcuts
+            changed = true
+        } else if !alreadySeeded && !buttons.contains(where: { $0.kind == .shortcut }) {
+            // 老用户第一次升级时补默认快捷启动；之后即使用户删光也不再自动加回。
+            buttons.append(contentsOf: shortcuts)
+            changed = true
+        }
+
+        UserDefaults.standard.set(true, forKey: seededKey)
+        if changed { saveButtons() }
+    }
+
+    private static func defaultApps() -> [ButtonConfig] {
+        let candidates: [(String, String, String)] = [
+            ("访达", "com.apple.finder", "/System/Library/CoreServices/Finder.app"),
+            ("Safari", "com.apple.Safari", "/Applications/Safari.app"),
+            ("终端", "com.apple.Terminal", "/System/Applications/Utilities/Terminal.app"),
+            ("Google Chrome", "com.google.Chrome", "/Applications/Google Chrome.app"),
+            ("Visual Studio Code", "com.microsoft.VSCode", "/Applications/Visual Studio Code.app")
+        ]
+        var result: [ButtonConfig] = []
+        for (name, bundleID, path) in candidates {
+            guard FileManager.default.fileExists(atPath: path) else { continue }
+            result.append(ButtonConfig(id: "default.app.\(bundleID)",
+                                       kind: .app,
+                                       name: name,
+                                       bundleID: bundleID,
+                                       appPath: path,
+                                       sortOrder: result.count))
+            if result.count == 4 { break }
+        }
+        return result
+    }
+
+    private static func defaultShortcuts() -> [ButtonConfig] {
+        let definitions: [(String, String, [ShortcutModifier], UInt16)] = [
+            ("显示桌面", "default.shortcut.showDesktop", [], 103),
+            ("调度中心", "default.shortcut.missionControl", [.control], 126),
+            ("切换应用", "default.shortcut.switchApp", [.command], 48),
+            ("复制选中", "default.shortcut.copy", [.command], 8)
+        ]
+        return definitions.enumerated().map { index, item in
+            let (name, id, modifiers, keyCode) = item
+            let label: String
+            switch keyCode {
+            case 103: label = "F11"
+            case 126: label = "↑"
+            case 48: label = "Tab"
+            case 8: label = "C"
+            default: label = "\(keyCode)"
+            }
+            return ButtonConfig(id: id,
+                                kind: .shortcut,
+                                name: name,
+                                sortOrder: index,
+                                shortcut: ShortcutCombo(modifiers: modifiers,
+                                                        keyCode: keyCode,
+                                                        keyLabel: label).normalized)
+        }
     }
 
     static func defaultDirectory() -> URL {

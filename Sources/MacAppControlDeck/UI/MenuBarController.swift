@@ -48,7 +48,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         for module in modules {
             for raw in module.menuItems() {
                 if let submenu = raw.submenu {
-                    raw.submenu = customized(submenu, moduleID: module.id, pinned: &pinned)
+                    let rebuilt = customized(submenu, moduleID: module.id, pinned: &pinned)
+                    raw.submenu = rebuilt
+                    collectPinned(in: rebuilt, into: &pinned)
                 }
                 menu.addItem(raw)
             }
@@ -113,6 +115,23 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             submenu.addItem(empty)
         }
         return submenu
+    }
+
+    /// 「应用」「快捷操作」等二级子菜单里的命令也要能置顶，递归把命中项收集出来。
+    private func collectPinned(in menu: NSMenu, into pinned: inout [NSMenuItem]) {
+        let customization = MenuCustomization.shared
+        var known = Set(pinned.compactMap { $0.identifier?.rawValue })
+        for item in menu.items {
+            if let id = item.identifier?.rawValue,
+               customization.isPinned(id),
+               !known.contains(id) {
+                pinned.append(item)
+                known.insert(id)
+            }
+            if let submenu = item.submenu {
+                collectPinned(in: submenu, into: &pinned)
+            }
+        }
     }
 
     private func clone(_ item: NSMenuItem) -> NSMenuItem {

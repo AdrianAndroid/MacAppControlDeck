@@ -15,8 +15,27 @@ final class MenuCustomization: ObservableObject {
     private func orderKey(_ moduleID: String) -> String { "menu.order.\(moduleID)" }
     private let moduleOrderKey = "menu.module.order"
     private let pinnedKey = "menu.pinned"
+    private let defaultPinsKey = "menu.defaults.v1"
 
-    private init() {}
+    private init() {
+        applyDefaultPins()
+    }
+
+    /// 首次运行给置顶区预置几条高频命令；之后用户自己取消也不会再加回来。
+    private func applyDefaultPins() {
+        guard !defaults.bool(forKey: defaultPinsKey) else { return }
+        var set = pinnedIDs()
+        Self.defaultPinnedIDs.forEach { set.insert($0) }
+        defaults.set(Array(set), forKey: pinnedKey)
+        defaults.set(true, forKey: defaultPinsKey)
+    }
+
+    private static let defaultPinnedIDs: [String] = [
+        "capture.全屏截图",
+        "capture.区域截图",
+        "remote.shortcuts.default.shortcut.missionControl",
+        "remote.shortcuts.default.shortcut.copy"
+    ]
 
     // MARK: - 模块顺序
 
