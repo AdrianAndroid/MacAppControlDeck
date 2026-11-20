@@ -67,6 +67,14 @@
   - 关闭重开：草稿恢复，矩形仍在。
   - 页面无外部 http/https 资源请求；`deck-sketch` scheme 加载正常。
 
+## 提交与产物
+
+- 代码提交：`5b8effe feat(sketch): add offline Excalidraw whiteboard with clipboard export`
+- 已覆盖安装：`/Applications/MacAppControlDeck.app`
+- 双架构包：
+  - `BuildOutput/release/x86_64/MacAppControlDeck-0.1.0-x86_64.dmg`
+  - `BuildOutput/release/arm64/MacAppControlDeck-0.1.0-arm64.dmg`
+
 ## 验收截图
 
 - `sketch-board.png`：画板与手绘矩形。
