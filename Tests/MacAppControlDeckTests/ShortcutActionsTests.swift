@@ -154,6 +154,13 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(router.store.buttons(kind: .builtin).count, 1)
     }
 
+    func test_sketchQuickOpenBuiltinPresetIsRegistered() {
+        let preset = BuiltinActions.preset(for: "sketch.open")
+        XCTAssertNotNil(preset)
+        XCTAssertEqual(preset?.name, "打开 UI 草图")
+        XCTAssertEqual(BuiltinActions.symbol(for: "sketch.open"), "✎")
+    }
+
     func test_routerDispatchesShortcutToInjector() async {
         let injector = FakeShortcutInjector()
         let router = makeRouter(injector: injector)
