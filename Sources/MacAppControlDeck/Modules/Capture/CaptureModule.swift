@@ -3,7 +3,7 @@ import MacShotKit
 import SwiftUI
 
 /// 截图与录屏模块：Mac 本机功能，不注册 HTTP 路由、不出现在手机面板。
-final class CaptureModule: FeatureModule {
+@MainActor final class CaptureModule: FeatureModule {
     static let id = "capture"
     static let shared = CaptureModule()
 
@@ -219,8 +219,13 @@ final class CaptureModule: FeatureModule {
         ClipboardPinService.pinClipboard()
     }
 
+    @objc func openHistoryFolder() {
+        NSWorkspace.shared.activateFileViewerSelecting(
+            [MacShotController.shared.outputDirectory])
+    }
+
     @objc func showHistoryOverlay() {
-        CaptureHistoryOverlayController.shared.show()
+        openHistoryFolder()
     }
 
     @objc func openCaptureFolder() {

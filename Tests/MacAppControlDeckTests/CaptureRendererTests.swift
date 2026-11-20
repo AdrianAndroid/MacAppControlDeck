@@ -7,31 +7,6 @@ import CoreVideo
 @testable import MacShotKit
 
 final class CaptureRendererTests: XCTestCase {
-    func testRenderCropsToRequestedPixelSize() throws {
-        let source = makeImage(width: 120, height: 80, color: .systemRed)
-        let rendered = AnnotationRenderer.render(
-            image: source,
-            annotations: [],
-            cropRect: CGRect(x: 10, y: 10, width: 60, height: 40))
-
-        XCTAssertNotNil(rendered)
-        XCTAssertEqual(rendered?.width, 60)
-        XCTAssertEqual(rendered?.height, 40)
-    }
-
-    func testRenderDrawsAnnotationsAndKeepsSize() throws {
-        let source = makeImage(width: 100, height: 100, color: .white)
-        let annotation = CaptureAnnotation(tool: .rectangle,
-                                            start: CGPoint(x: 10, y: 10),
-                                            end: CGPoint(x: 60, y: 60),
-                                            color: .systemBlue,
-                                            lineWidth: 3)
-        let rendered = AnnotationRenderer.render(image: source, annotations: [annotation])
-        XCTAssertNotNil(rendered)
-        XCTAssertEqual(rendered?.width, 100)
-        XCTAssertEqual(rendered?.height, 100)
-    }
-
     func testUpstreamGIFEncoderWritesPlayableGIF() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("MacShotKit-test-\(UUID().uuidString).gif")

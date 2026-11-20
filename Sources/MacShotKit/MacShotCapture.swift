@@ -15,8 +15,8 @@ public enum MacShotCapture {
 
     /// 同步抓取主屏。调用前应确认屏幕录制权限；返回 nil 表示权限/显示器状态不可用。
     public static func captureMainScreen() -> CGImage? {
-        let context = ScreenCaptureManager.makeImmediateCaptureContext()
-        let captures = ScreenCaptureManager.captureAllScreensImmediately(context: context)
+        let context = LegacyScreenCaptureManager.makeImmediateCaptureContext()
+        let captures = LegacyScreenCaptureManager.captureAllScreensImmediately(context: context)
         if let main = NSScreen.main,
            let match = captures.first(where: { $0.screen === main }) {
             return match.image

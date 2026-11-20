@@ -66,6 +66,14 @@ enum FilenameFormatter {
         return trimmed == ownName ? nil : trimmed
     }
 
+    /// 上游语义：默认图片文件名（含窗口名等由调用方渲染模板得到）。
+    static func defaultImageFilename(windowTitle: String? = nil, index: Int? = nil,
+                                     fileExtension: String = "png") -> String {
+        let template = template(forRecording: false)
+        return format(template: template, windowTitle: windowTitle,
+                      appName: nil, index: index) + "." + fileExtension
+    }
+
     static func template(forRecording: Bool) -> String {
         let key = forRecording ? recordingUserDefaultsKey : userDefaultsKey
         return UserDefaults.standard.string(forKey: key) ?? (forRecording ? defaultRecordingTemplate : defaultTemplate)

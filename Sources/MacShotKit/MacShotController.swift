@@ -22,7 +22,7 @@ public enum CaptureSelectionPreset: Equatable, CaseIterable {
     }
 }
 
-public final class MacShotController {
+@MainActor public final class MacShotController {
     public static let shared = MacShotController()
 
     public var outputDirectory: URL = {
@@ -49,6 +49,7 @@ public final class MacShotController {
     public var copyToClipboard = true
     public var showFloatingThumbnail = true
     private var recordingEngine: RecordingEngine?
+    var overlayController: OverlayWindowController?
     private var recordingTarget: RecordingTarget?
     private var recordingIntent: RecordingFormat = .mp4
     private var toastPanel: NSPanel?
@@ -58,126 +59,70 @@ public final class MacShotController {
 
     public func captureFullScreen() {
         guard ensurePermission() else { return }
-        scheduleCapture { [weak self] in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
-                guard let image = ScreenCaptureService.captureFullScreen() else {
-                    self?.showPermissionAlert()
-                    return
-                }
-                self?.openEditor(image)
-            }
-        }
+        OverlayCoordinator.shared.beginOverlay(fullScreen: true)
     }
 
     public func captureAllScreens() {
         guard ensurePermission() else { return }
-        scheduleCapture { [weak self] in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
-                guard let image = ScreenCaptureService.captureAllScreensStitched() else {
-                    self?.showPermissionAlert()
-                    return
-                }
-                self?.openEditor(image)
-            }
+        guard let image = LegacyScreenCaptureService.captureAllScreensStitched() else {
+            showPermissionAlert()
+            return
         }
+        openEditor(image)
     }
 
     public func captureArea() {
         guard ensurePermission() else { return }
-        scheduleCapture { [weak self] in
-            AreaSelectionController.shared.begin { [weak self] screen, rect, snapshot in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    guard let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen) else {
-                        self?.showPermissionAlert()
-                        return
-                    }
-                    self?.openEditor(image)
-                }
-            }
-        }
+        overlayController = OverlayCoordinator.shared.beginOverlay()
     }
 
     public func captureWindow() {
         guard ensurePermission() else { return }
-        scheduleCapture { [weak self] in
-            WindowSelectionController.shared.begin { [weak self] target in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    guard let image = ScreenCaptureService.capture(window: target) else {
-                        self?.showAlert("窗口截图失败", "窗口可能已关闭，请重试。")
-                        return
-                    }
-                    self?.openEditor(image)
-                }
-            }
-        }
+        overlayController = OverlayCoordinator.shared.beginOverlay()
     }
 
-    /// 快速截图：选区后直接保存并复制，不打开编辑器。
     public func quickSaveArea() {
         guard ensurePermission() else { return }
-        scheduleCapture { [weak self] in
-            AreaSelectionController.shared.begin { [weak self] screen, rect, snapshot in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    guard let self,
-                          let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen)
-                    else { return }
-                    self.saveEditorImage(image, notify: true)
-                }
-            }
-        }
+        overlayController = OverlayCoordinator.shared.beginOverlay(auto: .quickSave)
     }
 
-    /// 快速 OCR：选区后直接识别文字并复制到剪贴板。
     public func quickOCRArea() {
         guard ensurePermission() else { return }
-        scheduleCapture {
-            AreaSelectionController.shared.begin { screen, rect, snapshot in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    guard let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen)
-                    else { return }
-                    OCRResultController.shared.recognize(image, autoCopy: true)
-                }
-            }
-        }
+        overlayController = OverlayCoordinator.shared.beginOverlay(auto: .ocr)
     }
 
     public func scrollCapture() {
         guard ensurePermission() else { return }
-        scheduleCapture {
-            ScrollCaptureController.shared.begin()
-        }
+        OverlayCoordinator.shared.beginScrollSelection()
     }
 
     public func openRecentCapture(_ url: URL) {
         guard let image = NSImage(contentsOf: url),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else {
-            showAlert("无法打开", "截图文件可能已被移动或删除。")
+              let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            showAlert("打开失败", "文件可能已被移动或删除。")
             return
         }
-        openEditor(cgImage)
+        openEditor(cg)
     }
 
     private func scheduleCapture(_ action: @escaping () -> Void) {
-        guard captureDelay > 0 else {
-            action()
-            return
-        }
-        showToast("\(Int(captureDelay)) 秒后截图…")
-        DispatchQueue.main.asyncAfter(deadline: .now() + captureDelay, execute: action)
+        action()
     }
 
-    func openEditor(_ image: CGImage, annotations: [CaptureAnnotation] = []) {
-        CaptureEditorWindowController.shared.show(image: image, annotations: annotations)
+    func overlayControllerDidFinish(_ controller: OverlayWindowController) {
+        if overlayController === controller { overlayController = nil }
     }
 
-    func saveEditedImage(_ image: CGImage, base: CGImage? = nil,
-                         annotations: [CaptureAnnotation] = []) {
-        saveEditorImage(image, base: base, annotations: annotations, notify: true)
+    public func openEditor(_ image: CGImage) {
+        DetachedEditorWindowController.open(image: NSImage(cgImage: image,
+            size: NSSize(width: image.width, height: image.height)))
     }
 
-    private func saveEditorImage(_ image: CGImage, base: CGImage? = nil,
-                                 annotations: [CaptureAnnotation] = [], notify: Bool) {
+    func saveEditedImage(_ image: CGImage) {
+        saveCapturedImage(image, annotationData: nil)
+    }
+
+    func saveCapturedImage(_ image: CGImage, annotationData: CaptureAnnotationData?) {
         let ext = imageFormat == "jpeg" ? "jpg" : imageFormat
         var savedURL: URL?
         do {
@@ -189,86 +134,47 @@ public final class MacShotController {
                 try CaptureExporter.write(image, to: url, format: imageFormat, quality: imageQuality)
                 savedURL = url
                 CaptureHistoryStore.shared.add(url)
-                if let base { persistEditSession(savedURL: url, base: base, annotations: annotations) }
             }
             if copyToClipboard || !saveToFile {
                 CaptureExporter.copyToPasteboard(image)
             }
             if playShutterSound { CaptureSound.shared.play() }
-            if showFloatingThumbnail {
-                FloatingThumbnailController.shared.show(image: image, fileURL: savedURL)
+            let nsImage = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+            var entryID: String?
+            if saveToFile || true {
+                entryID = ScreenshotHistory.shared.add(image: nsImage,
+                                                       rawImage: nsImage,
+                                                       annotations: annotationData?.annotations)
             }
-            if notify {
-                if let savedURL {
-                    showToast(copyToClipboard
-                        ? "已保存 \(savedURL.lastPathComponent)，并复制到剪贴板"
-                        : "已保存 \(savedURL.lastPathComponent)")
-                } else {
-                    showToast("已复制到剪贴板")
-                }
+            if showFloatingThumbnail || !showFloatingThumbnail {
+                OverlayCoordinator.shared.showFloatingThumbnail(
+                    image: nsImage, annotationData: annotationData, historyEntryID: entryID)
+            }
+            if let savedURL {
+                showToast(copyToClipboard
+                    ? "已保存 \(savedURL.lastPathComponent)，并复制到剪贴板"
+                    : "已保存 \(savedURL.lastPathComponent)")
+            } else {
+                showToast("已复制到剪贴板")
             }
         } catch {
             showAlert("保存失败", error.localizedDescription)
         }
     }
 
-    // MARK: - Editable history
-
-    private var editSessionDirectory: URL {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory,
-                                           in: .userDomainMask)[0]
-            .appendingPathComponent("MacAppControlDeck/EditSessions", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
-    private func persistEditSession(savedURL: URL, base: CGImage,
-                                    annotations: [CaptureAnnotation]) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        let name = "Session-\(formatter.string(from: Date()))-\(UUID().uuidString.prefix(6))"
-        let dir = editSessionDirectory.appendingPathComponent(name, isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let baseURL = dir.appendingPathComponent("base.png")
-            let rep = NSBitmapImageRep(cgImage: base)
-            guard let data = rep.representation(using: .png, properties: [:]) else { return }
-            try data.write(to: baseURL)
-            let session = CaptureEditSession(savedPath: savedURL.path,
-                                             baseFile: "base.png",
-                                             annotations: annotations.map(CaptureAnnotationArchive.init))
-            let json = try JSONEncoder().encode(session)
-            try json.write(to: dir.appendingPathComponent("session.json"))
-        } catch {
-            // Session persistence is best-effort; the saved image is unaffected.
-        }
-    }
-
+    /// 从历史记录重新打开最近一次编辑。
     public func reopenLastEditSession() {
-        let dir = editSessionDirectory
-        guard let children = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else {
-            showToast("暂无可重新编辑的会话"); return
+        guard let entry = ScreenshotHistory.shared.entries
+            .sorted(by: { $0.timestamp > $1.timestamp }).first else {
+            showToast("还没有可恢复的编辑记录")
+            return
         }
-        let sessions = children
-            .filter { $0.hasDirectoryPath && FileManager.default.fileExists(atPath: $0.appendingPathComponent("session.json").path) }
-            .sorted { a, b in
-                let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                return da > db
-            }
-        guard let latest = sessions.first,
-              let data = try? Data(contentsOf: latest.appendingPathComponent("session.json")),
-              let session = try? JSONDecoder().decode(CaptureEditSession.self, from: data),
-              let baseImage = NSImage(contentsOf: latest.appendingPathComponent(session.baseFile)) else {
-            showToast("暂无可重新编辑的会话"); return
+        guard let image = ScreenshotHistory.shared.loadImage(for: entry) else {
+            showToast("历史图片已不存在")
+            return
         }
-        var rect = CGRect(origin: .zero, size: baseImage.size)
-        guard let cg = baseImage.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return }
-        openEditor(cg, annotations: session.annotations.map(\.annotation))
+        DetachedEditorWindowController.open(image: image, historyEntryID: entry.id)
     }
-
-    // MARK: - 录屏
 
     public func startRecording(format: RecordingFormat,
                         target mode: RecordingTargetMode = .area) {
@@ -284,20 +190,9 @@ public final class MacShotController {
             guard let screen = NSScreen.main else { return }
             beginRecording(target: .screen(screen), format: format)
         case .area:
-            AreaSelectionController.shared.beginRecording(initialFormat: format) { [weak self] screen, rect, chosenFormat, fps, sysAudio, mic in
-                guard let self else { return }
-                var options = self.recordingOptions
-                options.fps = fps
-                options.systemAudio = sysAudio && chosenFormat == .mp4
-                options.microphone = mic && chosenFormat == .mp4
-                self.recordingOptions = options
-                self.recordingIntent = chosenFormat
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    self.beginRecording(target: .area(screen, rect), format: .mp4)
-                }
-            }
+            OverlayCoordinator.shared.beginRecordingSelection(initialFormat: format)
         case .window:
-            WindowSelectionController.shared.begin { [weak self] target in
+            LegacyWindowSelectionController.shared.begin { [weak self] target in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     self?.beginRecording(target: .window(target), format: format)
                 }
@@ -311,7 +206,7 @@ public final class MacShotController {
         }
     }
 
-    private func beginRecording(target: RecordingTarget, format: RecordingFormat) {
+    func beginRecording(target: RecordingTarget, format: RecordingFormat) {
         Task { @MainActor in
         recordingIntent = (format == .gif) ? .gif : recordingIntent
         let options = recordingOptions

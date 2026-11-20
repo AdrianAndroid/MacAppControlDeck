@@ -39,19 +39,19 @@ final class GlobalHotKeys {
 
         let bindings: [Binding] = [
             Binding(id: 1, keyCode: UInt32(kVK_ANSI_X), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.captureArea() }),
+                    action: { MainActor.assumeIsolated { MacShotController.shared.captureArea() } }),
             Binding(id: 2, keyCode: UInt32(kVK_ANSI_F), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.captureFullScreen() }),
+                    action: { MainActor.assumeIsolated { MacShotController.shared.captureFullScreen() } }),
             Binding(id: 3, keyCode: UInt32(kVK_ANSI_W), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.captureWindow() }),
+                    action: { MainActor.assumeIsolated { MacShotController.shared.captureWindow() } }),
             Binding(id: 4, keyCode: UInt32(kVK_ANSI_S), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.scrollCapture() }),
+                    action: { MainActor.assumeIsolated { MacShotController.shared.scrollCapture() } }),
             Binding(id: 5, keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.startRecording(format: .mp4, target: .area) }),
+                    action: { MainActor.assumeIsolated { MacShotController.shared.startRecording(format: .mp4, target: .area) } }),
             Binding(id: 6, keyCode: UInt32(kVK_ANSI_O), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.quickOCRArea() }),
+                    action: { MainActor.assumeIsolated { MacShotController.shared.quickOCRArea() } }),
             Binding(id: 7, keyCode: UInt32(kVK_ANSI_E), modifiers: UInt32(cmdKey | shiftKey),
-                    action: { MacShotController.shared.reopenLastEditSession() })
+                    action: { MainActor.assumeIsolated { MacShotController.shared.reopenLastEditSession() } })
         ]
 
         for binding in bindings {

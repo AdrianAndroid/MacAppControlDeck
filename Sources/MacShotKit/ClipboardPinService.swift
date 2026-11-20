@@ -2,7 +2,7 @@ import AppKit
 
 /// 钉剪贴板内容：图片、文件 URL、富文本（RTF/HTML）与纯文本都能钉成浮窗。
 /// 简化自上游 ClipboardPinService + ClipboardTextPinRenderer。
-public enum ClipboardPinService {
+@MainActor public enum ClipboardPinService {
     static let maxCharacters = 20_000
     private static let padding = NSEdgeInsets(top: 22, left: 24, bottom: 22, right: 24)
     private static let plainFont = NSFont.monospacedSystemFont(ofSize: 18, weight: .regular)
@@ -16,7 +16,7 @@ public enum ClipboardPinService {
             for url in urls {
                 if let image = NSImage(contentsOf: url),
                    let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                    PinWindowController.shared.pin(cg)
+                    LegacyPinWindowController.shared.pin(cg)
                     return true
                 }
             }
@@ -24,18 +24,18 @@ public enum ClipboardPinService {
         if let images = pasteboard.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
            let image = images.first,
            let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            PinWindowController.shared.pin(cg)
+            LegacyPinWindowController.shared.pin(cg)
             return true
         }
         if let attributed = attributedFromPasteboard(pasteboard) {
             guard let rendered = render(attributed) else { return false }
-            PinWindowController.shared.pin(rendered)
+            LegacyPinWindowController.shared.pin(rendered)
             return true
         }
         if let text = pasteboard.string(forType: .string), !text.isEmpty {
             let attributed = plainAttributedString(truncate(text))
             guard let rendered = render(attributed) else { return false }
-            PinWindowController.shared.pin(rendered)
+            LegacyPinWindowController.shared.pin(rendered)
             return true
         }
         MacShotController.shared.showToast("剪贴板里没有可钉的内容")

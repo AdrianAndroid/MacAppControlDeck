@@ -8,7 +8,8 @@ let package = Package(
         .target(
             name: "MacShotKit",
             path: "Sources/MacShotKit",
-            swiftSettings: [.define("OFFLINE")]
+            swiftSettings: [.define("OFFLINE")],
+            linkerSettings: [.linkedFramework("ScreenCaptureKit")]
         ),
         .executableTarget(
             name: "MacAppControlDeck",
@@ -22,7 +23,8 @@ let package = Package(
         .testTarget(
             name: "MacAppControlDeckTests",
             dependencies: ["MacAppControlDeck", "MacShotKit"],
-            path: "Tests/MacAppControlDeckTests"
+            path: "Tests/MacAppControlDeckTests",
+            linkerSettings: [.linkedFramework("ScreenCaptureKit")]
         )
     ]
 )
