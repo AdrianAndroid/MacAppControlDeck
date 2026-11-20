@@ -129,8 +129,104 @@ async function exportPNG(scale = 2, padding = 24, background = "white") {
   };
 }
 
+function aiJSON() {
+  if (!excalidrawAPI) throw new Error("画板还没有准备好");
+  const all = getNonDeletedElements(excalidrawAPI.getSceneElements());
+  if (all.length === 0) throw new Error("画板还是空的，先画点内容");
+
+  const appState = excalidrawAPI.getAppState();
+  const selected = selectedElementsWithBindings(all, appState.selectedElementIds);
+  const elements = selected.length > 0 ? selected : all;
+  const selectedOnly = selected.length > 0;
+
+  const scene = JSON.parse(
+    serializeAsJSON(
+      elements,
+      { ...appState, selectedElementIds: {} },
+      {},
+      "local"
+    )
+  );
+
+  const typeCounts = elements.reduce((counts, element) => {
+    const type = element.type || "unknown";
+    counts[type] = (counts[type] || 0) + 1;
+    return counts;
+  }, {});
+
+  const textElements = elements.filter(
+    (element) => element.type === "text" && typeof element.text === "string"
+  );
+  const texts = textElements
+    .map((element) => element.text.trim())
+    .filter(Boolean)
+    .slice(0, 100);
+
+  const bounds = elements.reduce(
+    (box, element) => {
+      const x = Number(element.x) || 0;
+      const y = Number(element.y) || 0;
+      const width = Number(element.width) || 0;
+      const height = Number(element.height) || 0;
+      box.minX = Math.min(box.minX, x);
+      box.minY = Math.min(box.minY, y);
+      box.maxX = Math.max(box.maxX, x + width);
+      box.maxY = Math.max(box.maxY, y + height);
+      return box;
+    },
+    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+  );
+
+  const hasImages = elements.some((element) => element.type === "image");
+
+  return JSON.stringify(
+    {
+      format: "macapp-controldeck/ui-sketch",
+      schemaVersion: 1,
+      contentType: "application/vnd.macappcontroldeck.ui-sketch+json",
+      isDiagram: true,
+      diagramType: "ui-sketch",
+      ai: {
+        kind: "diagram",
+        isDiagram: true,
+        title: "UI 草图",
+        message:
+          "这是一个图形/示意图（UI 草图），不是普通文本。请把 scene.elements 当作画布上的图形元素来理解，而不是把坐标、颜色、尺寸当作文本内容。",
+        howToRead: [
+          "scene.elements 是 Excalidraw 图形元素数组；type 表示 rectangle / ellipse / diamond / arrow / line / freedraw / text / image 等。",
+          "x、y 是元素左上角坐标，width、height 是尺寸；arrow、line、freedraw 的 points 是相对路径点。",
+          "text 元素的 text 字段是画面上的文字；containerId 表示文字绑定在某个形状内。",
+          "backgroundColor 为 transparent 表示无填充；strokeColor 是描边颜色。",
+          "groupIds 相同的元素属于同一组；boundElements 表示箭头或文字与该元素的绑定关系。"
+        ],
+        selectedOnly
+      },
+      summary: {
+        elementCount: elements.length,
+        typeCounts,
+        textCount: textElements.length,
+        texts,
+        bounds: {
+          x: Number.isFinite(bounds.minX) ? bounds.minX : 0,
+          y: Number.isFinite(bounds.minY) ? bounds.minY : 0,
+          width: Number.isFinite(bounds.maxX - bounds.minX) ? bounds.maxX - bounds.minX : 0,
+          height: Number.isFinite(bounds.maxY - bounds.minY) ? bounds.maxY - bounds.minY : 0
+        },
+        hasImages
+      },
+      notes: hasImages
+        ? ["JSON 不包含图片二进制；image 元素只保留 fileId，纯文本无法还原位图。"]
+        : [],
+      scene
+    },
+    null,
+    2
+  );
+}
+
 window.deckSketch = {
   exportPNG,
+  getAIJSON: aiJSON,
   getScene: sceneJSON,
   loadScene,
   clear: () => {
@@ -240,6 +336,14 @@ function App() {
               onClick={() => post("copyRequested")}
             >
               复制图片
+            </button>
+            <button
+              type="button"
+              className="deck-action"
+              title="复制带图形说明的 JSON，直接粘贴给 AI"
+              onClick={() => post("jsonCopyRequested")}
+            >
+              复制 JSON
             </button>
             <button
               type="button"

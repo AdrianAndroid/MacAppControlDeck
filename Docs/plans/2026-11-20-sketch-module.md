@@ -241,3 +241,10 @@ UI 草图
 - 实机结果：复制 496×496 PNG（14,512 B）；保存同名 PNG + `.excalidraw`；关闭重开草稿恢复。
 - 打包：`Build/build.sh` / `package-release.sh` 已复制 SwiftPM 资源 bundle；App 体积约 16 MB。
 - 归档：`Docs/archive/2026-11-20-sketch-module/SUMMARY.md`。
+
+## 12. 追加：复制 JSON（2026-11-20）
+
+- 顶栏在「复制图片」与「保存」之间新增「复制 JSON」按钮，事件 `jsonCopyRequested`。
+- 输出为纯文本 `NSPasteboardTypeString`，顶层 `isDiagram=true`、`diagramType="ui-sketch"`，`ai` 对象显式说明“这是一个图形/示意图”，并附 `howToRead`、`selectedOnly`。
+- 附带 `summary`（元素数、类型统计、文字、边界、是否含图片）与完整 `scene`；不内嵌 PNG base64，位图仍走「复制图片」。
+- 实机验证：整板 5 个矩形 → 5,402 B JSON；选中 1 个矩形 → `selectedOnly=true`、1 个元素、2,411 B；剪贴板为纯文本。

@@ -23,6 +23,7 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
 
     private enum PendingAction {
         case copy
+        case copyJSON
         case save
         case new
     }
@@ -165,6 +166,8 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
             store.saveDraft(scene)
         case .copyRequested:
             copyCurrentSketch()
+        case .copyJSONRequested:
+            copyCurrentSketchJSON()
         case .saveRequested:
             saveCurrentSketch()
         case .newRequested:
@@ -203,6 +206,7 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
         self.pendingAction = nil
         switch pendingAction {
         case .copy: copyCurrentSketch()
+        case .copyJSON: copyCurrentSketchJSON()
         case .save: saveCurrentSketch()
         case .new: newBoard()
         }
@@ -231,6 +235,37 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
                 toast(message)
             } catch {
                 debugLog("[sketch] copy failed: \(error)")
+                toast(message(for: error), kind: "error")
+            }
+        }
+    }
+
+    // MARK: - 复制 JSON
+
+    func copyCurrentSketchJSON() {
+        guard isReady else {
+            pendingAction = .copyJSON
+            show()
+            return
+        }
+        Task {
+            do {
+                guard try await hasContent() else { throw SketchError.emptyBoard }
+                let value = try await evalJS("window.deckSketch.getAIJSON()")
+                guard let value,
+                      let json = value as? String,
+                      !json.isEmpty,
+                      let data = json.data(using: .utf8),
+                      (try? JSONSerialization.jsonObject(with: data)) != nil else {
+                    throw SketchError.exportFailed("生成 JSON 失败")
+                }
+                guard store.writeClipboard(text: json) else {
+                    throw SketchError.exportFailed("写入剪贴板失败")
+                }
+                debugLog("[sketch] JSON copied, bytes=\(json.utf8.count)")
+                toast("已复制 JSON（含图形说明），可直接粘贴给 AI")
+            } catch {
+                debugLog("[sketch] JSON copy failed: \(error)")
                 toast(message(for: error), kind: "error")
             }
         }

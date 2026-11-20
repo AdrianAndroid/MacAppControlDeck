@@ -86,3 +86,14 @@
 - 未打包中文手写字体；若需要中文手写风，可裁剪常用汉字子集，预计增加 2–4 MB。
 - 菜单“最近草图”当前只在画板内打开 `.excalidraw`，尚未做独立管理窗口。
 - 本次未发布新的 GitHub Release；上一版 `v0.1.0` 的双架构 Release 保持不变。
+
+## 追加：复制 JSON（2026-11-20）
+
+- 顶栏按钮顺序：`复制图片` → `复制 JSON` → `保存`。
+- 复制内容为格式化纯文本 JSON，剪贴板类型 `NSPasteboardTypeString`。
+- 顶层字段 `format`、`schemaVersion`、`contentType`、`isDiagram: true`、`diagramType: "ui-sketch"`。
+- `ai.kind = "diagram"`、`ai.isDiagram = true`、`ai.title = "UI 草图"`、`ai.message` 中文说明“这是图形/示意图，不是普通文本”，并附 `howToRead` 与 `selectedOnly`。
+- `summary` 包含 `elementCount`、`typeCounts`、`textCount`、`texts`、`bounds`、`hasImages`；`scene` 为完整 Excalidraw 场景；含 image 时 `notes` 提示未内嵌二进制。
+- 选中语义与复制 PNG 一致：有选中复制选中及绑定元素，无选中复制整板。
+- 实机验证：整板 5 个矩形 → 5,402 B；选中 1 个矩形 → `selectedOnly=true`、1 个元素、2,411 B；`JSON.parse` 通过。
+- 详细字段说明见 `JSON_CLIPBOARD.md`。

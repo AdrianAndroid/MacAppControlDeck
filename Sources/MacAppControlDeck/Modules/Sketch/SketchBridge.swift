@@ -5,6 +5,7 @@ enum SketchBridgeEvent: Sendable {
     case ready
     case change(scene: String)
     case copyRequested
+    case copyJSONRequested
     case saveRequested
     case newRequested
 }
@@ -42,6 +43,8 @@ final class SketchBridge: NSObject, WKScriptMessageHandler {
             }
         case "copyRequested":
             event = .copyRequested
+        case "jsonCopyRequested":
+            event = .copyJSONRequested
         case "saveRequested":
             event = .saveRequested
         case "newRequested":

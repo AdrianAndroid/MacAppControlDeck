@@ -96,6 +96,13 @@ final class SketchStore {
         return pasteboard.writeObjects([item])
     }
 
+    func writeClipboard(text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        return pasteboard.setString(text, forType: .string)
+    }
+
     // MARK: - 最近
 
     func recentSketches(limit: Int = 8) -> [URL] {
