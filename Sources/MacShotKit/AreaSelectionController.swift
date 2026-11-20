@@ -175,7 +175,6 @@ private final class SelectionView: NSView {
         case .resizing: rect = resize(startRect, handle: handle, to: p)
         case .idle: break
         }
-        if editing { updateToolbar() }
         needsDisplay = true
     }
 
@@ -377,7 +376,6 @@ private final class SelectionView: NSView {
     }
 
     private func drawToolbar() {
-        updateToolbarIfNeeded()
         let panel = toolbarButtons.reduce(CGRect.null) { $0.union($1.rect) }.insetBy(dx: -8, dy: -6)
         NSColor.black.withAlphaComponent(0.78).setFill()
         NSBezierPath(roundedRect: panel, xRadius: 10, yRadius: 10).fill()
@@ -394,12 +392,6 @@ private final class SelectionView: NSView {
                 at: CGPoint(x: button.rect.midX - size.width / 2, y: button.rect.midY - size.height / 2),
                 withAttributes: attrs)
         }
-    }
-
-    private var lastToolbarRect: CGRect = .null
-    private func updateToolbarIfNeeded() {
-        guard let rect else { return }
-        if rect != lastToolbarRect { lastToolbarRect = rect; updateToolbar() }
     }
 
     private func currentImage() -> CGImage? {
