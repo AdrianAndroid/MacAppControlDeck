@@ -8,27 +8,33 @@ enum ScreenCaptureService {
         return capture(screen: screen)
     }
 
-    /// 多显示器一次性拼接：按屏幕在桌面上的实际位置合成一张图（1x 点尺寸）。
+    /// 多显示器一次性拼接：按屏幕在桌面上的实际位置合成一张图（按 Retina 像素输出）。
     static func captureAllScreensStitched() -> CGImage? {
         let context = ScreenCaptureManager.makeImmediateCaptureContext()
         let captures = ScreenCaptureManager.captureAllScreensImmediately(context: context)
+        return composeStitched(captures: captures)
+    }
+
+    static func composeStitched(captures: [ScreenCapture]) -> CGImage? {
         guard !captures.isEmpty else { return nil }
         let frames = captures.map(\.screen.frame)
         let union = frames.reduce(CGRect.null) { $0.union($1) }
+        let scale = max(1, captures.map(\.screen.backingScaleFactor).max() ?? 1)
         guard union.width > 0, union.height > 0,
-              let ctx = CGContext(data: nil, width: Int(union.width),
-                                  height: Int(union.height), bitsPerComponent: 8,
+              let ctx = CGContext(data: nil, width: Int(union.width * scale),
+                                  height: Int(union.height * scale), bitsPerComponent: 8,
                                   bytesPerRow: 0,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { return nil }
         ctx.setFillColor(NSColor.black.cgColor)
-        ctx.fill(CGRect(x: 0, y: 0, width: union.width, height: union.height))
+        ctx.fill(CGRect(x: 0, y: 0, width: union.width * scale, height: union.height * scale))
+        ctx.interpolationQuality = .high
         for capture in captures {
             let f = capture.screen.frame
-            let rect = CGRect(x: f.minX - union.minX,
-                              y: union.maxY - f.maxY,
-                              width: f.width, height: f.height)
+            let rect = CGRect(x: (f.minX - union.minX) * scale,
+                              y: (union.maxY - f.maxY) * scale,
+                              width: f.width * scale, height: f.height * scale)
             ctx.draw(capture.image, in: rect)
         }
         return ctx.makeImage()

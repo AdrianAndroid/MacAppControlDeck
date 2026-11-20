@@ -32,6 +32,10 @@ final class CaptureEditorModel: ObservableObject {
     @Published var censorMode: CensorMode = .pixelate
     @Published var numberFormat: NumberFormat = .arabic
     @Published var measureUnit: MeasureUnit = .pixel
+    @Published var measureScale: CGFloat = 0
+    @Published var annotationAlpha: CGFloat = 1
+    @Published var lineStyle: LineStyle = .solid
+    @Published var fontName: String = ""
     @Published var spotlightDim: CGFloat = 0.55
 
     // Image effects / Beautify
@@ -102,6 +106,10 @@ final class CaptureEditorModel: ObservableObject {
         annotation.censorMode = censorMode
         annotation.numberFormat = numberFormat
         annotation.measureUnit = measureUnit
+        annotation.measureScale = measureScale
+        annotation.fontName = fontName
+        annotation.lineStyle = lineStyle
+        annotation.alpha = annotationAlpha
         annotation.spotlightDim = spotlightDim
         if tool == .pen || tool == .marker {
             annotation.points = [point]
@@ -188,8 +196,26 @@ final class CaptureEditorModel: ObservableObject {
         annotation.textBackground = textBackground
         annotation.textBackgroundColor = NSColor(textBackgroundColor)
         annotation.textOutline = textOutline
+        annotation.fontName = fontName
+        annotation.alpha = annotationAlpha
         annotations.append(annotation)
         selectedID = annotation.id
+        isDirty = true
+    }
+
+    /// 用当前选中的测量线校准真实比例：`lengthMM` 为用户输入的实际长度（毫米）。
+    func calibrateMeasure(lengthMM: CGFloat) {
+        guard lengthMM > 0, let annotation = selectedAnnotation ?? annotations.last(where: { $0.tool == .measure }) else { return }
+        let pixels = hypot(annotation.end.x - annotation.start.x,
+                           annotation.end.y - annotation.start.y)
+        guard pixels > 0 else { return }
+        measureScale = lengthMM / pixels
+        mutateSelectedWithoutUndo { $0.measureScale = self.measureScale }
+    }
+
+    func nudgeSelected(dx: CGFloat, dy: CGFloat) {
+        guard selectedID != nil else { return }
+        mutateSelectedWithoutUndo { $0.move(by: CGPoint(x: dx, y: dy)) }
         isDirty = true
     }
 

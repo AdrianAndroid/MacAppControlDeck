@@ -24,6 +24,12 @@ public final class CaptureHistoryStore {
         defaults.set(paths, forKey: key)
     }
 
+    public func remove(_ url: URL) {
+        var paths = defaults.stringArray(forKey: key) ?? []
+        paths.removeAll { $0 == url.path }
+        defaults.set(paths, forKey: key)
+    }
+
     public func clear() {
         defaults.removeObject(forKey: key)
     }

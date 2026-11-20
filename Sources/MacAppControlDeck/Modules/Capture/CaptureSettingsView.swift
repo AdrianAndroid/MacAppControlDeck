@@ -51,8 +51,18 @@ struct CaptureSettingsView: View {
     private var outputCard: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
-                Toggle("截图后保存 PNG 文件", isOn: $prefs.saveToFile)
+                Toggle("截图后保存文件", isOn: $prefs.saveToFile)
                 Toggle("截图后复制到剪贴板", isOn: $prefs.copyToClipboard)
+                Toggle("截图快门音", isOn: $prefs.shutterSound)
+                Toggle("保存后显示悬浮缩略图", isOn: $prefs.showFloatingThumbnail)
+                HStack {
+                    Text("文件名模板")
+                    TextField("Screenshot {date} at {time}", text: $prefs.filenameTemplate)
+                        .textFieldStyle(.roundedBorder)
+                }
+                Text("可用：{date} {time} {timestamp} {unix} {window} {app} {index} {random} {yyyy} {MM} {dd} {HH} {mm} {ss} {ms}；用 / 分文件夹。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack {
                     Text("图片格式")
                     Picker("", selection: $prefs.imageFormat) {
@@ -102,6 +112,11 @@ struct CaptureSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 directoryRow("录屏保存目录", path: prefs.recordingDirectory) {
                     chooseDirectory(start: prefs.recordingDirectoryURL) { prefs.recordingDirectory = $0.path }
+                }
+                HStack {
+                    Text("录屏文件名模板")
+                    TextField("Recording {date} at {time}", text: $prefs.recordingFilenameTemplate)
+                        .textFieldStyle(.roundedBorder)
                 }
                 Toggle("录屏包含系统声音", isOn: $prefs.recordingSystemAudio)
                 Toggle("录屏包含鼠标指针", isOn: $prefs.recordingCursor)

@@ -44,6 +44,10 @@ public final class MacShotController {
     public var imageQuality = 0.9
     public var captureDelay: TimeInterval = 0
     public var selectionPreset: CaptureSelectionPreset = .free
+    public var playShutterSound = true
+    public var saveToFile = true
+    public var copyToClipboard = true
+    public var showFloatingThumbnail = true
     private var recorder: ScreenRecorder?
     private var recordingTarget: RecordingTarget?
     private var toastPanel: NSPanel?
@@ -56,7 +60,7 @@ public final class MacShotController {
         scheduleCapture { [weak self] in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
                 guard let image = ScreenCaptureService.captureFullScreen() else {
-                    self?.showAlert("截图失败", "请确认屏幕录制权限已授权，并重启应用后重试。")
+                    self?.showPermissionAlert()
                     return
                 }
                 self?.openEditor(image)
@@ -69,7 +73,7 @@ public final class MacShotController {
         scheduleCapture { [weak self] in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
                 guard let image = ScreenCaptureService.captureAllScreensStitched() else {
-                    self?.showAlert("多屏截图失败", "请确认屏幕录制权限已授权。")
+                    self?.showPermissionAlert()
                     return
                 }
                 self?.openEditor(image)
@@ -83,7 +87,7 @@ public final class MacShotController {
             AreaSelectionController.shared.begin { [weak self] screen, rect, snapshot in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                     guard let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen) else {
-                        self?.showAlert("区域截图失败", "没有拿到选区图像，请重试。")
+                        self?.showPermissionAlert()
                         return
                     }
                     self?.openEditor(image)
@@ -173,14 +177,35 @@ public final class MacShotController {
 
     private func saveEditorImage(_ image: CGImage, base: CGImage? = nil,
                                  annotations: [CaptureAnnotation] = [], notify: Bool) {
+        let ext = imageFormat == "jpeg" ? "jpg" : imageFormat
+        var savedURL: URL?
         do {
-            let ext = imageFormat == "jpeg" ? "jpg" : imageFormat
-            let url = try nextFileURL(in: outputDirectory, prefix: "Screenshot", ext: ext)
-            try CaptureExporter.write(image, to: url, format: imageFormat, quality: imageQuality)
-            CaptureExporter.copyToPasteboard(image)
-            CaptureHistoryStore.shared.add(url)
-            if let base { persistEditSession(savedURL: url, base: base, annotations: annotations) }
-            if notify { showToast("已保存 \(url.lastPathComponent)，并复制到剪贴板") }
+            if saveToFile {
+                let template = FilenameFormatter.template(forRecording: false)
+                let url = try FilenameFormatter.makeURL(directory: outputDirectory,
+                                                        template: template,
+                                                        fileExtension: ext)
+                try CaptureExporter.write(image, to: url, format: imageFormat, quality: imageQuality)
+                savedURL = url
+                CaptureHistoryStore.shared.add(url)
+                if let base { persistEditSession(savedURL: url, base: base, annotations: annotations) }
+            }
+            if copyToClipboard || !saveToFile {
+                CaptureExporter.copyToPasteboard(image)
+            }
+            if playShutterSound { CaptureSound.shared.play() }
+            if showFloatingThumbnail {
+                FloatingThumbnailController.shared.show(image: image, fileURL: savedURL)
+            }
+            if notify {
+                if let savedURL {
+                    showToast(copyToClipboard
+                        ? "已保存 \(savedURL.lastPathComponent)，并复制到剪贴板"
+                        : "已保存 \(savedURL.lastPathComponent)")
+                } else {
+                    showToast("已复制到剪贴板")
+                }
+            }
         } catch {
             showAlert("保存失败", error.localizedDescription)
         }
@@ -277,12 +302,14 @@ public final class MacShotController {
 
     private func beginRecording(target: RecordingTarget, format: RecordingFormat) {
         let ext = format == .gif ? "gif" : "mp4"
-        let prefix = format == .gif ? "Recording" : "Screen Recording"
         let url: URL
         do {
             try FileManager.default.createDirectory(at: recordingDirectory,
                                                     withIntermediateDirectories: true)
-            url = try nextFileURL(in: recordingDirectory, prefix: prefix, ext: ext)
+            let template = FilenameFormatter.template(forRecording: true)
+            url = try FilenameFormatter.makeURL(directory: recordingDirectory,
+                                                template: template,
+                                                fileExtension: ext)
         } catch {
             showAlert("录制失败", error.localizedDescription)
             return
@@ -319,6 +346,14 @@ public final class MacShotController {
                     self.isRecording = false
                     self.showAlert("没有麦克风权限", "请在系统设置中允许麦克风访问后重试。")
                     return
+                }
+            }
+            let countdown = RecordingCountdown()
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                countdown.show(over: Self.anchor(for: target).rect,
+                               screen: Self.anchor(for: target).screen,
+                               seconds: 3) {
+                    continuation.resume()
                 }
             }
             do {
@@ -363,17 +398,14 @@ public final class MacShotController {
 
     // MARK: - 权限/提示
 
-    public func ensurePermission() -> Bool {
-        if CGPreflightScreenCaptureAccess() { return true }
-        _ = CGRequestScreenCaptureAccess()
-        showPermissionAlert()
-        return false
-    }
+    /// 不再用 CGPreflightScreenCaptureAccess 阻塞判断：重签名后它会误报未授权，
+    /// 但真实抓屏往往仍然可用。这里直接放行，只有抓图失败时才提示授权。
+    public func ensurePermission() -> Bool { true }
 
-    private func showPermissionAlert() {
+    func showPermissionAlert() {
         let alert = NSAlert()
         alert.messageText = "需要「屏幕录制」权限"
-        alert.informativeText = "请在系统设置 → 隐私与安全 → 屏幕录制中勾选「Mac 应用快捷控制台」，然后重启应用。"
+        alert.informativeText = "请在系统设置 → 隐私与安全 → 屏幕录制中勾选「Mac 应用快捷控制台」，然后重启应用。\n\n若开关已经是打开状态，多半是重新构建后签名变化导致系统保留了旧条目：先删除列表里的旧条目，再重新添加本应用；或执行 Build/setup-signing.sh 使用固定证书后重新授权一次。"
         alert.addButton(withTitle: "打开系统设置")
         alert.addButton(withTitle: "稍后")
         if alert.runModal() == .alertFirstButtonReturn,
@@ -423,14 +455,6 @@ public final class MacShotController {
             self?.toastPanel?.orderOut(nil)
             self?.toastPanel = nil
         }
-    }
-
-    private func nextFileURL(in directory: URL, prefix: String, ext: String) throws -> URL {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        return directory.appendingPathComponent("\(prefix) \(formatter.string(from: Date())).\(ext)")
     }
 }
 

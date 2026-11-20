@@ -19,6 +19,12 @@ private enum ShotUI {
 }
 
 struct CaptureEditorView: View {
+    static var exportName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        return "Screenshot \(formatter.string(from: Date())).png"
+    }
+
     @ObservedObject var model: CaptureEditorModel
     let onSave: (CGImage) -> Void
     let onCopy: (CGImage) -> Void
@@ -34,6 +40,9 @@ struct CaptureEditorView: View {
     @State private var resizeOriginal: CaptureAnnotation?
     @State private var resizeStartBounds: CGRect?
     @State private var editingText = false
+    @State private var measureCalibrationMM: Double = 0
+    @State private var showingEmojiPicker = false
+    @State private var emojiQuery = ""
     @State private var showingEffects = false
     @State private var zoom: CGFloat = 1
     @State private var zoomGestureBase: CGFloat = 1
@@ -266,10 +275,12 @@ struct CaptureEditorView: View {
                     .foregroundStyle(Color.white.opacity(0.85))
                 GripDots()
             }
-            WindowDragHandle()
+            EditorDragHandle(render: { model.render() },
+                             suggestedName: Self.exportName,
+                             onCopy: { image in onCopy(image) })
         }
         .frame(width: 40, height: 22)
-        .help("拖动标题区域移动窗口")
+        .help("拖出得到文件，点击复制；按住 Option 拖动窗口")
     }
 
     // MARK: - Right strip (right toolbar, 32pt buttons)
@@ -378,6 +389,12 @@ struct CaptureEditorView: View {
                     styleToggle("I", active: $model.textItalic)
                     styleToggle("U", active: $model.textUnderline)
                     styleToggle("S", active: $model.textStrikethrough)
+                    optionMenu("线条", selection: $model.lineStyle,
+                               items: LineStyle.allCases.map { ($0.title, $0) })
+                    Text("不透明").font(.system(size: 9.5))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Slider(value: $model.annotationAlpha, in: 0.15...1)
+                        .frame(width: 54).controlSize(.small).tint(ShotUI.accent)
                     if model.selectedAnnotation?.tool == .text {
                         ChromeButton(symbol: "pencil.line", title: "重新编辑文字",
                                      size: 26, iconSize: 12) {
@@ -421,6 +438,20 @@ struct CaptureEditorView: View {
                 if model.tool == .stamp {
                     emojiMenu
                 }
+                if model.tool != .text, model.tool != .stamp {
+                    optionMenu("线条", selection: $model.lineStyle,
+                               items: LineStyle.allCases.map { ($0.title, $0) })
+                    Text("不透明").font(.system(size: 9.5))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Slider(value: $model.annotationAlpha, in: 0.15...1)
+                        .frame(width: 60).controlSize(.small).tint(ShotUI.accent)
+                }
+                if model.tool == .text {
+                    let families = ["", "Helvetica Neue", "Avenir Next", "Menlo",
+                                    "PingFang SC", "Songti SC", "Georgia"]
+                    optionMenu("字体", selection: $model.fontName,
+                               items: families.map { ($0.isEmpty ? "系统" : $0, $0) })
+                }
                 if model.tool == .loupe {
                     Text("倍率").font(.system(size: 9.5, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.4))
@@ -438,6 +469,15 @@ struct CaptureEditorView: View {
                 if model.tool == .measure {
                     optionMenu("单位", selection: $model.measureUnit,
                                items: MeasureUnit.allCases.map { ($0.title, $0) })
+                    Text("校准 (mm)").font(.system(size: 9.5))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    TextField("已知长度", value: $measureCalibrationMM, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 64)
+                    Button("设为比例") { model.calibrateMeasure(lengthMM: CGFloat(measureCalibrationMM)) }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(ShotUI.accent)
                 }
                 if model.tool == .highlight {
                     Text("压暗").font(.system(size: 9.5, weight: .medium))
@@ -483,17 +523,66 @@ struct CaptureEditorView: View {
     }
 
     private var emojiMenu: some View {
-        Menu {
-            ForEach(["😀","😁","😂","🤣","😊","😍","🤔","😎","😱","😡","👍","👎","👏","🙏","🔥","⭐️","✅","❌","❗️","❓","💡"], id: \.self) { e in
-                Button(e) { model.stampEmoji = e }
-            }
+        Button {
+            emojiQuery = ""
+            showingEmojiPicker = true
         } label: {
             Text(model.stampEmoji).font(.system(size: 15))
                 .frame(width: 26, height: 22)
                 .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.08)))
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
+        .buttonStyle(.plain)
+        .help("选择 Emoji（可搜索）")
+        .sheet(isPresented: $showingEmojiPicker) {
+            EmojiPickerView(selection: $model.stampEmoji,
+                            isPresented: $showingEmojiPicker,
+                            query: $emojiQuery)
+        }
+    }
+
+    private struct EmojiPickerView: View {
+        @Binding var selection: String
+        @Binding var isPresented: Bool
+        @Binding var query: String
+
+        private var results: [EmojiCatalog.Entry] {
+            Array(EmojiCatalog.search(query).prefix(400))
+        }
+
+        var body: some View {
+            VStack(spacing: 10) {
+                HStack {
+                    Text("Emoji 印章").font(.headline)
+                    Spacer()
+                    Button("关闭") { isPresented = false }
+                }
+                TextField("搜索（英文名或 Emoji）", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(34), spacing: 6), count: 10),
+                              spacing: 6) {
+                        ForEach(results, id: \.emoji) { entry in
+                            Button {
+                                selection = entry.emoji
+                                isPresented = false
+                            } label: {
+                                Text(entry.emoji).font(.system(size: 22))
+                                    .frame(width: 32, height: 32)
+                                    .background(RoundedRectangle(cornerRadius: 6)
+                                        .fill(entry.emoji == selection
+                                              ? Color.accentColor.opacity(0.35)
+                                              : Color.secondary.opacity(0.12)))
+                            }
+                            .buttonStyle(.plain)
+                            .help(entry.name)
+                        }
+                    }
+                    .padding(2)
+                }
+            }
+            .padding(16)
+            .frame(width: 420, height: 380)
+        }
     }
 
     private var alignMenu: some View {
@@ -672,6 +761,10 @@ struct CaptureEditorView: View {
         model.censorMode = a.censorMode
         model.numberFormat = a.numberFormat
         model.measureUnit = a.measureUnit
+        model.measureScale = a.measureScale
+        model.annotationAlpha = a.alpha
+        model.lineStyle = a.lineStyle
+        model.fontName = a.fontName
         model.spotlightDim = a.spotlightDim
     }
 
@@ -695,6 +788,10 @@ struct CaptureEditorView: View {
             a.censorMode = model.censorMode
             a.numberFormat = model.numberFormat
             a.measureUnit = model.measureUnit
+            a.measureScale = model.measureScale
+            a.alpha = model.annotationAlpha
+            a.lineStyle = model.lineStyle
+            a.fontName = model.fontName
             a.spotlightDim = model.spotlightDim
             if a.tool == .text { a.fontSize = max(18, model.lineWidth * 7) }
             if a.tool == .stamp { a.fontSize = max(24, model.lineWidth * 8) }
@@ -933,7 +1030,7 @@ struct CaptureEditorView: View {
     }
 
     private func draw(_ annotation: CaptureAnnotation, context: inout GraphicsContext) {
-        let color = Color(nsColor: annotation.color)
+        let color = Color(nsColor: annotation.color).opacity(annotation.alpha)
         let lineWidth = annotation.lineWidth
         var ctx = context
         if annotation.rotation != 0 {
@@ -971,12 +1068,14 @@ struct CaptureEditorView: View {
                 context.fill(path, with: .color(color.opacity(0.9)))
             }
             if mode == .stroke || mode == .strokeAndFill {
-                context.stroke(path, with: .color(color), lineWidth: lineWidth)
+                context.stroke(path, with: .color(color),
+                               style: StrokeStyle(lineWidth: lineWidth, dash: dash(annotation)))
             }
         case .line:
             var path = Path()
             path.move(to: annotation.start); path.addLine(to: annotation.end)
-            context.stroke(path, with: .color(color), lineWidth: lineWidth)
+            context.stroke(path, with: .color(color),
+                           style: StrokeStyle(lineWidth: lineWidth, dash: dash(annotation)))
         case .arrow:
             drawArrow(annotation, context: &context, color: color)
         case .pen, .marker:
@@ -988,7 +1087,8 @@ struct CaptureEditorView: View {
             for point in points.dropFirst() { path.addLine(to: point) }
             context.stroke(path,
                            with: .color(annotation.tool == .marker ? color.opacity(0.35) : color),
-                           lineWidth: annotation.tool == .marker ? lineWidth * 2.5 : lineWidth)
+                           style: StrokeStyle(lineWidth: annotation.tool == .marker ? lineWidth * 2.5 : lineWidth,
+                                              dash: annotation.tool == .marker ? [] : dash(annotation)))
         case .text:
             let text = previewText(annotation, color: color)
             if annotation.textBackground {
@@ -1067,10 +1167,18 @@ struct CaptureEditorView: View {
         }
     }
 
+    private func dash(_ annotation: CaptureAnnotation) -> [CGFloat] {
+        guard let pattern = annotation.lineStyle.pattern else { return [] }
+        return pattern.map { $0 * max(annotation.lineWidth, 1) }
+    }
+
     private func previewText(_ annotation: CaptureAnnotation, color: Color) -> Text {
+        let font = annotation.fontName.isEmpty
+            ? Font.system(size: annotation.fontSize,
+                          weight: annotation.textBold ? .semibold : .regular)
+            : Font.custom(annotation.fontName, size: annotation.fontSize)
         var text = Text(annotation.text ?? "")
-            .font(.system(size: annotation.fontSize,
-                          weight: annotation.textBold ? .semibold : .regular))
+            .font(font)
             .foregroundColor(color)
         if annotation.textItalic { text = text.italic() }
         if annotation.textUnderline { text = text.underline() }
@@ -1221,6 +1329,85 @@ private struct GripDots: View {
             }
         }
         .frame(width: 6, height: 10)
+    }
+}
+
+private struct EditorDragHandle: NSViewRepresentable {
+    let render: () -> CGImage?
+    let suggestedName: String
+    let onCopy: (CGImage) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        DragView(render: render, suggestedName: suggestedName, onCopy: onCopy)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    static var exportName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        return "Screenshot \(formatter.string(from: Date())).png"
+    }
+
+    private final class DragView: NSView, NSDraggingSource {
+        let render: () -> CGImage?
+        let suggestedName: String
+        let onCopy: (CGImage) -> Void
+        private var startPoint: CGPoint?
+        private var image: CGImage?
+
+        init(render: @escaping () -> CGImage?, suggestedName: String,
+             onCopy: @escaping (CGImage) -> Void) {
+            self.render = render
+            self.suggestedName = suggestedName
+            self.onCopy = onCopy
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError() }
+
+        override var mouseDownCanMoveWindow: Bool { false }
+
+        override func mouseDown(with event: NSEvent) {
+            if event.modifierFlags.contains(.option) {
+                window?.performDrag(with: event)
+                return
+            }
+            startPoint = convert(event.locationInWindow, from: nil)
+            image = render()
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let start = startPoint, let image else { return }
+            let p = convert(event.locationInWindow, from: nil)
+            guard hypot(p.x - start.x, p.y - start.y) > 4 else { return }
+            startPoint = nil
+            let item = NSPasteboardItem()
+            if let data = CaptureExporter.pngData(image) {
+                item.setData(data, forType: .png)
+                item.setString(suggestedName, forType: .string)
+            }
+            let draggingItem = NSDraggingItem(pasteboardWriter: item)
+            let scale = min(120 / max(CGFloat(image.width), 1), 1)
+            let previewSize = CGSize(width: CGFloat(image.width) * scale,
+                                     height: CGFloat(image.height) * scale)
+            draggingItem.setDraggingFrame(CGRect(x: p.x - previewSize.width / 2,
+                                                 y: p.y - previewSize.height / 2,
+                                                 width: previewSize.width, height: previewSize.height),
+                                          contents: NSImage(cgImage: image, size: previewSize))
+            beginDraggingSession(with: [draggingItem], event: event, source: self)
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            guard startPoint != nil else { return }
+            startPoint = nil
+            if let image { onCopy(image) }
+        }
+
+        func draggingSession(_ session: NSDraggingSession,
+                             sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+            .copy
+        }
     }
 }
 

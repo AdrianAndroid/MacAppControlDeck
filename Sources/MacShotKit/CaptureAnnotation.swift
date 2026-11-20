@@ -16,6 +16,31 @@ enum ArrowStyle: String, CaseIterable, Identifiable {
     }
 }
 
+enum LineStyle: String, CaseIterable, Identifiable {
+    case solid, dashed, dotted
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .solid: return "实线"
+        case .dashed: return "虚线"
+        case .dotted: return "点线"
+        }
+    }
+    /// 归一化后的 dash 模式（乘以线宽得到实际长度）。
+    var pattern: [CGFloat]? {
+        switch self {
+        case .solid: return nil
+        case .dashed: return [3, 2]
+        case .dotted: return [0.1, 2]
+        }
+    }
+    var next: LineStyle {
+        let all = LineStyle.allCases
+        let i = (all.firstIndex(of: self) ?? 0) + 1
+        return all[i % all.count]
+    }
+}
+
 enum ShapeFillMode: String, CaseIterable, Identifiable {
     case stroke, fill, strokeAndFill
     var id: String { rawValue }
@@ -186,6 +211,7 @@ struct CaptureAnnotation: Identifiable {
     // Advanced styles
     var arrowStyle: ArrowStyle = .single
     var arrowReversed = false
+    var lineStyle: LineStyle = .solid
     var fillMode: ShapeFillMode = .stroke
     var cornerRadius: CGFloat = 0
     var rotation: CGFloat = 0
@@ -197,6 +223,8 @@ struct CaptureAnnotation: Identifiable {
     var textBackground = false
     var textBackgroundColor: NSColor = .black
     var textOutline = false
+    var fontName: String = ""
+    var measureScale: CGFloat = 0
     var stampEmoji: String = "😀"
     var loupeZoom: CGFloat = 2
     var image: CGImage?

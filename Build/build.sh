@@ -32,9 +32,9 @@ rm -rf "$ICONSET"
 echo "==> 签名"
 IDENTITY="${DECK_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]]; then
-  if security find-identity -v -p codesigning 2>/dev/null | grep -q "MacAppControlDeck Self-Signed"; then
-    IDENTITY="MacAppControlDeck Self-Signed"
-  fi
+  # 任何有效的本仓库自签名身份都可用于稳定签名（Dev / Self-Signed 均可）。
+  IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n 's/.*"\(MacAppControlDeck[^"]*\)"/\1/p' | head -1)
 fi
 if [[ -z "$IDENTITY" ]]; then
   IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \

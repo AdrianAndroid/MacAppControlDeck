@@ -19,20 +19,33 @@ final class AreaSelectionController {
         let frames = NSScreen.screens.map(\.frame)
         guard !frames.isEmpty else { return }
         unionFrame = frames.reduce(CGRect.null) { $0.union($1) }
-        let image = ScreenCaptureService.captureAllScreensStitched()
-        snapshot = image
 
         let window = SelectionWindow(contentRect: unionFrame)
         let view = SelectionView(frame: CGRect(origin: .zero, size: unionFrame.size))
         view.controller = self
-        view.snapshot = image
         view.preset = MacShotController.shared.selectionPreset
         window.contentView = view
+        // 抓冻结帧期间对自己隐藏，避免把遮罩/工具条截进背景；抓完恢复，便于用户截图。
+        window.sharingType = .none
         window.setFrame(unionFrame, display: true)
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(view)
         self.window = window
         self.view = view
+
+        // 先立刻显示遮罩（自身的窗口对截图 API 不可见），再在后台抓取冻结帧：
+        // 避免打开选区时因为整屏 Retina 抓图卡住主线程。
+        let context = ScreenCaptureManager.makeImmediateCaptureContext()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let captures = ScreenCaptureManager.captureAllScreensImmediately(context: context)
+            let image = ScreenCaptureService.composeStitched(captures: captures)
+            DispatchQueue.main.async { [weak self, weak view] in
+                self?.window?.sharingType = .readOnly
+                guard let view, self?.view === view else { return }
+                view.snapshot = image
+                view.needsDisplay = true
+            }
+        }
 
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.window != nil else { return event }
@@ -81,6 +94,7 @@ private final class SelectionWindow: NSWindow {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = false
+        sharingType = .none
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         isReleasedWhenClosed = false
@@ -102,26 +116,69 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
     private var handle: SelectionHandleKind = .none
     private var unionFrame: CGRect = .zero
     private var mainMaxY: CGFloat = 0
+    /// 屏幕像素 / 视图点 的比例（Retina 为 2）。
+    private var pixelScale: CGFloat {
+        guard let snapshot, bounds.width > 0 else { return 1 }
+        return CGFloat(snapshot.width) / bounds.width
+    }
+
     private var snapLines: (vertical: [CGFloat], horizontal: [CGFloat]) = ([], [])
+    private var windowRects: [CGRect] = []
+    private var hoverRect: CGRect?
+    private var snapshotRep: NSBitmapImageRep?
 
     private enum Mode { case idle, creating, moving, resizing }
 
     // 原地编辑态（不再打开独立编辑窗口）
     private var editing = false
-    private var toolbarButtons: [(title: String, rect: CGRect, action: String)] = []
+    private var bottomStrip: CaptureToolbarStripView?
+    private var rightStrip: CaptureToolbarStripView?
+    private var optionsStrip: CaptureToolbarStripView?
 
     // 标注
-    private enum DrawingTool: String { case move, rect, ellipse, arrow, pen, text, mosaic }
+    private enum DrawingTool: String {
+        case move, rect, ellipse, line, arrow, pen, marker, text, mosaic
+        var title: String {
+            switch self {
+            case .move: return "移动"
+            case .rect: return "矩形"
+            case .ellipse: return "椭圆"
+            case .line: return "直线"
+            case .arrow: return "箭头"
+            case .pen: return "画笔"
+            case .marker: return "荧光笔"
+            case .text: return "文字"
+            case .mosaic: return "马赛克"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .move: return "cursorarrow"
+            case .rect: return "rectangle"
+            case .ellipse: return "circle"
+            case .line: return "line.diagonal"
+            case .arrow: return "arrow.up.right"
+            case .pen: return "pencil"
+            case .marker: return "highlighter"
+            case .text: return "textformat"
+            case .mosaic: return "square.grid.3x3.fill"
+            }
+        }
+    }
     private struct Annotation {
         var tool: DrawingTool
         var points: [CGPoint]
         var color: NSColor
         var width: CGFloat
         var text: String?
+        var lineStyle: LineStyle = .solid
     }
+
+    private let resolutionBox = SelectionResolutionBox()
     private var tool: DrawingTool = .move
     private var inkColor: NSColor = .systemRed
     private var inkWidth: CGFloat = 4
+    private var lineStyle: LineStyle = .solid
     private var annotations: [Annotation] = []
     private var redoStack: [Annotation] = []
     private var currentPoints: [CGPoint] = []
@@ -136,6 +193,9 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         unionFrame = window.frame
         mainMaxY = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY ?? unionFrame.maxY
         buildSnapLines()
+        resolutionBox.onCommit = { [weak self] w, h in self?.applyResolution(width: w, height: h) }
+        resolutionBox.isHidden = true
+        addSubview(resolutionBox)
     }
 
     private func buildSnapLines() {
@@ -145,6 +205,7 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         guard let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             snapLines = (vx, hy); return
         }
+        windowRects = []
         let ownPID = ProcessInfo.processInfo.processIdentifier
         for info in windows {
             guard (info[kCGWindowLayer as String] as? Int) == 0,
@@ -160,16 +221,26 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
                   localX < bounds.width + 2, localY < bounds.height + 2 else { continue }
             vx.append(contentsOf: [localX, localX + w])
             hy.append(contentsOf: [localY, localY + h])
+            windowRects.append(CGRect(x: localX, y: localY, width: w, height: h))
         }
         snapLines = (vx, hy)
     }
 
-    override func mouseDown(with event: NSEvent) {
-        let p = convert(event.locationInWindow, from: nil)
-        if editing, let hit = toolbarButtons.first(where: { $0.rect.contains(p) }) {
-            handleToolbarAction(hit.action)
+    override func mouseMoved(with event: NSEvent) {
+        guard !editing, mode == .idle else {
+            if hoverRect != nil { hoverRect = nil; needsDisplay = true }
             return
         }
+        let p = convert(event.locationInWindow, from: nil)
+        let hit = windowRects.first(where: { $0.contains(p) })
+        if hit != hoverRect {
+            hoverRect = hit
+            needsDisplay = true
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
         anchor = p
         if editing, let r = rect, r.contains(p), tool != .move {
             if tool == .text { beginTextInput(at: p); return }
@@ -185,6 +256,7 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
             if r.insetBy(dx: -2, dy: -2).contains(p) { mode = .moving; startRect = r; return }
         }
         mode = .creating
+        hoverRect = nil
         rect = CGRect(origin: p, size: .zero)
         needsDisplay = true
     }
@@ -194,7 +266,15 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         if let drawingTool, let r = rect {
             p.x = min(max(p.x, r.minX), r.maxX)
             p.y = min(max(p.y, r.minY), r.maxY)
-            if drawingTool == .pen { currentPoints.append(p) } else { currentPoints = [currentPoints.first ?? p, p] }
+            if drawingTool == .pen {
+                currentPoints.append(p)
+            } else {
+                let first = currentPoints.first ?? p
+                let target = event.modifierFlags.contains(.shift)
+                    ? constrainedDrawingPoint(from: first, to: p, tool: drawingTool)
+                    : p
+                currentPoints = [first, target]
+            }
             needsDisplay = true
             return
         }
@@ -207,14 +287,17 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         case .resizing: rect = resize(startRect, handle: handle, to: p)
         case .idle: break
         }
+        if editing { layoutToolbars() }
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
         if let drawingTool {
             if currentPoints.count >= 1 {
-                annotations.append(Annotation(tool: drawingTool, points: currentPoints,
-                                              color: inkColor, width: inkWidth, text: nil))
+                let points = drawingTool == .pen ? smoothed(currentPoints) : currentPoints
+                annotations.append(Annotation(tool: drawingTool, points: points,
+                                              color: inkColor, width: inkWidth, text: nil,
+                                              lineStyle: lineStyle))
                 redoStack.removeAll()
             }
             self.drawingTool = nil
@@ -224,9 +307,12 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         }
         mode = .idle
         if let r = rect, r.width < 8 || r.height < 8 { rect = nil }
-        if let r = rect, !editing, mode == .idle { editing = true; updateToolbar() }
+        if rect == nil { resolutionBox.isHidden = true }
+        if let r = rect, !editing, mode == .idle { editing = true; rebuildToolbars() }
         if let r = rect, case .pixels(_, let w, let h) = preset {
-            let target = CGRect(x: r.minX, y: r.minY, width: CGFloat(w), height: CGFloat(h))
+            let scale = pixelScale
+            let target = CGRect(x: r.minX, y: r.minY,
+                                width: CGFloat(w) / scale, height: CGFloat(h) / scale)
             rect = clamp(target)
         }
         needsDisplay = true
@@ -246,13 +332,18 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
                 return
             }
             if let chars = event.charactersIgnoringModifiers, let n = Int(chars) {
-                let order: [DrawingTool] = [.move, .rect, .ellipse, .arrow, .pen, .text, .mosaic]
+                let order: [DrawingTool] = [.move, .rect, .ellipse, .line, .arrow, .pen, .marker, .text, .mosaic]
                 if n >= 1, n <= order.count { tool = order[n - 1]; needsDisplay = true; return }
             }
         }
         if event.keyCode == 36 || event.keyCode == 76 { commitCurrent(); return }
         if event.keyCode == 48 { cyclePreset(); return }
-        if event.keyCode == 51 || event.keyCode == 117 { rect = nil; needsDisplay = true; return }
+        if event.keyCode == 51 || event.keyCode == 117 {
+            rect = nil
+            resolutionBox.isHidden = true
+            needsDisplay = true
+            return
+        }
         let step: CGFloat = event.modifierFlags.contains(.shift) ? 10 : 1
         var d = CGPoint.zero
         switch event.keyCode {
@@ -263,6 +354,47 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         default: super.keyDown(with: event); return
         }
         if let r = rect { rect = clamp(r.offsetBy(dx: d.x, dy: d.y)); needsDisplay = true }
+    }
+
+    private func constrainedDrawingPoint(from start: CGPoint, to point: CGPoint,
+                                         tool: DrawingTool) -> CGPoint {
+        var dx = point.x - start.x
+        var dy = point.y - start.y
+        switch tool {
+        case .rect, .ellipse, .mosaic:
+            let size = max(abs(dx), abs(dy))
+            dx = (dx < 0 ? -1 : 1) * size
+            dy = (dy < 0 ? -1 : 1) * size
+        case .line, .arrow:
+            let angle = atan2(dy, dx)
+            let step = CGFloat.pi / 4
+            let snapped = (angle / step).rounded() * step
+            let length = hypot(dx, dy)
+            dx = cos(snapped) * length
+            dy = sin(snapped) * length
+        default:
+            break
+        }
+        return CGPoint(x: start.x + dx, y: start.y + dy)
+    }
+
+    /// 画笔平滑：3 点移动平均 + 一次 Chaikin，贴近上游 PencilToolHandler 的手感。
+    private func smoothed(_ raw: [CGPoint]) -> [CGPoint] {
+        guard raw.count > 2 else { return raw }
+        var moving: [CGPoint] = [raw[0]]
+        for i in 1..<(raw.count - 1) {
+            let a = raw[i - 1], b = raw[i], c = raw[i + 1]
+            moving.append(CGPoint(x: (a.x + b.x * 2 + c.x) / 4, y: (a.y + b.y * 2 + c.y) / 4))
+        }
+        moving.append(raw[raw.count - 1])
+        var out: [CGPoint] = [moving[0]]
+        for i in 0..<(moving.count - 1) {
+            let p = moving[i], q = moving[i + 1]
+            out.append(CGPoint(x: p.x * 0.75 + q.x * 0.25, y: p.y * 0.75 + q.y * 0.25))
+            out.append(CGPoint(x: p.x * 0.25 + q.x * 0.75, y: p.y * 0.25 + q.y * 0.75))
+        }
+        out.append(moving[moving.count - 1])
+        return out
     }
 
     private func commitCurrent() {
@@ -365,7 +497,8 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         guard let image = snapshot else { return CGPoint(x: bestX, y: bestY) }
         let sx = CGFloat(image.width) / max(bounds.width, 1)
         let sy = CGFloat(image.height) / max(bounds.height, 1)
-        let rep = NSBitmapImageRep(cgImage: image)
+        if snapshotRep == nil { snapshotRep = NSBitmapImageRep(cgImage: image) }
+        guard let rep = snapshotRep else { return CGPoint(x: bestX, y: bestY) }
         let cx = Int(p.x * sx), cy = Int(p.y * sy)
         let radius = Int(8 * max(sx, 1))
         func color(_ x: Int, _ y: Int) -> NSColor? {
@@ -392,6 +525,14 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.setFillColor(NSColor.black.withAlphaComponent(0.30).cgColor)
         context.fill(bounds)
+        if let hoverRect, rect == nil {
+            NSColor.controlAccentColor.withAlphaComponent(0.16).setFill()
+            NSBezierPath(roundedRect: hoverRect, xRadius: 4, yRadius: 4).fill()
+            NSColor.controlAccentColor.withAlphaComponent(0.9).setStroke()
+            let outline = NSBezierPath(roundedRect: hoverRect.insetBy(dx: 1, dy: 1), xRadius: 4, yRadius: 4)
+            outline.lineWidth = 2
+            outline.stroke()
+        }
         guard let rect else { drawHint(); return }
         context.saveGState()
         context.setBlendMode(.clear)
@@ -411,166 +552,245 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
             NSBezierPath(roundedRect: CGRect(x: p.x-4, y: p.y-4, width: 8, height: 8),
                          xRadius: 2, yRadius: 2).fill()
         }
+        if !editing || mode != .idle { drawThirdsGrid(rect) }
         if editing, let ctx = NSGraphicsContext.current?.cgContext {
             ctx.saveGState()
             ctx.clip(to: rect)
             drawAnnotations(ctx: ctx, snapshot: snapshot)
             ctx.restoreGState()
         }
-        drawSizeLabel(rect)
-        if editing { drawToolbar() } else { drawHint() }
+        updateResolutionBox(rect)
+        if !editing { drawHint() }
     }
 
-    // MARK: - 原地编辑工具栏
+    // MARK: - 原地编辑工具栏（移植 macshot 的 ToolbarStripView / ToolbarButtonView）
 
-    private func updateToolbar() {
-        guard let rect else { toolbarButtons = []; return }
-        var buttons: [(String, CGRect, String)] = []
-
-        // 顶部工具条
-        let tools: [(String, String, String)] = [
-            ("移动", "tool:move", "move"), ("矩形", "tool:rect", "rect"),
-            ("椭圆", "tool:ellipse", "ellipse"), ("箭头", "tool:arrow", "arrow"),
-            ("画笔", "tool:pen", "pen"), ("文字", "tool:text", "text"),
-            ("马赛克", "tool:mosaic", "mosaic")
-        ]
-        let colors: [(String, String)] = [
-            ("红", "color:red"), ("黄", "color:yellow"), ("绿", "color:green"),
-            ("蓝", "color:blue"), ("白", "color:white")
-        ]
-        let widths: [(String, String)] = [("2px", "width:2"), ("4px", "width:4"), ("8px", "width:8")]
-
-        let btnH: CGFloat = 28, gap: CGFloat = 6
-        var rowWidth: CGFloat = 0
-        var widthsOf: [String: CGFloat] = [:]
-        func textWidth(_ t: String) -> CGFloat {
-            (t as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12)]).width + 18
+    private var toolButtons: [CaptureToolbarButton] {
+        let tools: [DrawingTool] = [.move, .rect, .ellipse, .line, .arrow,
+                                    .pen, .marker, .text, .mosaic]
+        return tools.map { item in
+            CaptureToolbarButton(action: .tool(item.rawValue),
+                                 sfSymbol: item.symbol,
+                                 text: nil,
+                                 tooltip: item.title,
+                                 isSelected: tool == item)
         }
-        for item in tools { let w = textWidth(item.0); widthsOf[item.1] = w; rowWidth += w + gap }
-        rowWidth += 10
-        for item in ["undo", "redo"] { let w = textWidth("↶"); widthsOf[item] = w; rowWidth += w + gap }
-        rowWidth += 12
-        for item in colors { let w: CGFloat = 22; widthsOf[item.1] = w; rowWidth += w + gap }
-        rowWidth += 10
-        for item in widths { let w = textWidth(item.0); widthsOf[item.1] = w; rowWidth += w + gap }
-
-        // 顶部工具条：锚定屏幕顶部、水平居中（与 MacShot 一致，不随选区移动）
-        var x = bounds.midX - rowWidth / 2
-        x = max(8, min(x, bounds.width - rowWidth - 8))
-        let y = bounds.height - btnH - 14
-
-        func add(_ title: String, _ action: String, _ w: CGFloat) {
-            buttons.append((title, CGRect(x: x, y: y, width: w, height: btnH), action))
-            x += w + gap
-        }
-        for item in tools { add(item.0, item.1, widthsOf[item.1] ?? 40) }
-        add("↶", "undo", widthsOf["undo"] ?? 26)
-        add("↷", "redo", widthsOf["redo"] ?? 26)
-        for item in colors { add("●", item.1, 22) }
-        for item in widths { add(item.0, item.1, widthsOf[item.1] ?? 36) }
-
-        // 右侧竖排动作栏
-        let actions: [(String, String)] = [
-            ("保存", "save"), ("复制", "copy"), ("贴图", "pin"), ("OCR", "ocr"), ("关闭", "cancel")
-        ]
-        // 右侧动作栏：锚定屏幕右缘、垂直居中
-        let railW: CGFloat = 56
-        let railHeight = CGFloat(actions.count) * (btnH + gap) - gap
-        var ry = bounds.midY + railHeight / 2 - btnH
-        let rx = bounds.width - railW - 12
-        for item in actions {
-            buttons.append((item.0, CGRect(x: rx, y: ry, width: railW, height: btnH), item.1))
-            ry += btnH + gap
-        }
-        toolbarButtons = buttons
     }
 
-    private func drawToolbar() {
-        guard let rect else { return }
-        // 顶部面板
-        let top = toolbarButtons.filter { $0.rect.midY > rect.midY }.reduce(CGRect.null) { $0.union($1.rect) }
-        if !top.isNull {
-            NSColor.black.withAlphaComponent(0.78).setFill()
-            NSBezierPath(roundedRect: top.insetBy(dx: -10, dy: -6), xRadius: 10, yRadius: 10).fill()
+    private var colorButtons: [CaptureToolbarButton] {
+        let swatches: [(NSColor, String)] = [
+            (.systemRed, "红"), (.systemYellow, "黄"), (.systemGreen, "绿"),
+            (.systemBlue, "蓝"), (.white, "白")
+        ]
+        var buttons = swatches.map { color, name in
+            CaptureToolbarButton(action: .color(color), sfSymbol: nil, text: nil,
+                                 tooltip: name, isSelected: false, swatchColor: color)
         }
-        let rail = toolbarButtons.filter { $0.rect.midY <= rect.midY }.reduce(CGRect.null) { $0.union($1.rect) }
-        if !rail.isNull {
-            NSColor.black.withAlphaComponent(0.78).setFill()
-            NSBezierPath(roundedRect: rail.insetBy(dx: -6, dy: -6), xRadius: 10, yRadius: 10).fill()
+        buttons.append(CaptureToolbarButton(action: .palette, sfSymbol: "paintpalette.fill",
+                                            text: nil, tooltip: "自定颜色"))
+        return buttons
+    }
+
+    private var widthButtons: [CaptureToolbarButton] {
+        [2, 4, 8].map { value in
+            CaptureToolbarButton(action: .width(CGFloat(value)), sfSymbol: nil,
+                                 text: "\(value)", tooltip: "\(value)px",
+                                 isSelected: Int(inkWidth) == value)
         }
-        for button in toolbarButtons {
-            var active = false
-            if button.action.hasPrefix("tool:") {
-                active = button.action == "tool:" + tool.rawValue
-            } else if button.action.hasPrefix("color:") {
-                active = (button.action == colorAction(for: inkColor))
-            } else if button.action.hasPrefix("width:") {
-                active = button.action == "width:" + String(Int(inkWidth))
-            }
-            let bg: NSColor = active
-                ? NSColor(calibratedRed: 0.42, green: 0.35, blue: 0.75, alpha: 0.95)
-                : NSColor.white.withAlphaComponent(0.10)
-            bg.setFill()
-            NSBezierPath(roundedRect: button.rect, xRadius: 7, yRadius: 7).fill()
-            if button.action.hasPrefix("color:") {
-                let color = color(forAction: button.action)
-                color.setFill()
-                NSBezierPath(ovalIn: button.rect.insetBy(dx: 4, dy: 4)).fill()
+    }
+
+    private var styleButtons: [CaptureToolbarButton] {
+        LineStyle.allCases.map { style in
+            CaptureToolbarButton(action: .lineStyle(style.rawValue), sfSymbol: nil,
+                                 text: style == .solid ? "实" : style == .dashed ? "虚" : "点",
+                                 tooltip: style.title, isSelected: lineStyle == style)
+        }
+    }
+
+    private var actionButtons: [CaptureToolbarButton] {
+        [
+            CaptureToolbarButton(action: .save, sfSymbol: "square.and.arrow.down.fill",
+                                 text: nil, tooltip: "保存"),
+            CaptureToolbarButton(action: .copy, sfSymbol: "doc.on.doc",
+                                 text: nil, tooltip: "复制"),
+            CaptureToolbarButton(action: .pin, sfSymbol: "pin.fill",
+                                 text: nil, tooltip: "钉图"),
+            CaptureToolbarButton(action: .ocr, sfSymbol: "doc.text.viewfinder",
+                                 text: nil, tooltip: "OCR"),
+            CaptureToolbarButton(action: .cancel, sfSymbol: "xmark",
+                                 text: nil, tooltip: "关闭"),
+        ]
+    }
+
+    private func rebuildToolbars() {
+        guard rect != nil else { hideToolbars(); return }
+        if bottomStrip == nil {
+            let strip = CaptureToolbarStripView(orientation: .horizontal)
+            strip.onClick = { [weak self] action in self?.handleToolbar(action) }
+            addSubview(strip)
+            bottomStrip = strip
+        }
+        if optionsStrip == nil {
+            let strip = CaptureToolbarStripView(orientation: .horizontal)
+            strip.onClick = { [weak self] action in self?.handleToolbar(action) }
+            addSubview(strip)
+            optionsStrip = strip
+        }
+        if rightStrip == nil {
+            let strip = CaptureToolbarStripView(orientation: .vertical)
+            strip.onClick = { [weak self] action in self?.handleToolbar(action) }
+            addSubview(strip)
+            rightStrip = strip
+        }
+
+        var bottom = toolButtons
+        bottom += colorButtons
+        bottom.append(CaptureToolbarButton(action: .undo, sfSymbol: "arrow.uturn.backward",
+                                           text: nil, tooltip: "撤销"))
+        bottom.append(CaptureToolbarButton(action: .redo, sfSymbol: "arrow.uturn.forward",
+                                           text: nil, tooltip: "重做"))
+        bottomStrip?.setButtons(bottom)
+        optionsStrip?.setButtons(widthButtons + styleButtons)
+        rightStrip?.setButtons(actionButtons)
+        layoutToolbars()
+        needsDisplay = true
+    }
+
+    private func hideToolbars() {
+        bottomStrip?.isHidden = true
+        optionsStrip?.isHidden = true
+        rightStrip?.isHidden = true
+    }
+
+    /// 位置算法移植自 macshot OverlayView.repositionToolbars()：
+    /// 横向工具条默认在选区下方（居中），竖向动作条贴在选区右侧并与选区顶对齐。
+    private func layoutToolbars() {
+        guard let rect, let bottomStrip, let optionsStrip, let rightStrip else { return }
+        let visible = editing
+        bottomStrip.isHidden = !visible
+        optionsStrip.isHidden = !visible
+        rightStrip.isHidden = !visible
+        guard visible else { return }
+
+        let rightSize = rightStrip.frame.size
+        let bottomSize = bottomStrip.frame.size
+        let optionsSize = optionsStrip.frame.size
+        let optRowH: CGFloat = 38
+
+        let rightMargin: CGFloat = 50
+        let rightFitsRight = rect.maxX < bounds.maxX - rightMargin
+        let rightFitsLeft = rect.minX > bounds.minX + rightMargin
+        let selectionTooNarrow = !rightFitsRight && !rightFitsLeft
+            && rect.width < bounds.width * 0.5
+
+        var rx: CGFloat
+        var ry: CGFloat
+        if selectionTooNarrow {
+            rx = rect.maxX - rightSize.width
+            rx = max(bounds.minX + 4, min(rx, bounds.maxX - rightSize.width - 4))
+            ry = rect.minY - rightSize.height - 6
+            ry = max(bounds.minY + 4, min(ry, bounds.maxY - rightSize.height - 4))
+        } else {
+            if rightFitsRight {
+                rx = rect.maxX + 6
+            } else if rightFitsLeft {
+                rx = rect.minX - rightSize.width - 6
             } else {
-                let attrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-                    .foregroundColor: NSColor.white
-                ]
-                let size = (button.title as NSString).size(withAttributes: attrs)
-                (button.title as NSString).draw(
-                    at: CGPoint(x: button.rect.midX - size.width / 2, y: button.rect.midY - size.height / 2),
-                    withAttributes: attrs)
+                rx = rect.maxX - rightSize.width - 6
+            }
+            rx = max(bounds.minX + 4, min(rx, bounds.maxX - rightSize.width - 4))
+            ry = rect.maxY - rightSize.height
+            ry = max(bounds.minY + 4, min(ry, bounds.maxY - rightSize.height - 4))
+        }
+
+        let belowY = rect.minY - bottomSize.height - 6
+        let belowFits = (belowY - optRowH) >= bounds.minY + 4
+        let aboveY = rect.maxY + optRowH + 6
+        let aboveFits = (aboveY + bottomSize.height) <= bounds.maxY - 4
+
+        var by: CGFloat
+        if belowFits {
+            by = belowY
+        } else if aboveFits {
+            by = aboveY
+        } else {
+            by = rect.minY + optRowH + 6
+            by = max(bounds.minY + optRowH + 4, min(by, bounds.maxY - bottomSize.height - 4))
+        }
+
+        var bx = rect.midX - bottomSize.width / 2
+        bx = max(bounds.minX + 4, min(bx, bounds.maxX - bottomSize.width - 4))
+
+        // 横向工具条与竖向动作条冲突时，把动作条横向推开（与上游一致）。
+        let bottomMinY = by - optRowH
+        let bottomMaxY = by + bottomSize.height
+        if bottomMaxY > ry && bottomMinY < ry + rightSize.height {
+            if bx + bottomSize.width <= rx - 4 || bx >= rx + rightSize.width + 4 {
+                // 不重叠
+            } else {
+                let pushRight = bx + bottomSize.width + 4
+                let pushLeft = bx - rightSize.width - 4
+                if pushRight + rightSize.width <= bounds.maxX - 4 {
+                    rx = pushRight
+                } else if pushLeft >= bounds.minX + 4 {
+                    rx = pushLeft
+                } else if by - optRowH - rightSize.height - 4 >= bounds.minY + 4 {
+                    ry = by - optRowH - rightSize.height - 4
+                }
             }
         }
+
+        bottomStrip.frame.origin = NSPoint(x: bx, y: by)
+        rightStrip.frame.origin = NSPoint(x: rx, y: ry)
+        var ox = rect.midX - optionsSize.width / 2
+        ox = max(bounds.minX + 4, min(ox, bounds.maxX - optionsSize.width - 4))
+        // 与上游一致：选项行在工具条下方（覆盖层模式），而不是塞进选区内。
+        optionsStrip.frame.origin = NSPoint(x: ox, y: by - optionsSize.height - 2)
     }
 
-    private func colorAction(for color: NSColor) -> String {
-        ["color:red", "color:yellow", "color:green", "color:blue", "color:white"]
-            .first { nsColor(forAction: $0).usingColorSpace(.sRGB)?.description == color.usingColorSpace(.sRGB)?.description }
-            ?? "color:red"
-    }
-
-    private func nsColor(forAction action: String) -> NSColor {
+    private func handleToolbar(_ action: CaptureToolbarAction) {
         switch action {
-        case "color:yellow": return .systemYellow
-        case "color:green": return .systemGreen
-        case "color:blue": return .systemBlue
-        case "color:white": return .white
-        default: return .systemRed
-        }
-    }
-
-    private func color(forAction action: String) -> NSColor { nsColor(forAction: action) }
-
-    private func handleToolbarAction(_ action: String) {
-        if action.hasPrefix("tool:") {
-            tool = DrawingTool(rawValue: String(action.dropFirst(5))) ?? .move
-            needsDisplay = true
-            return
-        }
-        if action.hasPrefix("color:") {
-            inkColor = nsColor(forAction: action)
-            needsDisplay = true
-            return
-        }
-        if action.hasPrefix("width:") {
-            inkWidth = CGFloat(Double(action.dropFirst(6)) ?? 4)
-            needsDisplay = true
-            return
-        }
-        switch action {
-        case "undo":
+        case .tool(let raw):
+            tool = DrawingTool(rawValue: raw) ?? .move
+        case .color(let color):
+            inkColor = color
+        case .palette:
+            let panel = NSColorPanel.shared
+            panel.setTarget(self)
+            panel.setAction(#selector(customColorChanged(_:)))
+            panel.isContinuous = true
+            panel.color = inkColor
+            panel.orderFront(nil)
+        case .width(let width):
+            inkWidth = width
+        case .lineStyle(let raw):
+            lineStyle = LineStyle(rawValue: raw) ?? .solid
+        case .undo:
             if let last = annotations.popLast() { redoStack.append(last) }
-        case "redo":
+        case .redo:
             if let last = redoStack.popLast() { annotations.append(last) }
-        default:
-            performToolbarAction(action)
+        case .save:
+            performToolbarAction("save")
+            return
+        case .copy:
+            performToolbarAction("copy")
+            return
+        case .pin:
+            performToolbarAction("pin")
+            return
+        case .ocr:
+            performToolbarAction("ocr")
+            return
+        case .cancel:
+            performToolbarAction("cancel")
+            return
         }
+        needsDisplay = true
+        rebuildToolbars()
+    }
+
+    @objc private func customColorChanged(_ sender: NSColorPanel) {
+        inkColor = sender.color
         needsDisplay = true
     }
 
@@ -587,22 +807,35 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
     }
 
     /// 把标注烘焙进图像；`rect` 为选区（view 坐标），返回像素图。
+    /// 使用显式像素尺寸的 bitmap context，避免 Retina 下 lockFocus 把图片再放大一倍。
     private func composite(base: CGImage, rect: CGRect) -> CGImage? {
-        let scale = CGFloat(base.width) / max(rect.width, 1)
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+                                         pixelsWide: base.width,
+                                         pixelsHigh: base.height,
+                                         bitsPerSample: 8,
+                                         samplesPerPixel: 4,
+                                         hasAlpha: true,
+                                         isPlanar: false,
+                                         colorSpaceName: .calibratedRGB,
+                                         bytesPerRow: 0,
+                                         bitsPerPixel: 0) else { return base }
+        NSGraphicsContext.saveGraphicsState()
+        guard let graphics = NSGraphicsContext(bitmapImageRep: rep) else {
+            NSGraphicsContext.restoreGraphicsState()
+            return base
+        }
+        NSGraphicsContext.current = graphics
+        graphics.imageInterpolation = .high
         let pixelSize = NSSize(width: base.width, height: base.height)
-        let image = NSImage(size: pixelSize)
-        image.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
         NSImage(cgImage: base, size: pixelSize).draw(in: NSRect(origin: .zero, size: pixelSize))
-        guard let ctx = NSGraphicsContext.current?.cgContext else { image.unlockFocus(); return base }
+        let ctx = graphics.cgContext
+        let scale = CGFloat(base.width) / max(rect.width, 1)
         ctx.saveGState()
         ctx.scaleBy(x: scale, y: scale)
         ctx.translateBy(x: -rect.minX, y: -rect.minY)
         drawAnnotations(ctx: ctx, snapshot: nil)
         ctx.restoreGState()
-        image.unlockFocus()
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff) else { return base }
+        NSGraphicsContext.restoreGraphicsState()
         return rep.cgImage
     }
 
@@ -651,6 +884,10 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         ctx.setLineWidth(annotation.width)
         ctx.setLineCap(.round)
         ctx.setLineJoin(.round)
+        if let pattern = annotation.lineStyle.pattern {
+            let dashed = pattern.map { $0 * max(annotation.width, 1) }
+            ctx.setLineDash(phase: 0, lengths: dashed)
+        }
         switch annotation.tool {
         case .rect:
             guard let last = annotation.points.last else { break }
@@ -660,6 +897,9 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
             guard let last = annotation.points.last else { break }
             let r = CGRect(x: first.x, y: first.y, width: last.x - first.x, height: last.y - first.y).standardized
             ctx.strokeEllipse(in: r)
+        case .line:
+            guard let last = annotation.points.last else { break }
+            ctx.move(to: first); ctx.addLine(to: last); ctx.strokePath()
         case .arrow:
             guard let last = annotation.points.last else { break }
             ctx.move(to: first); ctx.addLine(to: last); ctx.strokePath()
@@ -670,8 +910,12 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
                 ctx.move(to: last); ctx.addLine(to: p)
             }
             ctx.strokePath()
-        case .pen:
+        case .pen, .marker:
             guard annotation.points.count > 1 else { break }
+            if annotation.tool == .marker {
+                ctx.setAlpha(0.35)
+                ctx.setLineWidth(annotation.width * 2.5)
+            }
             ctx.move(to: first)
             for p in annotation.points.dropFirst() { ctx.addLine(to: p) }
             ctx.strokePath()
@@ -755,34 +999,146 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         needsDisplay = true
     }
 
-    private func drawSizeLabel(_ rect: CGRect) {
-        let text = editing ? "\(Int(rect.width)) × \(Int(rect.height))" : "\(Int(rect.width)) × \(Int(rect.height))   ⏎ 确认"
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.white
-        ]
-        let size = (text as NSString).size(withAttributes: attrs)
-        let lr = CGRect(x: rect.maxX - size.width - 12,
-                        y: max(rect.maxY + 8, 8), width: size.width + 12, height: size.height + 6)
-        NSColor.black.withAlphaComponent(0.72).setFill()
-        NSBezierPath(roundedRect: lr, xRadius: 5, yRadius: 5).fill()
-        (text as NSString).draw(at: CGPoint(x: lr.minX+6, y: lr.minY+3), withAttributes: attrs)
+    private func drawThirdsGrid(_ rect: CGRect) {
+        let path = NSBezierPath()
+        for i in 1...2 {
+            let x = rect.minX + rect.width * CGFloat(i) / 3
+            path.move(to: CGPoint(x: x, y: rect.minY))
+            path.line(to: CGPoint(x: x, y: rect.maxY))
+            let y = rect.minY + rect.height * CGFloat(i) / 3
+            path.move(to: CGPoint(x: rect.minX, y: y))
+            path.line(to: CGPoint(x: rect.maxX, y: y))
+        }
+        path.lineWidth = 1
+        NSColor.white.withAlphaComponent(0.45).setStroke()
+        path.stroke()
+    }
+
+    private func updateResolutionBox(_ rect: CGRect) {
+        resolutionBox.isHidden = mode != .idle || rect.width < 8 || rect.height < 8
+        guard !resolutionBox.isHidden else { return }
+        let size = resolutionBox.preferredSize
+        var x = rect.minX
+        x = min(max(8, x), bounds.width - size.width - 8)
+        let below = rect.minY - size.height - 8
+        let y = below >= 8 ? below : min(rect.maxY + 8, bounds.height - size.height - 8)
+        resolutionBox.frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
+        let scale = pixelScale
+        resolutionBox.setDimensions(width: Int((rect.width * scale).rounded()),
+                                    height: Int((rect.height * scale).rounded()))
+    }
+
+    private func applyResolution(width: Int, height: Int) {
+        guard let current = rect else { return }
+        let scale = pixelScale
+        let target = CGRect(x: current.minX, y: current.maxY - CGFloat(height) / scale,
+                            width: CGFloat(width) / scale, height: CGFloat(height) / scale)
+        rect = clamp(target)
+        needsDisplay = true
     }
 
     private func drawHint() {
-        let text = editing
-            ? "拖动选区可移动 · 拖角缩放 · 点击上方按钮保存/复制/贴图/OCR · Esc 取消"
-            : "拖动框选 · 松开后可移动/拖角缩放 · \(preset.label) · Enter 确认 · Option 关闭吸附 · Esc 取消"
+        let text = "拖拽选择区域 · Enter 确认 · Esc 取消 · Tab 切换比例 · Option 关闭吸附"
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .font: NSFont.systemFont(ofSize: 12.5, weight: .medium),
             .foregroundColor: NSColor.white
         ]
         let size = (text as NSString).size(withAttributes: attrs)
-        let r = CGRect(x: (bounds.width-size.width)/2 - 12, y: bounds.height - 68,
-                       width: size.width + 24, height: size.height + 12)
-        NSColor.black.withAlphaComponent(0.65).setFill()
+        let panelW = size.width + 28
+        let panelH = size.height + 14
+        let r = CGRect(x: bounds.midX - panelW / 2,
+                       y: bounds.midY - panelH / 2,
+                       width: panelW, height: panelH)
+        NSColor.black.withAlphaComponent(0.72).setFill()
         NSBezierPath(roundedRect: r, xRadius: 8, yRadius: 8).fill()
-        (text as NSString).draw(at: CGPoint(x: r.minX+12, y: r.minY+6), withAttributes: attrs)
+        (text as NSString).draw(at: CGPoint(x: r.minX + 14, y: r.minY + 7),
+                                withAttributes: attrs)
+    }
+}
+
+/// 选区尺寸输入框：两个可直接编辑的宽/高数字框（上游 ResolutionBoxView 的轻量版）。
+private final class SelectionResolutionBox: NSView, NSTextFieldDelegate {
+    var onCommit: ((Int, Int) -> Void)?
+
+    private let widthField = NSTextField()
+    private let heightField = NSTextField()
+    private let timesLabel = NSTextField(labelWithString: "×")
+    private var suppressCommit = false
+
+    var preferredSize: CGSize { CGSize(width: 146, height: 26) }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerRadius = 7
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.75).cgColor
+
+        configure(widthField)
+        configure(heightField)
+        timesLabel.font = .systemFont(ofSize: 12)
+        timesLabel.textColor = NSColor.white.withAlphaComponent(0.6)
+        timesLabel.alignment = .center
+        addSubview(widthField)
+        addSubview(timesLabel)
+        addSubview(heightField)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func configure(_ field: NSTextField) {
+        field.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        field.alignment = .center
+        field.isBordered = false
+        field.drawsBackground = true
+        field.backgroundColor = NSColor.white.withAlphaComponent(0.14)
+        field.textColor = .white
+        field.focusRingType = .none
+        field.delegate = self
+        field.wantsLayer = true
+        field.layer?.cornerRadius = 5
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .none
+        formatter.minimum = 1
+        formatter.maximum = 100000
+        formatter.allowsFloats = false
+        field.formatter = formatter
+    }
+
+    override func layout() {
+        super.layout()
+        let fieldW: CGFloat = 54, gap: CGFloat = 6, pad: CGFloat = 7
+        let h: CGFloat = 20
+        let y = (bounds.height - h) / 2
+        widthField.frame = CGRect(x: pad, y: y, width: fieldW, height: h)
+        timesLabel.frame = CGRect(x: widthField.frame.maxX, y: y - 2, width: gap * 2, height: h + 4)
+        heightField.frame = CGRect(x: timesLabel.frame.maxX, y: y, width: fieldW, height: h)
+    }
+
+    func setDimensions(width: Int, height: Int) {
+        if widthField.currentEditor() == nil { widthField.stringValue = "\(width)" }
+        if heightField.currentEditor() == nil { heightField.stringValue = "\(height)" }
+    }
+
+    private func commit() {
+        guard let w = Int(widthField.stringValue), let h = Int(heightField.stringValue),
+              w > 0, h > 0 else { return }
+        onCommit?(w, h)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
+        suppressCommit = true
+        commit()
+        window?.makeFirstResponder(superview)
+        return true
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard !suppressCommit else {
+            suppressCommit = false
+            return
+        }
+        commit()
     }
 }
 

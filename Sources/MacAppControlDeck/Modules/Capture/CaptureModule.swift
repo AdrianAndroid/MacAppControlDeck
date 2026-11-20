@@ -107,6 +107,8 @@ final class CaptureModule: FeatureModule {
         }
         historyItem.submenu = historyMenu
         submenu.addItem(historyItem)
+        submenu.addItem(item("截图历史…", #selector(showHistoryOverlay), "square.grid.2x2"))
+        submenu.addItem(item("钉剪贴板内容", #selector(pinClipboardContent), "pin"))
         submenu.addItem(item("打开截图目录", #selector(openCaptureFolder), "folder"))
         submenu.addItem(item("截图与录屏设置…", #selector(openCaptureSettings), "gearshape"))
 
@@ -204,6 +206,14 @@ final class CaptureModule: FeatureModule {
 
     // MARK: - 其他
 
+    @objc func pinClipboardContent() {
+        ClipboardPinService.pinClipboard()
+    }
+
+    @objc func showHistoryOverlay() {
+        CaptureHistoryOverlayController.shared.show()
+    }
+
     @objc func openCaptureFolder() {
         syncDirectories()
         NSWorkspace.shared.open(MacShotController.shared.outputDirectory)
@@ -225,6 +235,10 @@ final class CaptureModule: FeatureModule {
         MacShotController.shared.imageFormat = prefs.imageFormat.rawValue
         MacShotController.shared.imageQuality = prefs.imageQuality
         MacShotController.shared.captureDelay = TimeInterval(prefs.captureDelay)
+        MacShotController.shared.playShutterSound = prefs.shutterSound
+        MacShotController.shared.saveToFile = prefs.saveToFile
+        MacShotController.shared.copyToClipboard = prefs.copyToClipboard
+        MacShotController.shared.showFloatingThumbnail = prefs.showFloatingThumbnail
     }
 
     private func item(_ title: String, _ selector: Selector, _ symbol: String) -> NSMenuItem {

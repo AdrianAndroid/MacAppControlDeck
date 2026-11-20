@@ -80,6 +80,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var isPaused = false
     private var pausedAt: Date?
     private var totalPaused: TimeInterval = 0
+    private var originPTS: CMTime?
+    private var diskTimer: DispatchSourceTimer?
+    private var sleepObserver: NSObjectProtocol?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private let stateQueue = DispatchQueue(label: "MacShotKit.recorder.state")
 
@@ -250,6 +253,37 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         self.stream = stream
         try await startCapture(stream)
+        originPTS = nil
+        startDiskMonitor()
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.stop()
+        }
+    }
+
+    /// 磁盘空间低于阈值时自动停止，避免录出无法使用的文件。
+    private func startDiskMonitor() {
+        diskTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: stateQueue)
+        timer.schedule(deadline: .now() + 5, repeating: 5)
+        timer.setEventHandler { [weak self] in
+            guard let self, let outputURL = self.outputURL else { return }
+            let values = try? outputURL.deletingLastPathComponent()
+                .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            let free = values?.volumeAvailableCapacityForImportantUsage ?? .max
+            if free < 200 * 1024 * 1024 {
+                NSLog("MacShotKit: 磁盘空间不足，自动停止录制")
+                self.stop()
+            }
+        }
+        diskTimer = timer
+        timer.resume()
+    }
+
+    private func stopDiskMonitor() {
+        diskTimer?.cancel()
+        diskTimer = nil
     }
 
     private func startFrameTimer() {
@@ -337,10 +371,39 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 
+    /// SCK 偶尔给出与配置尺寸不一致的缓冲；此时缩放一次再写入，避免整段录制失败。
+    private func normalizedBuffer(_ source: CVPixelBuffer) -> CVPixelBuffer {
+        let width = CVPixelBufferGetWidth(source)
+        let height = CVPixelBufferGetHeight(source)
+        guard width != pixelWidth || height != pixelHeight else { return source }
+        var created: CVPixelBuffer?
+        let attrs: [String: Any] = [
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+        ]
+        guard CVPixelBufferCreate(kCFAllocatorDefault, pixelWidth, pixelHeight,
+                                  kCVPixelFormatType_32BGRA, attrs as CFDictionary,
+                                  &created) == kCVReturnSuccess,
+              let target = created else { return source }
+        let image = CIImage(cvPixelBuffer: source)
+        ciContext.render(image,
+                         to: target,
+                         bounds: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight),
+                         colorSpace: CGColorSpaceCreateDeviceRGB())
+        return target
+    }
+
     private func stopFrameTimer() {
         frameTimer?.cancel()
         frameTimer = nil
         latestPixelBuffer = nil
+        diskTimer?.cancel()
+        diskTimer = nil
+        if let sleepObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver)
+            self.sleepObserver = nil
+        }
     }
 
     func stop() {
@@ -432,11 +495,30 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         switch type {
         case .screen:
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-            latestPixelBuffer = pixelBuffer
-            if startedAt == nil {
+            if format == .gif {
+                latestPixelBuffer = pixelBuffer
+                if startedAt == nil {
+                    startedAt = .zero
+                    startFrameTimer()
+                }
+                return
+            }
+            guard !isPaused, let adaptor, let videoInput, videoInput.isReadyForMoreMediaData else { return }
+            let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            if originPTS == nil {
+                originPTS = pts
                 startedAt = .zero
                 writer?.startSession(atSourceTime: .zero)
-                startFrameTimer()
+            }
+            guard let originPTS else { return }
+            var paused = totalPaused
+            if let pausedAt { paused += Date().timeIntervalSince(pausedAt) }
+            var relative = CMTimeSubtract(pts, originPTS)
+            relative = CMTimeSubtract(relative, CMTime(seconds: paused, preferredTimescale: 600))
+            guard relative.seconds >= 0 else { return }
+            let buffer = normalizedBuffer(pixelBuffer)
+            if !adaptor.append(buffer, withPresentationTime: relative) {
+                NSLog("MacShotKit: video append failed: \(String(describing: writer?.error))")
             }
 
         case .audio:

@@ -9,6 +9,8 @@ final class PinWindowController {
     static let shared = PinWindowController()
 
     private var pins: [NSPanel] = []
+    private var escMonitor: Any?
+    private var localEscMonitor: Any?
 
     /// `at` 不为空时，贴图窗口精确落在该屏幕区域（原地贴图，不偏移）。
     func pin(_ image: CGImage, at frame: CGRect? = nil) {
@@ -73,6 +75,7 @@ final class PinWindowController {
             window.setFrame(frame, display: true)
             self.pins.append(window)
             window.orderFrontRegardless()
+            updateEscMonitor()
             return
         }
 
@@ -88,12 +91,49 @@ final class PinWindowController {
         window.setFrameOrigin(origin)
         window.orderFrontRegardless()
         pins.append(window)
+        updateEscMonitor()
     }
 
     private func close(_ window: NSWindow) {
         pins.removeAll { $0 === window }
         window.orderOut(nil)
         window.close()
+        updateEscMonitor()
+    }
+
+    /// 钉图是 nonactivating 面板，未点击时收不到 Esc。这里加全局/本地监听：
+    /// 鼠标停在钉图上按 Esc、或钉图已是 key window 时按 Esc 都能关闭，
+    /// 不要求先点一下图片（与用户对截图工具的预期一致）。
+    private func updateEscMonitor() {
+        guard !pins.isEmpty else {
+            if let escMonitor { NSEvent.removeMonitor(escMonitor) }
+            if let localEscMonitor { NSEvent.removeMonitor(localEscMonitor) }
+            escMonitor = nil
+            localEscMonitor = nil
+            return
+        }
+        if escMonitor == nil {
+            escMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard event.keyCode == 53 else { return }
+                DispatchQueue.main.async { self?.closePinForEscape(allowAnyPin: false) }
+            }
+            localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard event.keyCode == 53 else { return event }
+                if self?.closePinForEscape(allowAnyPin: true) == true { return nil }
+                return event
+            }
+        }
+    }
+
+    @discardableResult
+    private func closePinForEscape(allowAnyPin: Bool) -> Bool {
+        let mouse = NSEvent.mouseLocation
+        let target = pins.last(where: { $0.frame.contains(mouse) })
+            ?? pins.last(where: { $0.isKeyWindow })
+            ?? (allowAnyPin ? pins.last : nil)
+        guard let target else { return false }
+        close(target)
+        return true
     }
 
     private func edit(_ image: CGImage, window: NSWindow) {
@@ -223,6 +263,17 @@ final class PinHostingView: NSHostingView<PinImageView> {
     var onClose: (() -> Void)?
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        // 点击钉图后让它成为 key window，Esc / ⌘Q 才会送到这里。
+        window?.makeKey()
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        onClose?()
+    }
 
     override func scrollWheel(with event: NSEvent) {
         guard let zoom else { return }

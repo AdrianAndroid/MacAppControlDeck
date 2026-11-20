@@ -82,6 +82,18 @@ final class CapturePreferences: ObservableObject {
     @Published var captureDelay: Int {
         didSet { defaults.set(captureDelay, forKey: Keys.captureDelay) }
     }
+    @Published var shutterSound: Bool {
+        didSet { defaults.set(shutterSound, forKey: Keys.shutterSound) }
+    }
+    @Published var showFloatingThumbnail: Bool {
+        didSet { defaults.set(showFloatingThumbnail, forKey: Keys.showFloatingThumbnail) }
+    }
+    @Published var filenameTemplate: String {
+        didSet { defaults.set(filenameTemplate, forKey: Keys.filenameTemplate) }
+    }
+    @Published var recordingFilenameTemplate: String {
+        didSet { defaults.set(recordingFilenameTemplate, forKey: Keys.recordingFilenameTemplate) }
+    }
 
     private let defaults = UserDefaults.standard
     private enum Keys {
@@ -97,6 +109,10 @@ final class CapturePreferences: ObservableObject {
         static let recordingFPS = "capture.recordingFPS"
         static let gifFPS = "capture.gifFPS"
         static let captureDelay = "capture.delay"
+        static let shutterSound = "capture.shutterSound"
+        static let showFloatingThumbnail = "capture.showFloatingThumbnail"
+        static let filenameTemplate = "capture.filenameTemplate"
+        static let recordingFilenameTemplate = "capture.recordingFilenameTemplate"
     }
 
     private init() {
@@ -131,6 +147,12 @@ final class CapturePreferences: ObservableObject {
         let storedGIF = defaults.object(forKey: Keys.gifFPS) as? Int
         gifFPS = storedGIF ?? 10
         captureDelay = defaults.object(forKey: Keys.captureDelay) as? Int ?? 0
+        shutterSound = defaults.object(forKey: Keys.shutterSound) as? Bool ?? true
+        showFloatingThumbnail = defaults.object(forKey: Keys.showFloatingThumbnail) as? Bool ?? true
+        filenameTemplate = defaults.string(forKey: Keys.filenameTemplate)
+            ?? "Screenshot {date} at {time}"
+        recordingFilenameTemplate = defaults.string(forKey: Keys.recordingFilenameTemplate)
+            ?? "Recording {date} at {time}"
     }
 
     var directoryURL: URL {

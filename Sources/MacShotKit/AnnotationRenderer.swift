@@ -46,8 +46,12 @@ enum AnnotationRenderer {
 
     static func textAttributes(_ annotation: CaptureAnnotation,
                                color: NSColor) -> [NSAttributedString.Key: Any] {
-        var font = NSFont.systemFont(ofSize: annotation.fontSize,
-                                     weight: annotation.textBold ? .semibold : .regular)
+        var font = annotation.fontName.isEmpty
+            ? NSFont.systemFont(ofSize: annotation.fontSize,
+                                weight: annotation.textBold ? .semibold : .regular)
+            : (NSFont(name: annotation.fontName, size: annotation.fontSize)
+               ?? NSFont.systemFont(ofSize: annotation.fontSize,
+                                    weight: annotation.textBold ? .semibold : .regular))
         var traits: NSFontTraitMask = []
         if annotation.textItalic { traits.insert(.italicFontMask) }
         if !traits.isEmpty {
@@ -125,6 +129,7 @@ enum AnnotationRenderer {
                 path = NSBezierPath(rect: r)
             }
             path.lineWidth = annotation.lineWidth
+            applyDash(path, style: annotation.lineStyle, width: annotation.lineWidth)
             let mode: ShapeFillMode = annotation.tool == .filledRectangle
                 ? (annotation.fillMode == .stroke ? .fill : annotation.fillMode)
                 : annotation.fillMode
@@ -138,7 +143,7 @@ enum AnnotationRenderer {
             }
 
         case .line:
-            drawLine(start, end, width: annotation.lineWidth, color: color)
+            drawLine(start, end, width: annotation.lineWidth, color: color, style: annotation.lineStyle)
 
         case .arrow:
             drawArrow(annotation, start: start, end: end, color: color)
@@ -178,7 +183,11 @@ enum AnnotationRenderer {
                 annotation.textBackgroundColor.withAlphaComponent(0.72).setFill()
                 NSBezierPath(roundedRect: bg, xRadius: 4, yRadius: 4).fill()
             }
-            (text as NSString).draw(at: origin, withAttributes: attrs)
+            let lines = text.components(separatedBy: "\n")
+            for (index, line) in lines.enumerated() {
+                let dy = CGFloat(index) * size.height / CGFloat(max(lines.count, 1))
+                (line as NSString).draw(at: CGPoint(x: origin.x, y: origin.y + dy), withAttributes: attrs)
+            }
 
         case .number:
             let value = annotation.number ?? 1
@@ -240,8 +249,21 @@ enum AnnotationRenderer {
             drawLine(start, end, width: max(1, annotation.lineWidth), color: color)
             let dx = abs(annotation.end.x - annotation.start.x)
             let dy = abs(annotation.end.y - annotation.start.y)
-            let unit = annotation.measureUnit
-            let label = "\(Int(dx / unit.divisor)) × \(Int(dy / unit.divisor)) \(unit.title)"
+            let length = hypot(dx, dy)
+            let label: String
+            if annotation.measureScale > 0 {
+                let mm = Double(length * annotation.measureScale)
+                if mm >= 1000 {
+                    label = String(format: "%.1f m", mm / 1000)
+                } else if mm >= 10 {
+                    label = String(format: "%.1f cm", mm / 10)
+                } else {
+                    label = String(format: "%.1f mm", mm)
+                }
+            } else {
+                let unit = annotation.measureUnit
+                label = "\(Int(dx / unit.divisor)) × \(Int(dy / unit.divisor)) \(unit.title)"
+            }
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: max(11, annotation.fontSize * 0.55),
                                                         weight: .medium),
@@ -303,13 +325,21 @@ enum AnnotationRenderer {
     }
 
     private static func drawLine(_ start: CGPoint, _ end: CGPoint,
-                                 width: CGFloat, color: NSColor) {
+                                 width: CGFloat, color: NSColor,
+                                 style: LineStyle = .solid) {
         let path = NSBezierPath()
         path.move(to: start)
         path.line(to: end)
         path.lineWidth = width
+        applyDash(path, style: style, width: width)
         color.setStroke()
         path.stroke()
+    }
+
+    private static func applyDash(_ path: NSBezierPath, style: LineStyle, width: CGFloat) {
+        guard let pattern = style.pattern else { return }
+        let dashed = pattern.map { $0 * max(width, 1) }
+        path.setLineDash(dashed, count: dashed.count, phase: 0)
     }
 
     private static func drawArrow(_ annotation: CaptureAnnotation,
@@ -321,7 +351,7 @@ enum AnnotationRenderer {
 
         switch annotation.arrowStyle {
         case .single, .tail:
-            drawLine(start, end, width: width, color: color)
+            drawLine(start, end, width: width, color: color, style: annotation.lineStyle)
             drawArrowHead(from: from, to: to, width: width, color: color, filled: true)
             if annotation.arrowStyle == .tail {
                 let dx = to.x - from.x, dy = to.y - from.y
@@ -357,12 +387,12 @@ enum AnnotationRenderer {
             path.fill()
 
         case .double:
-            drawLine(start, end, width: width, color: color)
+            drawLine(start, end, width: width, color: color, style: annotation.lineStyle)
             drawArrowHead(from: start, to: end, width: width, color: color, filled: true)
             drawArrowHead(from: end, to: start, width: width, color: color, filled: true)
 
         case .open:
-            drawLine(start, end, width: width, color: color)
+            drawLine(start, end, width: width, color: color, style: annotation.lineStyle)
             drawArrowHead(from: from, to: to, width: width, color: color, filled: false)
         }
     }

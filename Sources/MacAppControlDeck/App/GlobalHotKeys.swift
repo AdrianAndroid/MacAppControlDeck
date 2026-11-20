@@ -16,6 +16,8 @@ final class GlobalHotKeys {
     private var handler: EventHandlerRef?
     private var hotKeyRefs: [EventHotKeyRef] = []
     private var actions: [UInt32: () -> Void] = [:]
+    private var pendingBindings: [(id: UInt32, keyCode: UInt32, modifiers: UInt32, action: () -> Void)] = []
+    private var retryTimer: Timer?
 
     private static let signature: OSType = 0x4D534B44 // "MSKD"
 
@@ -54,15 +56,45 @@ final class GlobalHotKeys {
 
         for binding in bindings {
             actions[binding.id] = binding.action
+        }
+        registerPending(bindings.map {
+            (id: $0.id, keyCode: $0.keyCode, modifiers: $0.modifiers, action: $0.action)
+        })
+    }
+
+    /// 热键可能被其他程序（例如已运行的 macshot）占用而注册失败；
+    /// 记录失败的绑定并在 2 秒后重试，避免永久失去快捷键。
+    private func registerPending(_ bindings: [(id: UInt32, keyCode: UInt32, modifiers: UInt32,
+                                             action: () -> Void)]) {
+        pendingBindings = []
+        for binding in bindings {
             var ref: EventHotKeyRef?
             let hotKeyID = EventHotKeyID(signature: Self.signature, id: binding.id)
-            RegisterEventHotKey(binding.keyCode, binding.modifiers, hotKeyID,
-                                GetApplicationEventTarget(), 0, &ref)
-            if let ref { hotKeyRefs.append(ref) }
+            let status = RegisterEventHotKey(binding.keyCode, binding.modifiers, hotKeyID,
+                                             GetApplicationEventTarget(), 0, &ref)
+            if status == noErr, let ref {
+                hotKeyRefs.append(ref)
+            } else {
+                pendingBindings.append(binding)
+            }
+        }
+        guard !pendingBindings.isEmpty else {
+            retryTimer?.invalidate()
+            retryTimer = nil
+            return
+        }
+        retryTimer?.invalidate()
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let retry = self.pendingBindings
+            self.registerPending(retry)
         }
     }
 
     func uninstall() {
+        retryTimer?.invalidate()
+        retryTimer = nil
+        pendingBindings = []
         for ref in hotKeyRefs { UnregisterEventHotKey(ref) }
         hotKeyRefs.removeAll()
         actions.removeAll()
