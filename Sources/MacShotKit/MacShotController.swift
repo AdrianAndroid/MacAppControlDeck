@@ -2,6 +2,26 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 
+public enum CaptureSelectionPreset: Equatable, CaseIterable {
+    case free
+    case ratio(String, CGFloat)
+    case pixels(String, Int, Int)
+
+    public static var allCases: [CaptureSelectionPreset] {
+        [.free, .ratio("1:1", 1), .ratio("4:3", 4.0/3), .ratio("16:9", 16.0/9),
+         .ratio("9:16", 9.0/16), .ratio("3:4", 3.0/4),
+         .pixels("1920×1080", 1920, 1080), .pixels("1080×1920", 1080, 1920)]
+    }
+
+    public var label: String {
+        switch self {
+        case .free: return "自由"
+        case .ratio(let name, _): return name
+        case .pixels(let name, _, _): return name
+        }
+    }
+}
+
 public final class MacShotController {
     public static let shared = MacShotController()
 
@@ -23,6 +43,7 @@ public final class MacShotController {
     public var imageFormat = "png"
     public var imageQuality = 0.9
     public var captureDelay: TimeInterval = 0
+    public var selectionPreset: CaptureSelectionPreset = .free
     private var recorder: ScreenRecorder?
     private var recordingTarget: RecordingTarget?
     private var toastPanel: NSPanel?
@@ -59,9 +80,9 @@ public final class MacShotController {
     public func captureArea() {
         guard ensurePermission() else { return }
         scheduleCapture { [weak self] in
-            AreaSelectionController.shared.begin { [weak self] screen, rect in
+            AreaSelectionController.shared.begin { [weak self] screen, rect, snapshot in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    guard let image = ScreenCaptureService.capture(area: rect, on: screen) else {
+                    guard let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen) else {
                         self?.showAlert("区域截图失败", "没有拿到选区图像，请重试。")
                         return
                     }
@@ -90,10 +111,10 @@ public final class MacShotController {
     public func quickSaveArea() {
         guard ensurePermission() else { return }
         scheduleCapture { [weak self] in
-            AreaSelectionController.shared.begin { [weak self] screen, rect in
+            AreaSelectionController.shared.begin { [weak self] screen, rect, snapshot in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                     guard let self,
-                          let image = ScreenCaptureService.capture(area: rect, on: screen)
+                          let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen)
                     else { return }
                     self.saveEditorImage(image, notify: true)
                 }
@@ -105,9 +126,9 @@ public final class MacShotController {
     public func quickOCRArea() {
         guard ensurePermission() else { return }
         scheduleCapture {
-            AreaSelectionController.shared.begin { screen, rect in
+            AreaSelectionController.shared.begin { screen, rect, snapshot in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    guard let image = ScreenCaptureService.capture(area: rect, on: screen)
+                    guard let image = snapshot ?? ScreenCaptureService.capture(area: rect, on: screen)
                     else { return }
                     OCRResultController.shared.recognize(image, autoCopy: true)
                 }
@@ -177,7 +198,7 @@ public final class MacShotController {
             guard let screen = NSScreen.main else { return }
             beginRecording(target: .screen(screen), format: format)
         case .area:
-            AreaSelectionController.shared.begin { [weak self] screen, rect in
+            AreaSelectionController.shared.begin { [weak self] screen, rect, _ in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     self?.beginRecording(target: .area(screen, rect), format: format)
                 }

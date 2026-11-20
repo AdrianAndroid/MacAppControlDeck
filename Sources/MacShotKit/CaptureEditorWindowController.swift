@@ -6,6 +6,7 @@ final class CaptureEditorWindowController {
 
     private var window: NSWindow?
     private var model: CaptureEditorModel?
+    private var keyMonitor: Any?
 
     func show(image: CGImage) {
         close()
@@ -67,9 +68,59 @@ final class CaptureEditorWindowController {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = window
+
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, let model = self.model, self.window?.isKeyWindow == true else { return event }
+            // Let text fields keep their own editing keys.
+            if let responder = self.window?.firstResponder, responder is NSTextView { return event }
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+            if mods.contains(.command) {
+                switch chars {
+                case "c":
+                    if let image = model.render() {
+                        CaptureExporter.copyToPasteboard(image)
+                        MacShotController.shared.showToast("已复制到剪贴板")
+                    }
+                    return nil
+                case "s":
+                    if let image = model.render() {
+                        MacShotController.shared.saveEditedImage(image)
+                    }
+                    return nil
+                case "z":
+                    if mods.contains(.shift) { model.redo() } else { model.undo() }
+                    return nil
+                case "0":
+                    NotificationCenter.default.post(name: .captureEditorResetZoom, object: nil)
+                    return nil
+                case "=", "+":
+                    NotificationCenter.default.post(name: .captureEditorZoomIn, object: nil)
+                    return nil
+                case "-":
+                    NotificationCenter.default.post(name: .captureEditorZoomOut, object: nil)
+                    return nil
+                default:
+                    return event
+                }
+            }
+            if event.keyCode == 51 || event.keyCode == 117 {
+                model.deleteSelected()
+                return nil
+            }
+            if event.keyCode == 53 {
+                self.close()
+                return nil
+            }
+            return event
+        }
     }
 
     func close() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
         window?.orderOut(nil)
         window?.close()
         window = nil
@@ -80,4 +131,10 @@ final class CaptureEditorWindowController {
 private final class EditorWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+}
+
+extension Notification.Name {
+    static let captureEditorResetZoom = Notification.Name("captureEditorResetZoom")
+    static let captureEditorZoomIn = Notification.Name("captureEditorZoomIn")
+    static let captureEditorZoomOut = Notification.Name("captureEditorZoomOut")
 }

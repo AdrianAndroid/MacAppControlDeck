@@ -15,7 +15,7 @@ final class ScrollCaptureController {
             _ = MacShotController.shared.ensurePermission()
             return
         }
-        AreaSelectionController.shared.begin { [weak self] screen, rect in
+        AreaSelectionController.shared.begin { [weak self] screen, rect, _ in
             self?.run(screen: screen, rect: rect)
         }
     }

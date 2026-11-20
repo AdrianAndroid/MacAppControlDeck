@@ -52,6 +52,21 @@ final class CaptureModule: FeatureModule {
         }
         delayItem.submenu = delayMenu
         submenu.addItem(delayItem)
+
+        let presetItem = NSMenuItem(title: "选区比例 / 尺寸", action: nil, keyEquivalent: "")
+        presetItem.image = NSImage(systemSymbolName: "aspectratio", accessibilityDescription: nil)
+        let presetMenu = NSMenu(title: "选区比例 / 尺寸")
+        for preset in CaptureSelectionPreset.allCases {
+            let child = NSMenuItem(title: preset.label,
+                                   action: #selector(setSelectionPreset(_:)),
+                                   keyEquivalent: "")
+            child.target = self
+            child.representedObject = preset.label
+            child.state = MacShotController.shared.selectionPreset == preset ? .on : .off
+            presetMenu.addItem(child)
+        }
+        presetItem.submenu = presetMenu
+        submenu.addItem(presetItem)
         submenu.addItem(.separator())
 
         submenu.addItem(item("录制屏幕（区域）", #selector(recordArea), "record.circle"))
@@ -132,6 +147,13 @@ final class CaptureModule: FeatureModule {
     @objc func quickOCRArea() {
         syncDirectories()
         MacShotController.shared.quickOCRArea()
+    }
+
+    @objc func setSelectionPreset(_ sender: NSMenuItem) {
+        guard let label = sender.representedObject as? String else { return }
+        if let preset = CaptureSelectionPreset.allCases.first(where: { $0.label == label }) {
+            MacShotController.shared.selectionPreset = preset
+        }
     }
 
     @objc func setCaptureDelay(_ sender: NSMenuItem) {

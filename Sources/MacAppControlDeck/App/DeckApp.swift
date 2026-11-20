@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 每个功能模块独立启停；remote 启动自己的 HTTP 服务，capture 只注册本机菜单。
         ModuleRegistry.shared.register(RemoteControlModule())
         ModuleRegistry.shared.register(CaptureModule.shared)
+        GlobalHotKeys.shared.install()
         MenuBarController.shared.install()
     }
 
