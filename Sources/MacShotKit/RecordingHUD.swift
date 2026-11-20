@@ -131,7 +131,7 @@ final class RecordingHUDController {
         container.addSubview(drag)
 
         panel.setFrameOrigin(position(for: screenRect, screen: screen, size: panel.frame.size))
-        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
         self.panel = panel
         self.container = container
 
@@ -271,92 +271,11 @@ private final class RecordingBorderView: NSView {
     }
 }
 
-/// 录制前 3-2-1 倒计时（上游 CountdownView 的轻量版）。
 /// HUD 是非激活面板；默认 NSButton 会吞掉第一次点击，导致停止按钮“点一下没反应”。
-private final class HUDButton: NSButton {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+private final class HUDPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
 }
 
-final class RecordingCountdown {
-    static let shared = RecordingCountdown()
-
-    private var panel: NSPanel?
-    private var label: NSTextField?
-    private var timer: Timer?
-    private var remaining = 0
-    private var onFinish: (() -> Void)?
-
-    func show(over rect: CGRect?, screen: NSScreen?, seconds: Int = 3,
-              onFinish: @escaping () -> Void) {
-        hide()
-        self.onFinish = onFinish
-        remaining = seconds
-
-        let size = CGSize(width: 200, height: 200)
-        let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size),
-                            styleMask: [.borderless, .nonactivatingPanel],
-                            backing: .buffered, defer: false)
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.level = .statusBar + 3
-        panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
-
-        let content = NSView(frame: CGRect(origin: .zero, size: size))
-        content.wantsLayer = true
-        content.layer?.cornerRadius = 100
-        content.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
-        content.layer?.borderWidth = 2
-        content.layer?.borderColor = NSColor.white.withAlphaComponent(0.25).cgColor
-
-        let label = NSTextField(labelWithString: "\(seconds)")
-        label.font = .systemFont(ofSize: 96, weight: .semibold)
-        label.textColor = .white
-        label.alignment = .center
-        label.frame = CGRect(x: 0, y: 44, width: size.width, height: 112)
-        content.addSubview(label)
-        panel.contentView = content
-
-        let anchor: CGRect
-        if let rect, let screen {
-            let converted = CaptureGeometry.rectInScreen(rect, screen: screen)
-            anchor = screen.frame.union(CGRect(x: screen.frame.minX + converted.minX,
-                                               y: screen.frame.minY + converted.minY,
-                                               width: converted.width, height: converted.height))
-            panel.setFrameOrigin(CGPoint(x: screen.frame.midX - size.width / 2,
-                                         y: screen.frame.midY - size.height / 2))
-        } else if let screen = NSScreen.main {
-            anchor = screen.frame
-            panel.setFrameOrigin(CGPoint(x: screen.frame.midX - size.width / 2,
-                                         y: screen.frame.midY - size.height / 2))
-        } else {
-            anchor = .zero
-        }
-        _ = anchor
-        panel.orderFrontRegardless()
-        self.panel = panel
-        self.label = label
-
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.remaining -= 1
-            if self.remaining <= 0 {
-                self.hide()
-                self.onFinish?()
-                self.onFinish = nil
-            } else {
-                self.label?.stringValue = "\(self.remaining)"
-                self.panel?.alphaValue = 1
-            }
-        }
-    }
-
-    func hide() {
-        timer?.invalidate()
-        timer = nil
-        panel?.orderOut(nil)
-        panel = nil
-        label = nil
-    }
+private final class HUDButton: NSButton {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }

@@ -45,6 +45,7 @@ final class AreaSelectionController {
             view.recordingFPS = options.fps
             view.recordingSystemAudio = options.systemAudio
             view.recordingMic = options.microphone
+            view.recordingMouseHighlight = UserDefaults.standard.object(forKey: "recordMouseHighlight") as? Bool ?? true
         }
         window.contentView = view
         // 抓冻结帧期间对自己隐藏，避免把遮罩/工具条截进背景；抓完恢复，便于用户截图。
@@ -149,6 +150,7 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
     var recordingFPS = 30
     var recordingSystemAudio = true
     var recordingMic = false
+    var recordingMouseHighlight = true
 
     private var rect: CGRect?
     private var anchor: CGPoint = .zero
@@ -726,6 +728,10 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
                                  tintColor: .systemRed),
             CaptureToolbarButton(action: .cancel, sfSymbol: "xmark",
                                  text: nil, tooltip: "取消录制"),
+            CaptureToolbarButton(action: .toggleMouseHighlight,
+                                 sfSymbol: "cursorarrow.click.2",
+                                 text: nil, tooltip: "高亮鼠标点击",
+                                 isSelected: recordingMouseHighlight),
             CaptureToolbarButton(action: .toggleSystemAudio,
                                  sfSymbol: recordingSystemAudio ? "speaker.wave.2.fill" : "speaker.slash",
                                  text: nil, tooltip: "录制系统声音",
@@ -952,6 +958,9 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
             recordingSystemAudio.toggle()
         case .toggleMic:
             recordingMic.toggle()
+        case .toggleMouseHighlight:
+            recordingMouseHighlight.toggle()
+            UserDefaults.standard.set(recordingMouseHighlight, forKey: "recordMouseHighlight")
         case .recordSettings:
             showRecordingSettingsMenu()
             return

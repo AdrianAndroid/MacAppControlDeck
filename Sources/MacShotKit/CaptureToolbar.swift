@@ -26,6 +26,7 @@ enum CaptureToolbarAction: Equatable {
     case toggleSystemAudio
     case toggleMic
     case recordSettings
+    case toggleMouseHighlight
 }
 
 struct CaptureToolbarButton {

@@ -362,21 +362,15 @@ public final class MacShotController {
                     return
                 }
             }
-            let countdown = RecordingCountdown()
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                countdown.show(over: Self.anchor(for: target).rect,
-                               screen: Self.anchor(for: target).screen,
-                               seconds: 3) {
-                    continuation.resume()
-                }
-            }
             do {
                 try await recorder.start(target: target,
                                          format: format,
                                          options: recordingOptions,
                                          outputURL: url)
                 self.isRecording = true
-                ClickHighlightController.shared.start()
+                if UserDefaults.standard.object(forKey: "recordMouseHighlight") as? Bool ?? true {
+                    ClickHighlightController.shared.start()
+                }
                 let anchor = Self.anchor(for: target)
                 RecordingHUDController.shared.show(
                     format: format,

@@ -83,6 +83,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var pausedAt: Date?
     private var totalPaused: TimeInterval = 0
     private var originPTS: CMTime?
+    private var firstFrameUptime: CFTimeInterval?
     private var sessionStarted = false
     private var isRecordingSession: Bool { writer != nil && !isStopping }
     private var screenFramesReceived = 0
@@ -354,9 +355,13 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
 
         guard let adaptor, let videoInput, videoInput.isReadyForMoreMediaData else { return }
-        let frameTime = CMTime(value: videoFrameIndex,
-                               timescale: CMTimeScale(max(options.fps, 1)))
-        videoFrameIndex += 1
+        // 用真实经过时间作为视频 PTS，避免丢帧时按帧序号计时导致音画越录越不同步。
+        let now = CACurrentMediaTime()
+        if firstFrameUptime == nil { firstFrameUptime = now }
+        var paused = totalPaused
+        if let pausedAt { paused += Date().timeIntervalSince(pausedAt) }
+        let elapsed = max(0, now - (firstFrameUptime ?? now) - paused)
+        let frameTime = CMTime(seconds: elapsed, preferredTimescale: 600)
 
         var createdBuffer: CVPixelBuffer?
         let attrs: [String: Any] = [
@@ -542,6 +547,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             }
             if startedAt == nil {
                 startedAt = .zero
+                firstFrameUptime = CACurrentMediaTime()
                 startFrameTimer()
             }
 
