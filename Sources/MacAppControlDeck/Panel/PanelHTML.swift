@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-20.4"
+    static let version = "2026-11-20.5"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -166,14 +166,22 @@ enum PanelHTML {
         try{ const res=await fetch('/api/health',{cache:'no-store'}); if(res.ok){ setStatus('已连接','ok'); return true; } }catch(e){}
         setStatus('Mac 未连接','err'); return false;
       }
+      let lastButtonsKey='';
+      function renderIfChanged(buttons){
+        const key=JSON.stringify(buttons||[]);
+        if(key===lastButtonsKey) return;
+        lastButtonsKey=key;
+        render(buttons);
+      }
+
       async function loadButtons(){
         try{
           const res=await api('/api/buttons');
           if(!res.ok){ showPair(); return; }
           const data=await res.json();
           localStorage.setItem('deck_buttons',JSON.stringify(data.buttons));
-          render(data.buttons);
-        }catch(e){ const cached=localStorage.getItem('deck_buttons'); if(cached) render(JSON.parse(cached)); }
+          renderIfChanged(data.buttons);
+        }catch(e){ const cached=localStorage.getItem('deck_buttons'); if(cached) renderIfChanged(JSON.parse(cached)); }
       }
 
       function chunk(list,n){ const out=[]; for(let i=0;i<list.length;i+=n) out.push(list.slice(i,i+n)); return out; }
@@ -360,7 +368,7 @@ enum PanelHTML {
       window.addEventListener('orientationchange',()=>setTimeout(onResize,200));
 
       document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkPanelVersion(); checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
-      setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!anyRunning()) loadButtons(); }); },5000);
+      setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!anyRunning()) loadButtons(); }); },2000);
 
       async function checkPanelVersion(){
         try{
