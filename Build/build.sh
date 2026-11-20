@@ -42,10 +42,15 @@ if [[ -z "$IDENTITY" ]]; then
 fi
 
 if [[ -n "$IDENTITY" ]]; then
-  # 先签内嵌 CLI 助手，再签整个包
-  codesign --force --options runtime --sign "$IDENTITY" "$APP/Contents/MacOS/KeySender"
-  codesign --force --options runtime --sign "$IDENTITY" "$APP"
-  echo "已使用签名身份：$IDENTITY"
+  # 自签名证书不加 hardened runtime：TCC 对该类身份按代码哈希绑定，
+  # runtime 标志变化会导致重建后授权失效；Apple Development 身份保留 runtime。
+  SIGN_FLAGS=(--force)
+  case "$IDENTITY" in
+    "Apple Development"*) SIGN_FLAGS+=(--options runtime) ;;
+  esac
+  codesign "${SIGN_FLAGS[@]}" --sign "$IDENTITY" "$APP/Contents/MacOS/KeySender"
+  codesign "${SIGN_FLAGS[@]}" --sign "$IDENTITY" "$APP"
+  echo "已使用签名身份：$IDENTITY（flags: ${SIGN_FLAGS[*]})"
 else
   codesign --force --sign - "$APP/Contents/MacOS/KeySender"
   codesign --force --sign - "$APP"
