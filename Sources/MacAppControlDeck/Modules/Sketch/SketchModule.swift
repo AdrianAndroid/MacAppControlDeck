@@ -9,7 +9,7 @@ final class SketchModule: FeatureModule {
 
     var id: String { Self.id }
     var title: String { "UI 草图" }
-    var summary: String { "鼠标画 UI 意图，复制成图片直接粘贴给 AI；完全离线，不经过手机。" }
+    var summary: String { "多画布手绘 UI 意图，复制图片或 JSON 直接粘贴给 AI；完全离线，不经过手机。" }
     var systemImage: String { "pencil.and.outline" }
     var defaultEnabled: Bool { true }
 
@@ -39,7 +39,7 @@ final class SketchModule: FeatureModule {
             modifiers: [.control, .option]
         ))
         submenu.addItem(menuItem(
-            "新建画板",
+            "新建画布",
             #selector(newBoard),
             "doc.badge.plus",
             id: "sketch.new",

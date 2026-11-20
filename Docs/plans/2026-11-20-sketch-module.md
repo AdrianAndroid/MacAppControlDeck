@@ -248,3 +248,12 @@ UI 草图
 - 输出为纯文本 `NSPasteboardTypeString`，顶层 `isDiagram=true`、`diagramType="ui-sketch"`，`ai` 对象显式说明“这是一个图形/示意图”，并附 `howToRead`、`selectedOnly`。
 - 附带 `summary`（元素数、类型统计、文字、边界、是否含图片）与完整 `scene`；不内嵌 PNG base64，位图仍走「复制图片」。
 - 实机验证：整板 5 个矩形 → 5,402 B JSON；选中 1 个矩形 → `selectedOnly=true`、1 个元素、2,411 B；剪贴板为纯文本。
+
+## 13. 追加：多画布切换（2026-11-20）
+
+- 新增 `SketchBoardStore`：`Boards/index.json` + 每画布独立 `<uuid>.excalidraw`，首次启动把旧 `draft.excalidraw` 迁移为「画布 1」。
+- Web 左上角新增「画布」下拉：列表、元素数、修改时间、新建、重命名、删除确认；有选中属性面板时自动收起避让。
+- 切换时保存当前场景与视口，再加载目标场景并 `history.clear()`；180ms 柔和遮罩 + 中心 spinner 过渡。
+- 原生桥接新增 `boardSwitchRequested` / `boardCreateRequested` / `boardRenameRequested` / `boardDeleteRequested`。
+- 菜单「新建画板」改为「新建画布」，「最近草图」导入时创建独立画布，不再覆盖当前画布。
+- 实机验证：迁移 5 元素旧草稿、新建/重命名/删除、跨画布切换、重启恢复上次画布、复制 JSON 仍为 5 元素。

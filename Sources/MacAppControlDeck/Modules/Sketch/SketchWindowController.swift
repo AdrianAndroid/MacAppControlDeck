@@ -20,6 +20,7 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
 
     private let settings = SketchSettings.shared
     private let store = SketchStore.shared
+    private lazy var boards = SketchBoardStore(directory: settings.boardsDirectory)
 
     private enum PendingAction {
         case copy
@@ -172,6 +173,14 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
             saveCurrentSketch()
         case .newRequested:
             newBoard()
+        case .boardSwitchRequested(let id, let scene):
+            switchBoard(to: id, currentScene: scene)
+        case .boardCreateRequested(let scene):
+            createBoard(currentScene: scene)
+        case .boardRenameRequested(let id, let title):
+            renameBoard(id: id, title: title)
+        case .boardDeleteRequested(let id, let scene):
+            deleteBoard(id: id, currentScene: scene)
         }
     }
 
@@ -182,19 +191,49 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
 
         Task {
             do {
+                let legacy = store.loadDraft()
+                var board = try boards.bootstrap(
+                    legacyScene: legacy,
+                    preferredActiveID: settings.activeBoardID
+                )
+                if legacy != nil {
+                    store.clearDraft()
+                }
+
+                var openedURL: URL?
                 if let pendingOpenURL {
                     self.pendingOpenURL = nil
-                    try await loadScene(from: pendingOpenURL, rememberDraft: true)
-                } else {
-                    let draft = store.loadDraft() ?? ""
-                    try await callJS(
-                        "window.deckSketch.loadScene(json); return true;",
-                        arguments: ["json": draft]
-                    )
+                    do {
+                        let json = try String(contentsOf: pendingOpenURL, encoding: .utf8)
+                        board = try boards.create(
+                            title: pendingOpenURL.deletingPathExtension().lastPathComponent,
+                            scene: json
+                        )
+                        openedURL = pendingOpenURL
+                    } catch {
+                        toast("打开草图失败：\(error.localizedDescription)", kind: "error")
+                    }
+                }
+
+                settings.activeBoardID = board.id
+                applyBoardTitle(board.title)
+                guard let scene = boards.scene(for: board.id) else {
+                    throw SketchBoardError.notFound
+                }
+                _ = try await callJS(
+                    "window.deckSketch.initBoards(activeId, boardsJson, scene); return true;",
+                    arguments: [
+                        "activeId": board.id,
+                        "boardsJson": boards.listJSON(),
+                        "scene": scene
+                    ]
+                )
+                if let openedURL {
+                    toast("已打开 \(openedURL.lastPathComponent)")
                 }
             } catch {
-                NSLog("[sketch] 加载草稿失败: \(error.localizedDescription)")
-                toast("草稿读取失败，已打开空白画板", kind: "error")
+                NSLog("[sketch] 加载画布失败: \(error.localizedDescription)")
+                toast("画布读取失败，请重试", kind: "error")
             }
             isLoadingBoard = false
             runPendingActionIfNeeded()
@@ -299,19 +338,14 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
 
     func newBoard() {
         guard isReady else {
-            store.clearDraft()
             pendingAction = .new
             show()
             return
         }
         Task {
             do {
-                if try await hasContent(), !confirmNewBoard() {
-                    return
-                }
-                try await callJS("window.deckSketch.clear(); return true;")
-                store.clearDraft()
-                toast("已新建空白画板")
+                let current = try await currentSceneFromWeb()
+                createBoard(currentScene: current)
             } catch {
                 toast(message(for: error), kind: "error")
             }
@@ -326,7 +360,15 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
         }
         Task {
             do {
-                try await loadScene(from: url, rememberDraft: true)
+                let current = try await currentSceneFromWeb()
+                try saveActiveScene(current)
+                let json = try String(contentsOf: url, encoding: .utf8)
+                let board = try boards.create(
+                    title: url.deletingPathExtension().lastPathComponent,
+                    scene: json
+                )
+                settings.activeBoardID = board.id
+                try await activateBoard(board)
                 toast("已打开 \(url.lastPathComponent)")
             } catch {
                 toast(message(for: error), kind: "error")
@@ -334,24 +376,126 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
         }
     }
 
-    private func loadScene(from url: URL, rememberDraft: Bool) async throws {
-        let json = try String(contentsOf: url, encoding: .utf8)
-        _ = try await callJS(
-            "window.deckSketch.loadScene(json); return true;",
-            arguments: ["json": json]
-        )
-        if rememberDraft {
-            store.saveDraft(json)
+    // MARK: - 多画布
+
+    private func switchBoard(to id: String, currentScene: String) {
+        guard isReady else { return }
+        let previousID = boards.activeID
+        Task {
+            do {
+                try saveActiveScene(currentScene)
+                let board = try boards.select(id: id)
+                guard let scene = boards.scene(for: board.id) else {
+                    throw SketchBoardError.notFound
+                }
+                settings.activeBoardID = board.id
+                try await activateBoard(board, scene: scene)
+            } catch {
+                NSLog("[sketch] 切换画布失败: \(error.localizedDescription)")
+                if !previousID.isEmpty {
+                    settings.activeBoardID = previousID
+                    _ = try? boards.select(id: previousID)
+                }
+                finishSwitchInWeb()
+                toast(message(for: error), kind: "error")
+            }
         }
     }
 
-    private func confirmNewBoard() -> Bool {
-        let alert = NSAlert()
-        alert.messageText = "新建空白画板？"
-        alert.informativeText = "当前画板会被清空。已经保存的 PNG 和 .excalidraw 文件不受影响。"
-        alert.addButton(withTitle: "新建")
-        alert.addButton(withTitle: "取消")
-        return alert.runModal() == .alertFirstButtonReturn
+    private func createBoard(currentScene: String) {
+        guard isReady else { return }
+        Task {
+            do {
+                try saveActiveScene(currentScene)
+                let board = try boards.create()
+                settings.activeBoardID = board.id
+                try await activateBoard(board)
+                toast("已新建 \(board.title)")
+            } catch {
+                finishSwitchInWeb()
+                toast(message(for: error), kind: "error")
+            }
+        }
+    }
+
+    private func renameBoard(id: String, title: String) {
+        guard isReady else { return }
+        Task {
+            do {
+                let board = try boards.rename(id: id, title: title)
+                if board.id == boards.activeID {
+                    applyBoardTitle(board.title)
+                }
+                try await pushBoards()
+            } catch {
+                toast(message(for: error), kind: "error")
+                try? await pushBoards()
+            }
+        }
+    }
+
+    private func deleteBoard(id: String, currentScene: String) {
+        guard isReady else { return }
+        let wasActive = boards.activeID == id
+        Task {
+            do {
+                try saveActiveScene(currentScene)
+                let board = try boards.delete(id: id)
+                settings.activeBoardID = board.id
+                if wasActive {
+                    try await activateBoard(board)
+                } else {
+                    try await pushBoards()
+                }
+                toast("已删除画布")
+            } catch {
+                finishSwitchInWeb()
+                toast(message(for: error), kind: "error")
+            }
+        }
+    }
+
+    private func activateBoard(_ board: SketchBoard, scene: String? = nil) async throws {
+        let json = scene ?? boards.scene(for: board.id) ?? SketchBoardStore.emptyScene
+        applyBoardTitle(board.title)
+        _ = try await callJS(
+            "window.deckSketch.activateBoard(activeId, boardsJson, scene); return true;",
+            arguments: [
+                "activeId": board.id,
+                "boardsJson": boards.listJSON(),
+                "scene": json
+            ]
+        )
+    }
+
+    private func pushBoards() async throws {
+        _ = try await callJS(
+            "window.deckSketch.updateBoards(activeId, boardsJson); return true;",
+            arguments: [
+                "activeId": boards.activeID,
+                "boardsJson": boards.listJSON()
+            ]
+        )
+    }
+
+    private func saveActiveScene(_ scene: String) throws {
+        guard !boards.activeID.isEmpty else { return }
+        try boards.saveScene(scene, for: boards.activeID)
+    }
+
+    private func currentSceneFromWeb() async throws -> String {
+        let value = try await evalJS("window.deckSketch.getScene()")
+        return (value as? String) ?? ""
+    }
+
+    private func applyBoardTitle(_ title: String) {
+        window?.subtitle = "\(title) · 鼠标画 UI 意图，复制后直接粘贴给 AI"
+    }
+
+    private func finishSwitchInWeb() {
+        Task {
+            _ = try? await callJS("window.deckSketch.endSwitch(); return true;")
+        }
     }
 
     // MARK: - JS 调用
@@ -474,9 +618,8 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
 
     private func flushDraft() async {
         guard isReady else { return }
-        if let scene = try? await callJS("return window.deckSketch.getScene();") as? String,
-           !scene.isEmpty {
-            store.saveDraft(scene)
+        if let scene = try? await currentSceneFromWeb(), !scene.isEmpty {
+            try? saveActiveScene(scene)
         }
     }
 

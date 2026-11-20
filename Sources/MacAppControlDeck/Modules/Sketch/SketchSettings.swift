@@ -87,6 +87,22 @@ final class SketchSettings: ObservableObject {
             .appendingPathComponent("draft.excalidraw")
     }
 
+    var boardsDirectory: URL {
+        draftURL.deletingLastPathComponent()
+            .appendingPathComponent("Boards", isDirectory: true)
+    }
+
+    var activeBoardID: String? {
+        get { defaults.string(forKey: "sketch.activeBoardID") }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: "sketch.activeBoardID")
+            } else {
+                defaults.removeObject(forKey: "sketch.activeBoardID")
+            }
+        }
+    }
+
     var lastSavedURL: URL? {
         guard let path = defaults.string(forKey: "sketch.lastSaved") else { return nil }
         return URL(fileURLWithPath: path)

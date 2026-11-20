@@ -29,6 +29,10 @@ let excalidrawAPI = null;
 let hydrated = false;
 let pendingScene = null;
 let saveTimer = null;
+let boardUI = { boards: [], activeID: "" };
+let boardUISetter = null;
+let switchingSetter = null;
+let switchStartedAt = 0;
 
 function getNonDeletedElements(elements) {
   return elements.filter((element) => !element.isDeleted);
@@ -63,6 +67,10 @@ function loadScene(json) {
     hydrated = true;
     return;
   }
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
   try {
     const scene = JSON.parse(json);
     const elements = restoreElements(scene.elements || [], null, {
@@ -70,6 +78,11 @@ function loadScene(json) {
       repairBindings: true
     });
     const restoredAppState = restoreAppState(scene.appState || null, null);
+    const savedCamera =
+      scene.appState &&
+      Number(scene.appState.zoom?.value) > 0 &&
+      Number.isFinite(scene.appState.scrollX) &&
+      Number.isFinite(scene.appState.scrollY);
     excalidrawAPI.updateScene({
       elements,
       appState: {
@@ -79,21 +92,58 @@ function loadScene(json) {
         selectedElementIds: {},
         editingElement: null,
         openDialog: null,
-        openSidebar: null
+        openSidebar: null,
+        ...(savedCamera ? {} : elements.length === 0 ? { zoom: { value: 1 }, scrollX: 0, scrollY: 0 } : {})
       }
     });
     if (scene.files && Object.keys(scene.files).length > 0) {
       excalidrawAPI.addFiles(Object.values(scene.files));
     }
-    if (elements.length > 0) {
+    excalidrawAPI.history.clear();
+    if (!savedCamera && elements.length > 0) {
       setTimeout(() => excalidrawAPI?.scrollToContent(elements, { fitToContent: true }), 60);
     }
   } catch (error) {
     console.error("load scene failed", error);
-    showToast("草稿读取失败，已打开空白画板", "error");
+    showToast("画布读取失败，已打开空白画板", "error");
   }
   pendingScene = null;
   hydrated = true;
+}
+
+function publishBoards(activeID, boardsJson) {
+  let next = [];
+  try {
+    const parsed = JSON.parse(boardsJson || "[]");
+    if (Array.isArray(parsed)) next = parsed;
+  } catch (error) {
+    console.warn("board list parse failed", error);
+  }
+  boardUI = { boards: next, activeID: activeID || "" };
+  boardUISetter?.(boardUI);
+}
+
+function beginSwitch() {
+  switchStartedAt = performance.now();
+  switchingSetter?.(true);
+}
+
+function finishSwitch() {
+  const elapsed = performance.now() - switchStartedAt;
+  const delay = Math.max(0, 180 - elapsed);
+  setTimeout(() => switchingSetter?.(false), delay);
+}
+
+function endSwitch() {
+  switchingSetter?.(false);
+}
+
+function currentSceneForBoardRequest() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  return sceneJSON();
 }
 
 async function exportPNG(scale = 2, padding = 24, background = "white") {
@@ -229,13 +279,47 @@ window.deckSketch = {
   getAIJSON: aiJSON,
   getScene: sceneJSON,
   loadScene,
+  initBoards: (activeID, boardsJson, scene) => {
+    publishBoards(activeID, boardsJson);
+    loadScene(scene);
+    return true;
+  },
+  activateBoard: (activeID, boardsJson, scene) => {
+    beginSwitch();
+    publishBoards(activeID, boardsJson);
+    loadScene(scene);
+    finishSwitch();
+    return true;
+  },
+  updateBoards: (activeID, boardsJson) => {
+    publishBoards(activeID, boardsJson);
+    return true;
+  },
+  endSwitch,
+  requestSwitchBoard: (id) => {
+    if (!id || id === boardUI.activeID) return false;
+    beginSwitch();
+    post("boardSwitchRequested", { id, scene: currentSceneForBoardRequest() });
+    return true;
+  },
+  requestCreateBoard: () => {
+    beginSwitch();
+    post("boardCreateRequested", { scene: currentSceneForBoardRequest() });
+  },
+  requestRenameBoard: (id, title) => {
+    post("boardRenameRequested", { id, title });
+  },
+  requestDeleteBoard: (id) => {
+    if (id === boardUI.activeID) beginSwitch();
+    post("boardDeleteRequested", { id, scene: currentSceneForBoardRequest() });
+  },
   clear: () => {
     excalidrawAPI?.updateScene({
       elements: [],
       appState: { selectedElementIds: {}, editingElement: null }
     });
     excalidrawAPI?.history.clear();
-    showToast("已新建空白画板");
+    showToast("已清空当前画布");
   },
   hasContent: () =>
     !!excalidrawAPI && getNonDeletedElements(excalidrawAPI.getSceneElements()).length > 0,
@@ -259,6 +343,261 @@ function Toast() {
   return <div className={`deck-toast ${toast.kind === "error" ? "is-error" : ""}`}>{toast.text}</div>;
 }
 
+function relativeBoardTime(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "刚刚";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 3v10M3 8h10" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M10.6 2.7l2.7 2.7M3 13l1-3.4L11.4 2.6a1 1 0 011.4 0l.6.6a1 1 0 010 1.4L5.5 12 3 13z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M6.5 7v4M9.5 7v4" />
+    </svg>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 2.2l5.5 3.1L8 8.4 2.5 5.3 8 2.2zM2.5 8.2L8 11.3l5.5-3.1M2.5 11L8 14.1l5.5-3.1" />
+    </svg>
+  );
+}
+
+function BoardSwitcher({ ui, switching }) {
+  const [open, setOpen] = useState(false);
+  const [editingID, setEditingID] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [confirmDeleteID, setConfirmDeleteID] = useState(null);
+  const rootRef = React.useRef(null);
+  const inputRef = React.useRef(null);
+
+  const boards = ui.boards || [];
+  const active = boards.find((board) => board.id === ui.activeID);
+
+  useEffect(() => {
+    document.body.classList.toggle("deck-board-menu-open", open);
+    return () => document.body.classList.remove("deck-board-menu-open");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) {
+        setOpen(false);
+        setEditingID(null);
+        setConfirmDeleteID(null);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setEditingID(null);
+        setConfirmDeleteID(null);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (editingID) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    }
+  }, [editingID]);
+
+  const startRename = (board) => {
+    setConfirmDeleteID(null);
+    setEditingID(board.id);
+    setEditingTitle(board.title);
+  };
+
+  const commitRename = (event) => {
+    event?.preventDefault();
+    const title = editingTitle.trim();
+    if (!editingID) return;
+    if (!title) {
+      showToast("画布名称不能为空", "error");
+      return;
+    }
+    window.deckSketch.requestRenameBoard(editingID, title);
+    setEditingID(null);
+  };
+
+  const switchTo = (id) => {
+    if (id === ui.activeID) {
+      setOpen(false);
+      return;
+    }
+    setOpen(false);
+    setEditingID(null);
+    setConfirmDeleteID(null);
+    window.deckSketch.requestSwitchBoard(id);
+  };
+
+  return (
+    <div className="deck-board-switcher" ref={rootRef}>
+      <button
+        type="button"
+        className={`deck-board-trigger${open ? " is-open" : ""}`}
+        title="切换画布"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="deck-board-glyph">
+          <LayersIcon />
+        </span>
+        <span className="deck-board-name">{active?.title || "画布"}</span>
+        <span className={`deck-board-chevron${switching ? " is-spinning" : ""}`} />
+      </button>
+
+      {open ? (
+        <div className="deck-board-popover" role="menu" aria-label="画布列表">
+          <div className="deck-board-head">
+            <span>画布</span>
+            <span className="deck-board-count">{boards.length}</span>
+          </div>
+          <div className="deck-board-list">
+            {boards.map((board) => {
+              const isActive = board.id === ui.activeID;
+              const isEditing = board.id === editingID;
+              const isConfirming = board.id === confirmDeleteID;
+              return (
+                <div
+                  className={`deck-board-row${isActive ? " is-active" : ""}${isConfirming ? " is-confirming" : ""}`}
+                  key={board.id}
+                >
+                  {isEditing ? (
+                    <form className="deck-board-rename" onSubmit={commitRename}>
+                      <input
+                        ref={inputRef}
+                        value={editingTitle}
+                        maxLength={40}
+                        onChange={(event) => setEditingTitle(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            setEditingID(null);
+                          }
+                        }}
+                      />
+                      <button type="submit" className="deck-board-save" title="保存名称">
+                        ✓
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      className="deck-board-main"
+                      onClick={() => switchTo(board.id)}
+                    >
+                      <span className="deck-board-dot" />
+                      <span className="deck-board-copy">
+                        <span className="deck-board-title">{board.title}</span>
+                        <span className="deck-board-meta">
+                          {board.elementCount > 0 ? `${board.elementCount} 个元素` : "空白画布"}
+                          {board.modifiedAt ? ` · ${relativeBoardTime(board.modifiedAt)}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                  )}
+
+                  {!isEditing && !isConfirming ? (
+                    <>
+                      <span className="deck-board-check">✓</span>
+                      <span className="deck-board-row-actions">
+                        <button
+                          type="button"
+                          title="重命名"
+                          onClick={() => startRename(board)}
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button
+                          type="button"
+                          title="删除画布"
+                          className="is-danger"
+                          onClick={() => {
+                            setEditingID(null);
+                            setConfirmDeleteID(board.id);
+                          }}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </span>
+                    </>
+                  ) : null}
+
+                  {isConfirming ? (
+                    <div className="deck-board-confirm">
+                      <span>删除这张画布？</span>
+                      <button
+                        type="button"
+                        className="is-danger"
+                        onClick={() => {
+                          window.deckSketch.requestDeleteBoard(board.id);
+                          setConfirmDeleteID(null);
+                        }}
+                      >
+                        删除
+                      </button>
+                      <button type="button" onClick={() => setConfirmDeleteID(null)}>
+                        取消
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="deck-board-create"
+            onClick={() => {
+              setOpen(false);
+              window.deckSketch.requestCreateBoard();
+            }}
+          >
+            <PlusIcon />
+            新建画布
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function isEditingText() {
   const active = document.activeElement;
   return (
@@ -270,6 +609,19 @@ function isEditingText() {
 }
 
 function App() {
+  const [boardState, setBoardState] = useState(boardUI);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    boardUISetter = setBoardState;
+    switchingSetter = setSwitching;
+    setBoardState(boardUI);
+    return () => {
+      boardUISetter = null;
+      switchingSetter = null;
+    };
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event) => {
       if (!event.metaKey || event.altKey) return;
@@ -356,6 +708,12 @@ function App() {
           </div>
         )}
       />
+      {boardState.boards.length > 0 ? (
+        <BoardSwitcher ui={boardState} switching={switching} />
+      ) : null}
+      <div className={`deck-switch-veil${switching ? " is-on" : ""}`} aria-hidden={!switching}>
+        <span className="deck-switch-spinner" />
+      </div>
       <Toast />
     </div>
   );

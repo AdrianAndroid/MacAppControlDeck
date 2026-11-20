@@ -34,7 +34,7 @@ struct SketchSettingsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-                Text("鼠标手绘、矩形、箭头、文字、便签；有选中时复制选中，否则复制整个画板。")
+                Text("多画布切换；鼠标手绘、矩形、箭头、文字、便签；有选中时复制选中，否则复制整个画布。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("全局快捷键：⌃⌥D")
@@ -70,12 +70,12 @@ struct SketchSettingsView: View {
                         SketchStore.shared.revealLastSaved()
                     }
                     Spacer()
-                    Button("清空当前草稿…") {
+                    Button("新建画布…") {
                         SketchWindowController.shared.newBoard()
                     }
                 }
                 .font(.caption)
-                Text("保存时同时生成 PNG 和同名 .excalidraw 源文件；草稿自动保存在 Application Support。")
+                Text("保存时同时生成 PNG 和同名 .excalidraw 源文件；每张画布自动保存在 Application Support。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -127,7 +127,7 @@ struct SketchSettingsView: View {
                     .onChange(of: settings.alwaysOnTop) { _, _ in
                         SketchWindowController.shared.applyAlwaysOnTop()
                     }
-                Text("画板窗口默认 1100×760，关闭后会释放网页进程，再次打开自动恢复草稿。")
+                Text("画布窗口默认 1100×760，关闭后会释放网页进程；再次打开自动恢复上次画布。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
