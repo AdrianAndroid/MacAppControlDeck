@@ -106,6 +106,10 @@ private final class SelectionView: NSView {
 
     private enum Mode { case idle, creating, moving, resizing }
 
+    // 原地编辑态（不再打开独立编辑窗口）
+    private var editing = false
+    private var toolbarButtons: [(title: String, rect: CGRect, action: String)] = []
+
     override var acceptsFirstResponder: Bool { true }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
     override func viewDidMoveToWindow() {
@@ -144,6 +148,10 @@ private final class SelectionView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        if editing, let hit = toolbarButtons.first(where: { $0.rect.contains(p) }) {
+            performToolbarAction(hit.action)
+            return
+        }
         anchor = p
         if let r = rect {
             if event.clickCount >= 2, r.contains(p) { commitCurrent(); return }
@@ -167,12 +175,14 @@ private final class SelectionView: NSView {
         case .resizing: rect = resize(startRect, handle: handle, to: p)
         case .idle: break
         }
+        if editing { updateToolbar() }
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
         mode = .idle
         if let r = rect, r.width < 8 || r.height < 8 { rect = nil }
+        if let r = rect, !editing, mode == .idle { editing = true; updateToolbar() }
         if let r = rect, case .pixels(_, let w, let h) = preset {
             let target = CGRect(x: r.minX, y: r.minY, width: CGFloat(w), height: CGFloat(h))
             rect = clamp(target)
@@ -198,6 +208,7 @@ private final class SelectionView: NSView {
     }
 
     private func commitCurrent() {
+        if editing { performToolbarAction("save"); return }
         guard let rect, rect.width >= 8, rect.height >= 8 else { NSSound.beep(); return }
         let global = CGRect(x: unionFrame.minX + rect.minX,
                             y: unionFrame.minY + rect.minY,
@@ -343,11 +354,84 @@ private final class SelectionView: NSView {
                          xRadius: 2, yRadius: 2).fill()
         }
         drawSizeLabel(rect)
-        drawHint()
+        if editing { drawToolbar() } else { drawHint() }
+    }
+
+    // MARK: - 原地编辑工具栏
+
+    private func updateToolbar() {
+        guard let rect else { toolbarButtons = []; return }
+        let actions: [(String, String)] = [
+            ("保存", "save"), ("复制", "copy"), ("贴图", "pin"), ("OCR", "ocr"), ("取消", "cancel")
+        ]
+        let btnW: CGFloat = 64, btnH: CGFloat = 30, gap: CGFloat = 8
+        let totalW = CGFloat(actions.count) * btnW + CGFloat(actions.count - 1) * gap
+        var y = rect.maxY + 10
+        if y + btnH > bounds.height - 8 { y = rect.minY - btnH - 10 }
+        var x = rect.midX - totalW / 2
+        x = max(8, min(x, bounds.width - totalW - 8))
+        y = max(8, y)
+        toolbarButtons = actions.enumerated().map { i, item in
+            (item.0, CGRect(x: x + CGFloat(i) * (btnW + gap), y: y, width: btnW, height: btnH), item.1)
+        }
+    }
+
+    private func drawToolbar() {
+        updateToolbarIfNeeded()
+        let panel = toolbarButtons.reduce(CGRect.null) { $0.union($1.rect) }.insetBy(dx: -8, dy: -6)
+        NSColor.black.withAlphaComponent(0.78).setFill()
+        NSBezierPath(roundedRect: panel, xRadius: 10, yRadius: 10).fill()
+        for button in toolbarButtons {
+            let highlighted = button.action == "save"
+            NSColor(calibratedRed: 0.42, green: 0.35, blue: 0.72, alpha: highlighted ? 0.95 : 0.25).setFill()
+            NSBezierPath(roundedRect: button.rect, xRadius: 7, yRadius: 7).fill()
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: NSColor.white
+            ]
+            let size = (button.title as NSString).size(withAttributes: attrs)
+            (button.title as NSString).draw(
+                at: CGPoint(x: button.rect.midX - size.width / 2, y: button.rect.midY - size.height / 2),
+                withAttributes: attrs)
+        }
+    }
+
+    private var lastToolbarRect: CGRect = .null
+    private func updateToolbarIfNeeded() {
+        guard let rect else { return }
+        if rect != lastToolbarRect { lastToolbarRect = rect; updateToolbar() }
+    }
+
+    private func currentImage() -> CGImage? {
+        guard let rect, let snapshot else { return nil }
+        let global = CGRect(x: unionFrame.minX + rect.minX, y: unionFrame.minY + rect.minY,
+                            width: rect.width, height: rect.height)
+        return snapshot.croppedToGlobalRect(global, union: unionFrame)
+    }
+
+    private func performToolbarAction(_ action: String) {
+        let image = currentImage()
+        switch action {
+        case "save":
+            if let image { MacShotController.shared.saveEditedImage(image) }
+            controller?.cancel()
+        case "copy":
+            if let image { CaptureExporter.copyToPasteboard(image) }
+            MacShotController.shared.showToast("已复制到剪贴板")
+            controller?.cancel()
+        case "pin":
+            if let image { PinWindowController.shared.pin(image) }
+            controller?.cancel()
+        case "ocr":
+            if let image { OCRResultController.shared.recognize(image) }
+            controller?.cancel()
+        default:
+            controller?.cancel()
+        }
     }
 
     private func drawSizeLabel(_ rect: CGRect) {
-        let text = "\(Int(rect.width)) × \(Int(rect.height))   ⏎ 确认"
+        let text = editing ? "\(Int(rect.width)) × \(Int(rect.height))" : "\(Int(rect.width)) × \(Int(rect.height))   ⏎ 确认"
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
             .foregroundColor: NSColor.white
@@ -361,7 +445,9 @@ private final class SelectionView: NSView {
     }
 
     private func drawHint() {
-        let text = "拖动框选 · 松开后可移动/拖角缩放 · \(preset.label) · Enter 确认 · Option 关闭吸附 · Esc 取消"
+        let text = editing
+            ? "拖动选区可移动 · 拖角缩放 · 点击上方按钮保存/复制/贴图/OCR · Esc 取消"
+            : "拖动框选 · 松开后可移动/拖角缩放 · \(preset.label) · Enter 确认 · Option 关闭吸附 · Esc 取消"
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .medium),
             .foregroundColor: NSColor.white
