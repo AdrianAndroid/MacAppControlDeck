@@ -1,6 +1,7 @@
 import Foundation
 
 enum PanelHTML {
+    static let version = "2026-11-20.1"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -12,6 +13,7 @@ enum PanelHTML {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="应用控制台">
     <meta name="theme-color" content="#0f1220">
+    <meta name="panel-version" content="\(version)">
     <title>Mac 应用快捷控制台</title>
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <style>
@@ -347,10 +349,24 @@ enum PanelHTML {
       window.addEventListener('resize',onResize);
       window.addEventListener('orientationchange',()=>setTimeout(onResize,200));
 
-      document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
+      document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkPanelVersion(); checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
       setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!anyRunning()) loadButtons(); }); },5000);
 
+      async function checkPanelVersion(){
+        try{
+          const res=await fetch('/api/panel-version',{cache:'no-store'});
+          if(!res.ok) return;
+          const data=await res.json();
+          const mine=document.querySelector('meta[name="panel-version"]');
+          const pageVer=mine?mine.content:'';
+          if(data.version && data.version!==pageVer){
+            location.replace('/panel/?v=' + encodeURIComponent(data.version));
+          }
+        }catch(e){}
+      }
+
       (async function init(){
+        checkPanelVersion();
         await checkHealth();
         if(token){ mainEl.classList.add('show'); await loadButtons(); } else { showPair(); }
       })();
