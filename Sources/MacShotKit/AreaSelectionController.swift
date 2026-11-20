@@ -454,11 +454,10 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         rowWidth += 10
         for item in widths { let w = textWidth(item.0); widthsOf[item.1] = w; rowWidth += w + gap }
 
-        var x = rect.midX - rowWidth / 2
+        // 顶部工具条：锚定屏幕顶部、水平居中（与 MacShot 一致，不随选区移动）
+        var x = bounds.midX - rowWidth / 2
         x = max(8, min(x, bounds.width - rowWidth - 8))
-        var y = rect.maxY + 12
-        if y + btnH > bounds.height - 8 { y = rect.minY - btnH - 12 }
-        y = max(8, y)
+        let y = bounds.height - btnH - 14
 
         func add(_ title: String, _ action: String, _ w: CGFloat) {
             buttons.append((title, CGRect(x: x, y: y, width: w, height: btnH), action))
@@ -474,9 +473,11 @@ private final class SelectionView: NSView, NSTextFieldDelegate {
         let actions: [(String, String)] = [
             ("保存", "save"), ("复制", "copy"), ("贴图", "pin"), ("OCR", "ocr"), ("关闭", "cancel")
         ]
+        // 右侧动作栏：锚定屏幕右缘、垂直居中
         let railW: CGFloat = 56
-        var ry = rect.maxY - CGFloat(actions.count) * (btnH + gap) + gap
-        let rx = min(rect.maxX + 10, bounds.width - railW - 8)
+        let railHeight = CGFloat(actions.count) * (btnH + gap) - gap
+        var ry = bounds.midY + railHeight / 2 - btnH
+        let rx = bounds.width - railW - 12
         for item in actions {
             buttons.append((item.0, CGRect(x: rx, y: ry, width: railW, height: btnH), item.1))
             ry += btnH + gap
