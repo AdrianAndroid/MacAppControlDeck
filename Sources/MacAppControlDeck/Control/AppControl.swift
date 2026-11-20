@@ -108,7 +108,8 @@ final class AppControl: AppControlling {
         // 策略一：macOS 14+ 的上下文激活
         let contextOK = await running.activate(from: NSRunningApplication.current)
         log("activate(from:) -> \(contextOK)")
-        if let outcome = await evaluationIfSettled(bundleID, strategy: "策略一", wasHidden: running.isHidden) {
+        if let outcome = await evaluationIfSettled(bundleID, strategy: "策略一", wasHidden: running.isHidden,
+                                                   requireVisibleWindow: true) {
             return outcome
         }
 
@@ -118,7 +119,8 @@ final class AppControl: AppControlling {
         configuration.activates = true
         if (try? await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)) != nil {
             log("openApplication(激活) 已调用")
-            if let outcome = await evaluationIfSettled(bundleID, strategy: "策略二", wasHidden: false) {
+            if let outcome = await evaluationIfSettled(bundleID, strategy: "策略二", wasHidden: false,
+                                                       requireVisibleWindow: true) {
                 return outcome
             }
         } else {
@@ -142,23 +144,32 @@ final class AppControl: AppControlling {
                 message: "系统未允许切到前台（当前前台：\(front)）。请到 系统设置 → 隐私与安全性 → 辅助功能 授权本程序并重启，之后可稳定切换")
         }
         if isTargetFront {
-            return AppActivationOutcome(status: .activated, message: "已切换到前台")
+            // 只在目标没有可见窗口、又未授权辅助功能时出现：系统只切了前台标记
+            return AppActivationOutcome(
+                status: .unconfirmed,
+                message: "系统只把应用标记为前台，窗口没有跟过来（多为辅助功能权限未授权）。请到 App 设置页授权后重试")
         }
         return AppActivationOutcome(
             status: .unconfirmed,
             message: "系统未允许该应用切到前台（当前前台：\(front)）。可能受聚焦保护阻拦，请再点一次或在 Mac 上确认")
     }
 
-    /// 成功判定：目标应用成为前台即算切换成功。
-    /// 说明：Deck 进程内读到的 CGWindowList 与外部进程不一致（系统缓存问题），
-    /// 因此窗口可见性只记入日志，不作为成功门槛。
+    /// 成功判定：Dock 点击/AXRaise 路径以"成为前台"为准（等价真人点击，空间切换由系统完成）；
+    /// 弱兜底策略（策略一/二）则要求窗口确实回到当前空间，避免"只切菜单栏"的假成功。
+    /// 说明：Deck 进程内 CGWindowList 存在缓存偏差，仅作为兜底策略的门槛。
     private func evaluationIfSettled(_ bundleID: String,
                                      strategy: String,
                                      wasHidden: Bool,
-                                     timeout: TimeInterval = 3.0) async -> AppActivationOutcome? {
+                                     timeout: TimeInterval = 3.0,
+                                     requireVisibleWindow: Bool = false) async -> AppActivationOutcome? {
         let front = await waitForFront(bundleID, timeout: timeout)
+        var visible = visibleWindowCount(bundleID) > 0
         log("判定(\(strategy)) 前台=\(front) 可见窗口=\(visibleWindowCount(bundleID)) 离屏窗口=\(offscreenWindowCount(bundleID))")
         guard front else { return nil }
+        if requireVisibleWindow && !visible {
+            visible = await waitForWindow(bundleID, timeout: 2.0)
+        }
+        guard !requireVisibleWindow || visible else { return nil }
         return AppActivationOutcome(status: .activated,
                                     message: wasHidden ? "已取消隐藏并切到前台" : "已切换到前台")
     }
