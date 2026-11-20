@@ -39,6 +39,23 @@
 - 录制入口确认无倒计时，直接进入选区录制（与 macshot 实机一致）。
 - HUD 停止按钮首次点击即完成停止与文件写入。
 
+## 录制核心改为直接搬运上游源码
+
+`Sources/MacShotKit/Upstream/Recording/` 现包含上游原文件（未重写）：
+
+- `RecordingEngine.swift`、`RecordingLifecycle.swift`、`RecordingConfiguration.swift`
+- `MP4WriterSession.swift`、`RecordingSessionStore.swift`
+- `VideoFrameCadence.swift`、`VideoEncodingSettings.swift`、`RecordingAudioSilence.swift`
+- `CursorTelemetry.swift`、`CursorTelemetryRecorder.swift`、`CameraPlacementTrack.swift`、`VideoCameraRecorder.swift`
+- `MicrophoneCapture.swift`、`MicrophoneDeviceSelection.swift`、`RecordingClock.swift`、`SafeNumerics.swift`
+- `RecordingSampleValidation.swift`、`SampleBufferTiming.swift`、`LenientDecoding.swift`、`Compat.swift`
+
+适配点只有两处：会话目录改为本应用的 Application Support；`L()` 使用最小占位实现。
+
+实测：上游引擎录制 28.7 秒，视频 28.687s / 音频 28.640s（相差 0.047s），生成 `cursor.mstl` 遥测与 `session.plist`，停止后自动打开编辑器。
+
+仍待搬运：`OverlayView` / `OverlayWindowController` / `ToolOptionsRowView`（约 1.5 万行，依赖翻译、上传、摄像头等尚未移植的服务），当前覆盖层仍是自实现。
+
 ## 对照说明
 
 布局与动作集合取自上游 `ToolbarDefinitions.rightButtons(isRecording:)`：开始/取消/鼠标高亮/按键/系统声音/麦克风/摄像头/设置/移动选区。本仓库暂未移植鼠标高亮、按键显示与摄像头画中画，其余动作已对齐。

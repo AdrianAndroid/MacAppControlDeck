@@ -49,6 +49,7 @@ public final class MacShotController {
     public var copyToClipboard = true
     public var showFloatingThumbnail = true
     private var recorder: ScreenRecorder?
+    private var recordingEngine: RecordingEngine?
     private var recordingTarget: RecordingTarget?
     private var recordingIntent: RecordingFormat = .mp4
     private var toastPanel: NSPanel?
@@ -306,88 +307,93 @@ public final class MacShotController {
     }
 
     public func stopRecording() {
-        recorder?.stop()
+        Task { @MainActor in
+            if let recordingEngine {
+                recordingEngine.stopRecording()
+            } else {
+                recorder?.stop()
+            }
+        }
     }
 
     private func beginRecording(target: RecordingTarget, format: RecordingFormat) {
+        Task { @MainActor in
         recordingIntent = (format == .gif) ? .gif : recordingIntent
-        // 录制始终产出 MP4 take；GIF 通过视频编辑器导出（与 macshot 一致）。
-        let ext = "mp4"
-        let url: URL
-        do {
-            try FileManager.default.createDirectory(at: recordingDirectory,
-                                                    withIntermediateDirectories: true)
-            let template = FilenameFormatter.template(forRecording: true)
-            url = try FilenameFormatter.makeURL(directory: recordingDirectory,
-                                                template: template,
-                                                fileExtension: ext)
-        } catch {
-            showAlert("录制失败", error.localizedDescription)
-            return
-        }
+        let options = recordingOptions
+        let defaults = UserDefaults.standard
+        defaults.set(options.fps, forKey: "recordingFPS")
+        defaults.set(options.systemAudio, forKey: "recordSystemAudio")
+        defaults.set(options.microphone, forKey: "recordMicAudio")
 
-        let recorder = ScreenRecorder()
-        recorder.onFinish = { [weak self] result in
+        let engine = RecordingEngine()
+        let anchor = Self.anchor(for: target)
+        // 先显示 HUD 并拿到窗口号，让录制引擎把这些 UI 窗口从像素里排除。
+        RecordingHUDController.shared.show(
+            format: format,
+            relativeTo: anchor.rect,
+            screen: anchor.screen,
+            onTogglePause: { paused in
+                if paused { engine.pauseRecording() } else { engine.resumeRecording() }
+            },
+            onStop: { [weak self] in self?.stopRecording() })
+        let excluded = RecordingHUDController.shared.windowNumbers
+
+        engine.onCompletion = { [weak self] url, error in
             Task { @MainActor in
-                self?.isRecording = false
-                self?.recorder = nil
-                self?.recordingTarget = nil
+                guard let self else { return }
+                self.isRecording = false
+                self.recordingEngine = nil
+                self.recordingTarget = nil
                 RecordingHUDController.shared.hide()
                 ClickHighlightController.shared.stop()
-                switch result {
-                case .success(let url):
-                    self?.showToast(self?.recordingIntent == .gif
-                        ? "录制完成，正在准备 GIF 编辑"
-                        : "已保存 \(url.lastPathComponent)")
-                    if url.pathExtension.lowercased() == "mp4" {
-                        VideoEditorController.shared.present(url,
-                                                            preferGIF: self?.recordingIntent == .gif)
-                    }
-                case .failure(let error):
-                    self?.showAlert("录制失败", error.localizedDescription)
-                }
-            }
-        }
-        self.recorder = recorder
-        self.recordingTarget = target
-        self.recordingFormat = format
-
-        Task { @MainActor in
-            if recordingOptions.microphone {
-                let granted = await AVCaptureDevice.requestAccess(for: .audio)
-                if !granted {
-                    self.recorder = nil
-                    self.isRecording = false
-                    self.showAlert("没有麦克风权限", "请在系统设置中允许麦克风访问后重试。")
+                if let error {
+                    self.showAlert("录制失败", error.localizedDescription)
                     return
                 }
-            }
-            do {
-                try await recorder.start(target: target,
-                                         format: format,
-                                         options: recordingOptions,
-                                         outputURL: url)
-                self.isRecording = true
-                if UserDefaults.standard.object(forKey: "recordMouseHighlight") as? Bool ?? true {
-                    ClickHighlightController.shared.start()
+                guard let url else {
+                    self.showAlert("录制失败", "没有生成录制文件。")
+                    return
                 }
-                let anchor = Self.anchor(for: target)
-                RecordingHUDController.shared.show(
-                    format: format,
-                    relativeTo: anchor.rect,
-                    screen: anchor.screen,
-                    onTogglePause: { paused in
-                        recorder.setPaused(paused)
-                    },
-                    onStop: { [weak self] in
-                        self?.stopRecording()
-                    })
-            } catch {
-                self.recorder = nil
-                self.recordingTarget = nil
-                self.isRecording = false
-                self.showAlert("无法开始录制", error.localizedDescription)
+                self.showToast(self.recordingIntent == .gif
+                    ? "录制完成，正在准备 GIF 编辑"
+                    : "录制完成，正在打开编辑器")
+                VideoEditorController.shared.present(url,
+                                                     preferGIF: self.recordingIntent == .gif)
             }
+        }
+        self.recordingEngine = engine
+        self.recordingTarget = target
+        self.recordingFormat = format
+        self.isRecording = true
+
+        // 只有“区域”录制需要按选区裁剪；全屏/窗口沿用对应范围。
+        switch target {
+        case .area(let screen, let rect):
+            engine.startRecording(rect: rect, screen: screen,
+                                  fpsOverride: options.fps,
+                                  excludeWindowNumbers: excluded)
+        case .screen(let screen):
+            engine.startRecording(rect: screen.frame, screen: screen,
+                                  fpsOverride: options.fps,
+                                  excludeWindowNumbers: excluded)
+        case .window(let window):
+            let screen = NSScreen.screens.first { $0.frame.contains(CGPoint(x: window.bounds.midX,
+                                                                            y: window.bounds.midY)) }
+            if let screen {
+                engine.startRecording(rect: window.bounds, screen: screen,
+                                      fpsOverride: options.fps,
+                                      excludeWindowNumbers: excluded)
+            } else {
+                self.isRecording = false
+                self.recordingEngine = nil
+                RecordingHUDController.shared.hide()
+                showAlert("录制失败", "找不到窗口所在显示器。")
+            }
+        }
+
+        if UserDefaults.standard.object(forKey: "recordMouseHighlight") as? Bool ?? true {
+            ClickHighlightController.shared.start()
+        }
         }
     }
 

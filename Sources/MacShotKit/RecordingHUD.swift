@@ -140,6 +140,11 @@ final class RecordingHUDController {
         }
     }
 
+    /// 需要从录屏像素里排除的窗口（HUD 与录制边框）。
+    var windowNumbers: [CGWindowID] {
+        [panel?.windowNumber, borderWindow?.windowNumber].compactMap { $0 }.map { CGWindowID($0) }
+    }
+
     func update(format: RecordingFormat) {
         _ = format
     }
