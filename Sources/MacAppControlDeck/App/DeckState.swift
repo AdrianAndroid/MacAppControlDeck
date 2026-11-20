@@ -189,6 +189,11 @@ final class DeckState: ObservableObject {
         refreshAll()
     }
 
+    func addBuiltin(name: String, action: String) {
+        store.addBuiltinButton(name: name, action: action)
+        refreshAll()
+    }
+
     func addCommand(name: String, appPath: String, bundleID: String, arguments: [String]) {
         store.addCommandButton(name: name, appPath: appPath, bundleID: bundleID, arguments: arguments)
         refreshAll()
@@ -267,6 +272,8 @@ final class DeckState: ObservableObject {
             return "\(button.name)   \(button.displaySymbol ?? "")"
         case .command:
             return button.name
+        case .builtin:
+            return button.name
         }
     }
 
@@ -278,7 +285,12 @@ final class DeckState: ObservableObject {
             copy.size = NSSize(width: 16, height: 16)
             return copy
         }
-        let symbol = button.kind == .command ? "terminal" : "keyboard"
+        let symbol: String
+        switch button.kind {
+        case .command: symbol = "terminal"
+        case .builtin: symbol = "camera.viewfinder"
+        default: symbol = "keyboard"
+        }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             ?? NSImage(size: NSSize(width: 16, height: 16))
         image.size = NSSize(width: 16, height: 16)

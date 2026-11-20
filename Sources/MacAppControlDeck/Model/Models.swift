@@ -4,6 +4,7 @@ enum ButtonKind: String, Codable, CaseIterable {
     case app
     case shortcut
     case command
+    case builtin
 }
 
 enum ShortcutModifier: String, Codable, CaseIterable, Comparable {
@@ -53,6 +54,7 @@ struct ButtonConfig: Codable, Identifiable, Equatable {
     var sortOrder: Int
     var shortcut: ShortcutCombo?
     var commandArguments: [String]?
+    var builtinAction: String?
 
     init(id: String,
          kind: ButtonKind = .app,
@@ -61,7 +63,8 @@ struct ButtonConfig: Codable, Identifiable, Equatable {
          appPath: String = "",
          sortOrder: Int,
          shortcut: ShortcutCombo? = nil,
-         commandArguments: [String]? = nil) {
+         commandArguments: [String]? = nil,
+         builtinAction: String? = nil) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -70,6 +73,7 @@ struct ButtonConfig: Codable, Identifiable, Equatable {
         self.sortOrder = sortOrder
         self.shortcut = shortcut
         self.commandArguments = commandArguments
+        self.builtinAction = builtinAction
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +86,7 @@ struct ButtonConfig: Codable, Identifiable, Equatable {
         sortOrder = (try? container.decode(Int.self, forKey: .sortOrder)) ?? 0
         shortcut = (try? container.decodeIfPresent(ShortcutCombo.self, forKey: .shortcut))?.normalized
         commandArguments = try? container.decodeIfPresent([String].self, forKey: .commandArguments)
+        builtinAction = try? container.decodeIfPresent(String.self, forKey: .builtinAction)
     }
 
     var displaySymbol: String? {

@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-20.3"
+    static let version = "2026-11-20.4"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -181,7 +181,7 @@ enum PanelHTML {
       function render(buttons){
         buttons=buttons||[];
         const apps=buttons.filter(b=>b.kind==='app'||!b.kind);
-        const shortcuts=buttons.filter(b=>b.kind==='shortcut'||b.kind==='command');
+        const shortcuts=buttons.filter(b=>b.kind==='shortcut'||b.kind==='command'||b.kind==='builtin');
         if(!token){ mainEl.classList.remove('show'); pairEl.classList.add('show'); return; }
         // 已配对：始终进入主界面（即使还没有按钮），否则会出现"配对成功却退回配对页"
         mainEl.classList.add('show');
@@ -266,7 +266,7 @@ enum PanelHTML {
         const el=document.createElement('div');
         el.className='btn '+(kind==='shortcut'?'shortcut':'app');
         el.dataset.bid=b.id;
-        if(kind==='shortcut'||kind==='command'){
+        if(kind==='shortcut'||kind==='command'||kind==='builtin'){
           el.innerHTML=`<div class="symbol">${escapeText(b.symbol||'—')}</div><div class="label">${escapeText(b.name)}</div><div class="state"></div>`;
         } else {
           el.innerHTML=(b.iconUrl?`<img src="${b.iconUrl}" alt="">`:'<div class="fallback">▸</div>')+
@@ -315,7 +315,7 @@ enum PanelHTML {
               body: JSON.stringify({buttonId: id}), signal: controller.signal});
             clearTimeout(timer);
             const data = await res.json().catch(()=>({}));
-            if(res.ok&&data.status==='sent'){ setState(el, kind==='command'?'已执行':'已发送','done'); }
+            if(res.ok&&data.status==='sent'){ setState(el, (kind==='command'||kind==='builtin')?'已执行':'已发送','done'); }
             else if(res.ok&&(data.status==='launched'||data.status==='activated')){ setState(el, data.status==='launched'?'已启动':'已切换','done'); }
             else if(res.ok&&data.status==='unconfirmed'){ setState(el,'未确认','busy'); }
             else if(res.status===401){ showPair(); }

@@ -30,6 +30,13 @@ struct ButtonsSettingsView: View {
                                 Button("添加命令按钮…") {
                                     showCommandSheet = true
                                 }
+                                Menu("添加内置操作") {
+                                    ForEach(BuiltinActions.all) { preset in
+                                        Button("\(preset.symbol)  \(preset.name)") {
+                                            state.addBuiltin(name: preset.name, action: preset.id)
+                                        }
+                                    }
+                                }
                             }
                             .menuStyle(.borderlessButton)
                             .fixedSize()
@@ -61,6 +68,8 @@ struct ButtonsSettingsView: View {
                                     let canDown = index < state.quickButtons.count - 1
                                     if button.kind == .command {
                                         commandRow(button, canMoveUp: canUp, canMoveDown: canDown)
+                                    } else if button.kind == .builtin {
+                                        builtinRow(button, canMoveUp: canUp, canMoveDown: canDown)
                                     } else {
                                         shortcutRow(button, canMoveUp: canUp, canMoveDown: canDown)
                                     }
@@ -168,6 +177,40 @@ struct ButtonsSettingsView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }
+                .help("上移")
+                .disabled(!canMoveUp)
+            Button { state.move(button, offset: 1) } label: { Image(systemName: "arrow.down") }
+                .help("下移")
+                .disabled(!canMoveDown)
+            Menu {
+                Button("重命名…") {
+                    pendingRename = button
+                    renameText = button.name
+                }
+                Button("删除…") { pendingDelete = button }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func builtinRow(_ button: ButtonConfig, canMoveUp: Bool, canMoveDown: Bool) -> some View {
+        HStack(spacing: 12) {
+            Text(BuiltinActions.symbol(for: button.builtinAction))
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 64, height: 32)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .quaternaryLabelColor).opacity(0.25)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(button.name).font(.callout).lineLimit(1)
+                Text("内置 · \(button.builtinAction ?? "")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             Button { state.move(button, offset: -1) } label: { Image(systemName: "arrow.up") }

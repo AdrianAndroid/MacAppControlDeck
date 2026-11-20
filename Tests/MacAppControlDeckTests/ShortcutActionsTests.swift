@@ -132,6 +132,28 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(store.sortedButtons().map(\.name), ["App", "A", "C", "B"])
     }
 
+    func test_builtinButtonRoundtripAndPayload() async {
+        let json = """
+        [{"id":"b1","kind":"builtin","name":"截图（区域）","sortOrder":0,"builtinAction":"capture.area"}]
+        """
+        let decoded = try! JSONDecoder().decode([ButtonConfig].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded[0].kind, .builtin)
+        XCTAssertEqual(decoded[0].builtinAction, "capture.area")
+        XCTAssertEqual(BuiltinActions.symbol(for: decoded[0].builtinAction), "⛶")
+
+        let router = makeRouter(injector: FakeShortcutInjector())
+        let token = await pairToken(router)
+        _ = router.store.addBuiltinButton(name: "截图（区域）", action: "capture.area")
+        let response = await router.handle(HTTPRequest(method: "GET", path: "/api/buttons",
+                                                       headers: ["Host": "127.0.0.1",
+                                                                 "X-Device-Token": token],
+                                                       body: Data()))
+        let text = String(data: response.body, encoding: .utf8)!
+        XCTAssertTrue(text.contains("\"kind\":\"builtin\""))
+        XCTAssertTrue(text.contains("\"symbol\":\"⛶\""))
+        XCTAssertEqual(router.store.buttons(kind: .builtin).count, 1)
+    }
+
     func test_routerDispatchesShortcutToInjector() async {
         let injector = FakeShortcutInjector()
         let router = makeRouter(injector: injector)

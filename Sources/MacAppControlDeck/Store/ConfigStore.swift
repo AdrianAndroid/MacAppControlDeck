@@ -22,7 +22,10 @@ final class ConfigStore {
         decoder.dateDecodingStrategy = .iso8601
         let firstLaunch = !FileManager.default.fileExists(atPath: buttonsURL.path)
         load()
-        seedDefaultButtons(firstLaunch: firstLaunch)
+        // 仅在真实应用目录（非测试临时目录）执行默认按钮播种，避免污染测试数据
+        if directory == nil {
+            seedDefaultButtons(firstLaunch: firstLaunch)
+        }
     }
 
     // MARK: - 默认按钮
@@ -41,6 +44,20 @@ final class ConfigStore {
             // 老用户第一次升级时补默认快捷启动；之后即使用户删光也不再自动加回。
             buttons.append(contentsOf: shortcuts)
             changed = true
+        }
+
+        let builtinKey = "config.builtin.seeded.v1"
+        if !UserDefaults.standard.bool(forKey: builtinKey) {
+            if !buttons.contains(where: { $0.kind == .builtin }) {
+                let quickMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
+                buttons.append(ButtonConfig(id: "builtin.capture.area",
+                                            kind: .builtin,
+                                            name: "截图（区域）",
+                                            sortOrder: quickMax + 1,
+                                            builtinAction: "capture.area"))
+                changed = true
+            }
+            UserDefaults.standard.set(true, forKey: builtinKey)
         }
 
         UserDefaults.standard.set(true, forKey: seededKey)
@@ -145,6 +162,21 @@ final class ConfigStore {
                                       name: name,
                                       sortOrder: groupMax + 1,
                                       shortcut: combo.normalized)
+            buttons.append(config)
+            saveButtons()
+            return config
+        }
+    }
+
+    @discardableResult
+    func addBuiltinButton(name: String, action: String) -> ButtonConfig {
+        queue.sync {
+            let groupMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
+            let config = ButtonConfig(id: UUID().uuidString,
+                                      kind: .builtin,
+                                      name: name,
+                                      sortOrder: groupMax + 1,
+                                      builtinAction: action)
             buttons.append(config)
             saveButtons()
             return config

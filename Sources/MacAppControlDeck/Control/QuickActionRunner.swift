@@ -35,6 +35,13 @@ final class QuickActionRunner {
                 let failure = result.sent ? nil : result.message
                 DispatchQueue.main.async { completion(failure) }
             }
+        case .builtin:
+            guard let action = button.builtinAction else {
+                completion("内置操作配置不完整，请在设置里重新编辑")
+                return
+            }
+            let result = BuiltinActions.run(action)
+            completion(result.ok ? nil : result.message)
         case .command:
             guard !button.appPath.isEmpty else {
                 completion("命令按钮配置不完整，请在设置里重新编辑")

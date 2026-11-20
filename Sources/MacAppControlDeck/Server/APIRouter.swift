@@ -188,7 +188,11 @@ final class APIRouter {
                                  bundleID: "",
                                  installed: true,
                                  iconUrl: nil,
-                                 symbol: button.kind == .command ? "▶" : button.displaySymbol)
+                                 symbol: button.kind == .command
+                                     ? "▶"
+                                     : (button.kind == .builtin
+                                        ? BuiltinActions.symbol(for: button.builtinAction)
+                                        : button.displaySymbol))
             }
             var url: String?
             let hasIcon = IconCache.cachedIconURL(appPath: button.appPath,
@@ -238,6 +242,18 @@ final class APIRouter {
                 return .error(result.errorCode ?? "injection-failed",
                               message: result.message,
                               status: 403)
+            }
+            struct Resp: Codable { var status: ActivateStatus; var message: String }
+            return .json(Resp(status: .sent, message: result.message))
+        case .builtin:
+            guard let action = button.builtinAction else {
+                return .error("bad-button-config", message: "内置操作配置不完整", status: 409)
+            }
+            let result: (ok: Bool, message: String) = quickActionQueue.sync {
+                BuiltinActions.run(action)
+            }
+            guard result.ok else {
+                return .error("builtin-failed", message: result.message, status: 403)
             }
             struct Resp: Codable { var status: ActivateStatus; var message: String }
             return .json(Resp(status: .sent, message: result.message))
