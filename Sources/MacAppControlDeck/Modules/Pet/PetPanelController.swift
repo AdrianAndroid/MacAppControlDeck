@@ -24,6 +24,8 @@ final class PetPanelController {
     private var cachedSize: PetSize?
     private var hoverStartedAt: TimeInterval?
     private var lastPetAt: TimeInterval = 0
+    private var lastMousePoint: CGPoint = .zero
+    private var hasMousePoint = false
 
     var isOpen: Bool { panel.isVisible }
     var window: NSWindow { panel }
@@ -125,12 +127,12 @@ final class PetPanelController {
 
     func normalizedMousePosition() -> CGPoint {
         let mouse = NSEvent.mouseLocation
-        let local = hostingView.convert(panel.convertPoint(fromScreen: mouse), from: nil)
         let visual = visualBounds
         guard visual.width > 0, visual.height > 0 else { return .zero }
+        let frame = panel.frame
         return CGPoint(
-            x: (local.x - visual.midX) / (visual.width / 2),
-            y: (local.y - visual.midY) / (visual.height / 2)
+            x: min(max((mouse.x - frame.midX) / (visual.width / 2), -1), 1),
+            y: min(max((frame.midY - mouse.y) / (visual.height / 2), -1), 1)
         )
     }
 
@@ -244,6 +246,12 @@ final class PetPanelController {
             return
         }
         let mouse = NSEvent.mouseLocation
+        if !hasMousePoint || hypot(mouse.x - lastMousePoint.x, mouse.y - lastMousePoint.y) > 1.5 {
+            lastMousePoint = mouse
+            hasMousePoint = true
+            let normalized = normalizedMousePosition()
+            state.handleMouseMoved(normalizedX: normalized.x, normalizedY: normalized.y)
+        }
         let local = hostingView.convert(panel.convertPoint(fromScreen: mouse), from: nil)
         let visual = visualBounds
         guard let path = hitPath else {

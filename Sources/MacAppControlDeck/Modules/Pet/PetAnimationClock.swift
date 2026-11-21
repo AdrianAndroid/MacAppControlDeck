@@ -1,8 +1,10 @@
 import Foundation
 
-/// 空闲 12fps、动作 30fps 的动画时钟。
+/// 空闲 2fps、动作 8fps 的动画时钟。
 @MainActor
 final class PetAnimationClock {
+    private static let idleInterval: TimeInterval = 0.5
+    private static let activeInterval: TimeInterval = 0.12
     private weak var state: PetStateMachine?
     private var timer: Timer?
     private var activeUntil: TimeInterval = 0
@@ -17,7 +19,7 @@ final class PetAnimationClock {
     func start() {
         guard !isRunning else { return }
         isRunning = true
-        schedule(interval: 1.0 / 12.0)
+        schedule(interval: Self.idleInterval)
     }
 
     func stop() {
@@ -29,12 +31,12 @@ final class PetAnimationClock {
 
     func kick() {
         guard !lowPower else {
-            schedule(interval: 1.0 / 8.0)
+            schedule(interval: Self.idleInterval)
             return
         }
         activeUntil = ProcessInfo.processInfo.systemUptime + 2.0
-        if interval > 1.0 / 20.0 || interval == 0 {
-            schedule(interval: 1.0 / 30.0)
+        if interval != Self.activeInterval || interval == 0 {
+            schedule(interval: Self.activeInterval)
         }
     }
 
@@ -57,8 +59,8 @@ final class PetAnimationClock {
         guard isRunning else { return }
         state?.tick()
         let now = ProcessInfo.processInfo.systemUptime
-        if now > activeUntil, interval < 1.0 / 20.0 {
-            schedule(interval: 1.0 / 12.0)
+        if now > activeUntil, interval == Self.activeInterval {
+            schedule(interval: Self.idleInterval)
         }
     }
 }

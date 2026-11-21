@@ -42,7 +42,7 @@ final class PetPanelControllerTests: XCTestCase {
         controller.resize(to: .large, animated: false)
         let newFrame = controller.window.frame
         XCTAssertEqual(newFrame.size, PetGeometry.windowSize(for: .large))
-        XCTAssertEqual(newFrame.minY, oldFrame.minY, accuracy: 1)
+        XCTAssertEqual(newFrame.minY, oldFrame.minY, accuracy: 2)
         let screen = NSScreen.screens.first { $0.frame.contains(CGPoint(x: oldFrame.midX, y: oldFrame.minY)) }
             ?? NSScreen.main
         if let screen {

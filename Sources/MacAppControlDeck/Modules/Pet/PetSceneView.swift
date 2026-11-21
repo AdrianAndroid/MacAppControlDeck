@@ -39,9 +39,9 @@ struct PetLivePreview: View {
                     earTwitch: CGFloat(sin(t * 3.4))
                 )
             )
-            .frame(width: 240, height: 140)
+            .frame(width: 200, height: 277)
         }
-        .frame(width: 240, height: 140)
+        .frame(width: 200, height: 277)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color(nsColor: .windowBackgroundColor).opacity(0.55))
@@ -56,7 +56,7 @@ struct PetSkinSwatch: View {
     var body: some View {
         VStack(spacing: 4) {
             PetVectorArt(skin: skin, theme: skin.defaultKeyboardTheme, detail: .compact, snapshot: .idle)
-                .frame(width: 92, height: 54)
+                .frame(width: 84, height: 116)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color(nsColor: .controlBackgroundColor))

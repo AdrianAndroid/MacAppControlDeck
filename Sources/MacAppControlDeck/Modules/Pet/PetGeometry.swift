@@ -4,19 +4,22 @@ import CoreGraphics
 /// 桌宠的纯几何计算：尺寸、位置、点击路径、锚点。
 /// 不持有窗口或状态，方便单元测试。
 enum PetGeometry {
-    static let baseSize = CGSize(width: 240, height: 140)
+    static let baseSize = CGSize(width: 260, height: 360)
     static let windowPadding: CGFloat = 4
     static let screenMargin: CGFloat = 24
 
     static func windowSize(for size: PetSize) -> CGSize {
         CGSize(
-            width: baseSize.width * size.scale + windowPadding * 2,
-            height: baseSize.height * size.scale + windowPadding * 2
+            width: (baseSize.width * size.scale).rounded() + windowPadding * 2,
+            height: (baseSize.height * size.scale).rounded() + windowPadding * 2
         )
     }
 
     static func visualSize(for size: PetSize) -> CGSize {
-        CGSize(width: baseSize.width * size.scale, height: baseSize.height * size.scale)
+        CGSize(
+            width: (baseSize.width * size.scale).rounded(),
+            height: (baseSize.height * size.scale).rounded()
+        )
     }
 
     static func defaultAnchor(in visibleFrame: CGRect, size: PetSize) -> CGPoint {
@@ -87,10 +90,10 @@ enum PetGeometry {
 
     static func part(at point: CGPoint, skin: PetSkin, in bounds: CGRect) -> PetPart {
         let headRect = CGRect(
-            x: skin.anchors.head.x - 0.20,
-            y: skin.anchors.head.y - 0.20,
-            width: 0.40,
-            height: 0.40
+            x: skin.anchors.head.x - 0.21,
+            y: skin.anchors.head.y - 0.15,
+            width: 0.42,
+            height: 0.32
         ).absolute(in: bounds)
         if headRect.contains(point) { return .head }
 
@@ -101,18 +104,18 @@ enum PetGeometry {
         if rightPaw.contains(point) { return .rightPaw }
 
         let keyboard = CGRect(
-            x: skin.anchors.keyboard.x - 0.30,
-            y: skin.anchors.keyboard.y - 0.12,
-            width: 0.60,
-            height: 0.24
+            x: skin.anchors.keyboard.x - 0.46,
+            y: skin.anchors.keyboard.y - 0.08,
+            width: 0.92,
+            height: 0.16
         ).absolute(in: bounds)
         if keyboard.contains(point) { return .keyboard }
 
         let body = CGRect(
-            x: skin.anchors.body.x - 0.26,
-            y: skin.anchors.body.y - 0.26,
-            width: 0.52,
-            height: 0.52
+            x: skin.anchors.body.x - 0.23,
+            y: skin.anchors.body.y - 0.25,
+            width: 0.46,
+            height: 0.50
         ).absolute(in: bounds)
         if body.contains(point) { return .body }
 

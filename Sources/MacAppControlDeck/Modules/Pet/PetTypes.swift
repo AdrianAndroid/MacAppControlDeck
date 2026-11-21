@@ -151,10 +151,15 @@ struct PetPoint: Hashable {
 struct PetSnapshot: Equatable {
     var pawLeft: CGFloat = 0
     var pawRight: CGFloat = 0
+    var leftPawPoint = PetPoint(26, 326)
+    var rightPawPoint = PetPoint(176, 326)
     var blink: CGFloat = 0
+    var squint: CGFloat = 0
     var eyeX: CGFloat = 0
     var eyeY: CGFloat = 0
+    var headYaw: CGFloat = 0
     var bodyBounce: CGFloat = 0
+    var bodyLean: CGFloat = 0
     var tailWag: CGFloat = 0
     var earTwitch: CGFloat = 0
     var surprised: CGFloat = 0
@@ -162,9 +167,28 @@ struct PetSnapshot: Equatable {
     var mouthOpen: CGFloat = 0
     var blush: CGFloat = 0
     var dragging: CGFloat = 0
+    var mouseShift = PetPoint(0, 0)
     var activeZones: Set<PetKeyZone> = []
+    var pressedKeys: [PetKeyPress] = []
+    var keycaps: [PetKeycap] = []
 
     static let idle = PetSnapshot()
+}
+
+struct PetKeyPress: Equatable, Identifiable {
+    let code: UInt16
+    let label: String
+    let zone: PetKeyZone
+    let depth: CGFloat
+    var id: UInt16 { code }
+}
+
+struct PetKeycap: Equatable, Identifiable {
+    let id: Int
+    let label: String
+    let slot: Int
+    let progress: CGFloat
+    let isModifier: Bool
 }
 
 enum PetKeyZone: String, CaseIterable, Hashable {
