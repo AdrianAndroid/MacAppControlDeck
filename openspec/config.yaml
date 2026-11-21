@@ -10,25 +10,26 @@ context: |
   - 所有面向用户的反馈必须如实：区分"已发送"与"已确认激活"；macOS/iOS 无法可靠做到的（永久置顶、iOS 后台常驻、无条件跨空间切换）不得写成已实现。
   - 持久化仅用 Mac 本地文件，不使用云账号。
   - 文档与本仓库内注释使用中文；代码标识符使用英文。
+  - 所有需求统一由 OpenSpec 管理：先建变更，再实现；不接受只改代码或文档而不留变更记录。
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+# Per-artifact rules
+rules:
+  proposal:
+    - 每个需求都必须有 proposal，写明 Why、What Changes、Capabilities、Impact 与非目标
+    - 不允许在未建立 OpenSpec 变更的情况下直接开始实现
+  design:
+    - 涉及实现方案、数据、权限或截图资产时，记录关键取舍与已知限制
+  tasks:
+    - 任务必须可勾选，覆盖实现、验证与归档
+    - 归档时全部任务应已完成，未完成项要写明原因
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+# Per-operation guidance
+operations:
+  apply:
+    guidance:
+      - 先确认 proposal 与 spec delta，再开始实现
+  archive:
+    guidance:
+      - 归档到 openspec/changes/archive/YYYY-MM-DD-<change-id>/
+      - 同步更新 openspec/specs/<capability>/spec.md
+      - 归档后检查 README 与 Docs/archive 的反向链接

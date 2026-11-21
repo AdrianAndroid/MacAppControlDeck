@@ -30,3 +30,28 @@
 - 只加「设置」页入口，没有快捷打开按钮 → 不合格。
 - 只写在 README / 菜单二级深处 → 不合格。
 - 内置操作能添加，但点了没反应 → 不合格。
+
+## R1. 需求统一用 OpenSpec 管理
+
+任何需求在动手前，必须先在 `openspec/changes/` 下建立对应变更；不允许只改代码、README 或配置而不留 OpenSpec 记录。
+
+### 强制清单
+
+1. 变更目录使用 `openspec/changes/<change-id>/`，`change-id` 用动词开头的英文短横线命名，例如 `add-readme-feature-screenshots`。
+2. 每个变更至少包含 `proposal.md`，写明 Why、What Changes、Capabilities、Impact 与非目标。
+3. 涉及实现方案时写 `design.md`；涉及多步执行时写 `tasks.md`，任务要可勾选。
+4. 涉及能力行为变化时，在 `specs/<capability>/spec.md` 写 delta；归档后同步到 `openspec/specs/<capability>/spec.md`。
+5. 交付完成后归档到 `openspec/changes/archive/YYYY-MM-DD-<change-id>/`，不能长期留在活动变更目录。
+6. 提交说明必须引用 `change-id`；无用户可见入口时按 R0 写明。
+7. `README`、`Docs/archive` 的需求记录必须能反向链接到对应 OpenSpec 变更。
+
+### 不需要建变更的情况
+
+- 纯错别字、纯格式化、纯依赖升级且不改变行为和文档结构：可以不建变更，但提交说明要写明「无行为变化」。
+- 只要改变功能、接口、权限、用户可见结果、文档结构或截图资产范围，就必须建 OpenSpec 变更。
+
+### 反例
+
+- 需求直接改代码，事后才补 OpenSpec → 不合格。
+- 只建 `proposal.md`，没有能力 delta 就归档 → 不合格。
+- 归档后没有同步 `openspec/specs/` → 不合格。
