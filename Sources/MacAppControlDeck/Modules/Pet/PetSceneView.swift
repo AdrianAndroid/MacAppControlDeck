@@ -1,0 +1,74 @@
+import SwiftUI
+
+/// 面板里的唯一根视图。只订阅状态机，不处理鼠标。
+struct PetSceneView: View {
+    @ObservedObject var state: PetStateMachine
+
+    var body: some View {
+        PetVectorArt(
+            skin: state.skin,
+            theme: state.keyboardTheme,
+            detail: state.size.detail,
+            snapshot: state.snapshot
+        )
+        .frame(
+            width: PetGeometry.visualSize(for: state.size).width,
+            height: PetGeometry.visualSize(for: state.size).height
+        )
+        .animation(.easeOut(duration: 0.18), value: state.size)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// 设置页的实时小预览。
+struct PetLivePreview: View {
+    @ObservedObject var settings: PetSettings
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            PetVectorArt(
+                skin: settings.skin,
+                theme: settings.keyboardTheme,
+                detail: .standard,
+                snapshot: PetSnapshot(
+                    blink: sin(t * 1.7) > 0.96 ? 1 : 0,
+                    bodyBounce: abs(sin(t * 1.4)) * 0.012,
+                    tailWag: CGFloat(sin(t * 2)),
+                    earTwitch: CGFloat(sin(t * 3.4))
+                )
+            )
+            .frame(width: 240, height: 140)
+        }
+        .frame(width: 240, height: 140)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.55))
+        )
+    }
+}
+
+struct PetSkinSwatch: View {
+    let skin: PetSkin
+    let selected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            PetVectorArt(skin: skin, theme: skin.defaultKeyboardTheme, detail: .compact, snapshot: .idle)
+                .frame(width: 92, height: 54)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(selected ? Color.accentColor : Color.clear, lineWidth: 2)
+                )
+            Text(skin.name)
+                .font(.system(size: 11, weight: selected ? .semibold : .regular))
+                .foregroundStyle(selected ? Color.accentColor : .primary)
+        }
+        .contentShape(Rectangle())
+    }
+}

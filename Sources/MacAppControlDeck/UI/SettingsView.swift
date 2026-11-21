@@ -9,6 +9,7 @@ enum SettingsTab: Hashable {
     case capture
     case sketch
     case calendar
+    case pet
     case buttons
     case devices
     case remoteService
@@ -43,6 +44,9 @@ struct SettingsView: View {
                 Section("万年历") {
                     sidebarRow(.calendar, "万年历", "calendar")
                 }
+                Section("桌面宠物") {
+                    sidebarRow(.pet, "桌面宠物", "cat.fill")
+                }
                 Section("关于") {
                     sidebarRow(.about, "关于", "info.circle")
                 }
@@ -74,6 +78,8 @@ struct SettingsView: View {
             SketchSettingsView()
         case .calendar:
             CalendarSettingsView()
+        case .pet:
+            PetModule.shared.settingsView()
         case .buttons:
             ButtonsSettingsView()
         case .devices:

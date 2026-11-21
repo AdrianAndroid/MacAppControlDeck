@@ -4,13 +4,15 @@
 > 适用范围：`MacAppControlDeck` 全部代码、菜单、设置、路由、数据目录、文档
 > 核心原则：**每个功能是一个独立模块；模块自己的服务、数据、权限、生命周期自己管；模块之间不共享业务状态，不互相调用，不混内容。**
 
-## 1. 当前的三个模块
+## 1. 当前模块
 
 | 模块 | ID | 形态 | 使用者 | 入口 |
 |---|---|---|---|---|
 | 电脑控制 | `remote` | 局域网 HTTP 服务 + 配对 + 手机面板 | 手机 | 菜单栏「电脑控制」子菜单、手机浏览器 |
 | 截图与录屏 | `capture` | Mac 本机 AppKit 能力（截图 / 标注 / 录屏 / 编辑器） | Mac 本机 | 菜单栏「截图与录屏」、本机窗口 |
 | UI 草图 | `sketch` | WKWebView + 离线 Excalidraw 画板 | Mac 本机 | 菜单栏「UI 草图」、`⌃⌥D`、独立窗口 |
+| 万年历 | `calendar` | 独立日历窗口 + LunarSwift | Mac 本机 | 菜单栏「万年历」、独立窗口 |
+| 桌面宠物 | `pet` | 透明 `NSPanel` + `CGEventTap` + 矢量渲染 | Mac 本机 | 菜单栏「桌面宠物」、`⌃⌥P`、`pet.open` |
 
 ### 1.1 电脑遥控模块（`remote`）
 
@@ -64,6 +66,27 @@
 
 > **明确结论：`sketch` 是纯本机、纯离线模块；不注册 HTTP，不进入手机面板，不加载任何外部 CDN。**
 
+### 1.4 桌面宠物模块（`pet`）
+
+负责：
+
+- 透明、无边框、置顶、不抢焦点的 `NSPanel`
+- 三档尺寸与按显示器保存的位置；切换尺寸以底部中心为锚点
+- 五套矢量皮肤（白猫 / 黑猫 / 橘猫 / 三花 / 小狗）与三套键盘主题
+- `CGEventTap` 只读键鼠事件，驱动爪子、键盘分区高亮、惊讶、眨眼、睡觉与鼠标跟随
+- 按轮廓（身体 + 键盘）动态切换 `ignoresMouseEvents`，透明区域穿透
+- 输入监控权限降级、Secure Input / 锁屏 / 休眠 / 全屏 / 录屏 / 低电量自动暂停
+- 隐藏时释放 `PetRuntime`、`NSPanel`、`CGEventTap` 与动画时钟
+
+不负责：
+
+- 手机配对、HTTP 服务、手机面板
+- 截图/录屏、标注、OCR
+- 键盘文本记录、网络请求、账号或云同步
+- `remote` / `capture` / `sketch` / `calendar` 的任何配置或运行时
+
+> **明确结论：`pet` 是纯本机、纯离线模块；不注册 HTTP，不进入手机面板，不记录按键字符。**
+
 ## 2. 硬规则（后续开发必须遵守）
 
 ### R1. 模块目录隔离
@@ -75,6 +98,8 @@ Sources/MacAppControlDeck/
     RemoteControl/              # 只放 remote 模块代码
     Capture/                    # 只放 capture 模块代码
     Sketch/                     # 只放 sketch 模块代码与构建后的离线资源
+    Calendar/                   # 只放 calendar 模块代码与历法资源
+    Pet/                        # 只放 pet 模块代码（面板、输入、状态机、矢量渲染）
 Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模块 import
 ```
 
@@ -105,6 +130,8 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 | `remote` | `~/Library/Application Support/MacAppControlDeck/RemoteControl/` | `remote.` |
 | `capture` | `~/Library/Application Support/MacAppControlDeck/Capture/` | `capture.` |
 | `sketch` | `~/Library/Application Support/MacAppControlDeck/Sketch/`（草稿）+ `~/Pictures/MacAppControlDeck/Sketches/`（导出） | `sketch.` |
+| `calendar` | 无独立数据目录（LunarSwift 本地计算） | `calendar.` |
+| `pet` | 无独立数据目录（位置/皮肤/尺寸写入偏好） | `pet.` |
 
 - 截图历史、录制文件、导出缓存只能落在 `capture` 目录。
 - 设备 token、按钮配置、图标缓存只能落在 `remote` 目录。
@@ -118,6 +145,8 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 | `remote` | 辅助功能、输入监控、自动化（System Events） |
 | `capture` | 屏幕录制、麦克风、摄像头（按功能启用） |
 | `sketch` | 无系统级权限；只访问自己的草稿与导出目录 |
+| `calendar` | 无系统级权限；纯本地计算 |
+| `pet` | 输入监控（可选；未授权时降级为静态陪伴） |
 
 - 权限状态分别展示在各自模块的设置页，不合并成一个“总权限”。
 - 未授予截图权限时，只禁用截图/录屏功能，不影响手机遥控。
@@ -136,6 +165,8 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
   - 电脑控制（remote 自己的设置：服务 / 按钮 / 设备）
   - 截图与录屏（capture 自己的设置）
   - UI 草图（sketch 自己的设置）
+  - 万年历（calendar 自己的设置）
+  - 桌面宠物（pet 自己的设置）
   - 关于
 - 不允许在“通用”页里塞截图选项，也不允许在“截图”页里塞手机配对。
 - 设置壳只负责承载视图，不替模块执行业务动作。
@@ -146,6 +177,8 @@ Sources/MacShotKit/             # macshot 上游代码，只允许 Capture 模�
 Core  ←  Modules/RemoteControl
 Core  ←  Modules/Capture → MacShotKit
 Core  ←  Modules/Sketch（WKWebView + 离线 Web 资源，不依赖 MacShotKit）
+Core  ←  Modules/Calendar（LunarSwift，不依赖其他模块）
+Core  ←  Modules/Pet（NSPanel + CGEventTap，不依赖其他模块）
 ```
 
 - 只允许模块依赖 Core，不允许 Core 反向依赖具体模块。
@@ -188,6 +221,8 @@ Core  ←  Modules/Sketch（WKWebView + 离线 Web 资源，不依赖 MacShotKit
 - [ ] `RemoteControl` 代码里没有 `MacShotKit` / `CapturePreferences` 引用。
 - [ ] 截图历史只写 `Capture/` 目录，设备/按钮只写 `RemoteControl/` 目录。
 - [ ] `Sketch` 代码里没有 `DeckState` / `ConfigStore` / `PairingManager` / `MacShotKit` 引用。
+- [ ] `Pet` 代码里没有 `DeckState` / `ConfigStore` / `PairingManager` / `MacShotKit` / `CapturePreferences` 引用。
+- [ ] 关闭 `pet` 后，窗口、`CGEventTap` 与动画时钟全部释放，其余模块不受影响。
 - [ ] 设置页按模块分区，没有跨模块选项混排。
 - [ ] 新增文件在正确的模块目录下，没有放错到 `Core` 或另一个模块。
 
@@ -234,3 +269,17 @@ Core  ←  Modules/Sketch（WKWebView + 离线 Web 资源，不依赖 MacShotKit
 - 验证：44 项单测通过；实机画矩形、复制 PNG、保存 PNG + 源文件、关闭重开恢复草稿均通过。
 - 归档：`Docs/archive/2026-11-20-sketch-module/SUMMARY.md`。
 
+
+## 8. 当前落地状态（2026-11-21：桌面宠物）
+
+- 新增第五个独立模块 `pet`，不修改 `remote` / `capture` / `sketch` / `calendar` 的业务状态。
+- 窗口：透明、无边框、非激活 `NSPanel`；默认主屏右下角 Dock 上方 24pt，多屏位置分别保存。
+- 尺寸：小 `188×113` / 中 `248×148` / 大 `332×197`，窗口、猫、键盘、阴影与 hit path 同步缩放，底部中心为锚点。
+- 点击：只有身体 + 键盘进入拦截路径；透明区域穿透；悬停检测 30Hz、4pt 滞回；`clickThrough` 开启时始终忽略鼠标。
+- 皮肤：经典白猫、午夜黑猫、橘子虎斑、三花猫、奶油小狗；键盘主题奶油白 / 深色 / 马卡龙。
+- 输入：`CGEventTap` listen-only，只读 keyCode；左右爪、四区高亮、三键惊讶、眨眼、呼吸、尾巴、耳朵、鼠标眼珠、睡觉/唤醒。
+- 边界：无输入监控权限时仍显示、眨眼、跟随鼠标；Secure Input、锁屏、休眠、低电量、全屏、自带录屏按策略暂停/隐藏。
+- 生命周期：`PetModule` 只做轻量代理；隐藏时异步释放 `PetRuntime`、面板、输入监听与动画时钟。
+- 入口：菜单栏「桌面宠物」、`⌃⌥P`、`pet.open` 内置操作、设置页「桌面宠物」。
+- 验证：`swift test` 84 项通过；5 皮肤 × 3 尺寸渲染矩阵通过；白猫/三花/大号与键盘高亮实机截图通过；`./Build/build.sh` 成功并覆盖安装 `/Applications/MacAppControlDeck.app`。
+- 归档：`Docs/archive/2026-11-21-desktop-pet/SUMMARY.md`。

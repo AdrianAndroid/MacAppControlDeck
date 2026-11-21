@@ -194,23 +194,34 @@ import SwiftUI
     // MARK: - 录屏
 
     @objc func recordArea() {
-        MacShotController.shared.startRecording(format: .mp4, target: .area)
+        startRecording(format: .mp4, target: .area)
     }
 
     @objc func recordFullScreen() {
-        MacShotController.shared.startRecording(format: .mp4, target: .fullScreen)
+        startRecording(format: .mp4, target: .fullScreen)
     }
 
     @objc func recordWindow() {
-        MacShotController.shared.startRecording(format: .mp4, target: .window)
+        startRecording(format: .mp4, target: .window)
     }
 
     @objc func recordGIF() {
-        MacShotController.shared.startRecording(format: .gif, target: .area)
+        startRecording(format: .gif, target: .area)
     }
 
     @objc func stopRecording() {
         MacShotController.shared.stopRecording()
+        NotificationCenter.default.post(name: .captureRecordingDidStop, object: nil)
+    }
+
+    private func startRecording(format: RecordingFormat, target: RecordingTargetMode) {
+        MacShotController.shared.startRecording(format: format, target: target)
+        NotificationCenter.default.post(name: .captureRecordingDidStart, object: nil)
+        // 录屏可能因为权限或用户取消而立即失败，下一轮检查真实状态。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            guard !MacShotController.shared.isRecording else { return }
+            NotificationCenter.default.post(name: .captureRecordingDidStop, object: nil)
+        }
     }
 
     // MARK: - 其他
@@ -278,4 +289,10 @@ import SwiftUI
             .replacingOccurrences(of: "）", with: "")
             .replacingOccurrences(of: " ", with: "")
     }
+}
+
+
+extension Notification.Name {
+    static let captureRecordingDidStart = Notification.Name("CaptureModule.recordingDidStart")
+    static let captureRecordingDidStop = Notification.Name("CaptureModule.recordingDidStop")
 }

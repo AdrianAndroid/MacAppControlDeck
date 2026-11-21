@@ -2,7 +2,7 @@
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
-同时按“功能模块”组织：电脑遥控、截图/录屏、UI 草图是三个独立模块，各自拥有服务、数据、权限和生命周期。截图/录屏与 UI 草图在 Mac 本机使用，不经过手机。
+同时按“功能模块”组织：电脑遥控、截图/录屏、UI 草图、万年历与桌面宠物是彼此独立的模块，各自拥有服务、数据、权限和生命周期。截图/录屏、UI 草图、万年历与桌面宠物在 Mac 本机使用，不经过手机。
 
 <table>
 <tr>
@@ -15,7 +15,7 @@
 </tr>
 </table>
 
-> 下文截图全部来自本机实际运行，覆盖菜单栏、设置页、截图/录屏、UI 草图与手机面板。
+> 下文截图全部来自本机实际运行，覆盖菜单栏、设置页、截图/录屏、UI 草图、万年历、桌面宠物与手机面板。
 
 需求与设计见 `openspec/`（OpenSpec 管理，变更 `add-core-control-loop`）。
 
@@ -33,7 +33,8 @@
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
-- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图与万年历，关闭一个不影响另一个
+- **桌面宠物（Mac 本机模块）**：Bongo Cat 风格透明置顶桌宠，跟随键盘/鼠标做出左右爪、键盘分区高亮、组合键惊讶、眨眼、呼吸、睡觉与悬停摸头；三档尺寸、五套皮肤（白猫 / 黑猫 / 橘猫 / 三花 / 小狗）、三套键盘主题；按轮廓点击穿透，无输入监控权限时降级为静态陪伴；隐藏即释放窗口、输入监听与动画资源
+- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
 
@@ -119,6 +120,7 @@ open /Applications/MacAppControlDeck.app
    - 「截图与录屏」子菜单：全屏 / 区域 / 窗口 / 滚动截图；快速保存、快速 OCR；录制 MP4 / GIF；截图延时；最近截图；输出到 `~/Pictures/MacAppControlDeck` 与 `~/Movies/MacAppControlDeck`
    - 「UI 草图」子菜单：打开画板（`⌃⌥D`）/ 新建 / 复制当前草图（`⌘⇧C`）/ 保存 PNG 与源文件（`⌘S`）/ 最近草图 / 保存目录
    - 「万年历」子菜单：今日公历、农历、宜忌、节假日倒计时；「打开万年历…」进入独立日历窗口
+   - 「桌面宠物」子菜单：打开/隐藏、暂停互动、点击穿透、三档尺寸、五套皮肤、重置位置与设置页；全局快捷键 `⌃⌥P`
    - 「配对手机…」生成 6 位配对码并打开设置
    - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
 3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
@@ -202,6 +204,34 @@ open /Applications/MacAppControlDeck.app
 </tr>
 </table>
 
+## 桌面宠物
+
+Bongo Cat 结构的原生桌宠：白猫趴在桌沿，左爪搭鼠标、右爪搭迷你键盘，敲键盘时对应分区亮起、爪子起落，鼠标移动时眼珠跟随。窗口无边框、透明、置顶且不抢焦点；只有身体和键盘区域拦截点击，透明留白直接穿透到下层应用。
+
+<img src="Docs/images/readme/desktop-pet-hero.png" alt="桌面宠物：经典白猫中号">
+
+<table>
+<tr>
+<td width="62%"><img src="Docs/images/readme/desktop-pet-skins.png" alt="桌面宠物：五套皮肤与三档尺寸"></td>
+<td width="38%"><img src="Docs/images/readme/desktop-pet-settings.png" alt="设置：桌面宠物"></td>
+</tr>
+<tr>
+<td align="center"><sub>五套皮肤 × 三档尺寸，窗口、猫、键盘与拦截轮廓同步缩放</sub></td>
+<td align="center"><sub>设置页：实时预览、皮肤、尺寸、键盘主题、行为与权限</sub></td>
+</tr>
+</table>
+
+使用方式：
+
+1. **打开**：菜单栏「桌面宠物 → 打开桌宠」，或按 `⌃⌥P`，也可在「设置 → 按钮 → 添加内置操作」中添加「打开桌面宠物」，之后从菜单栏「快捷操作」与手机面板触发
+2. **换肤**：经典白猫、午夜黑猫、橘子虎斑、三花猫、奶油小狗；换肤时保持窗口位置与尺寸，键盘主题可单独切换奶油白 / 深色 / 马卡龙
+3. **调尺寸**：小 `188×113` / 中 `248×148` / 大 `332×197`；以底部中心为锚点缩放，靠近屏幕边缘时自动夹回可见区域
+4. **互动**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、换肤、调尺寸、重置位置；悬停头顶会害羞，长时间无输入会睡觉，按任意键唤醒
+5. **自动避让**：全屏应用、屏幕锁定/休眠、Secure Input、低电量与自带录屏期间自动暂停或隐藏；恢复后继续，且不覆盖手动暂停
+6. **隐私与降级**：输入监听只读 `keyCode`，不记录字符、不联网；没有「输入监控」权限时仍能显示、眨眼和跟随鼠标，设置页提供授权入口
+
+默认位置在主屏右下角 Dock 上方 24pt；位置按显示器分别保存，隐藏后释放 `PetRuntime` 与 `CGEventTap`。
+
 ## 手机端使用
 
 1. 手机与 Mac 连接同一 Wi-Fi
@@ -262,11 +292,19 @@ open /Applications/MacAppControlDeck.app
 </tr>
 <tr>
 <td><img src="Docs/images/readme/settings-calendar.png" alt="设置：万年历"></td>
-<td><img src="Docs/images/readme/settings-devices.png" alt="设置：设备配对"></td>
+<td><img src="Docs/images/readme/desktop-pet-settings.png" alt="设置：桌面宠物"></td>
 </tr>
 <tr>
 <td align="center"><sub>万年历：常驻内存、周一/周日起始、隐私说明</sub></td>
+<td align="center"><sub>桌面宠物：实时预览、五套皮肤、尺寸、键盘主题与权限</sub></td>
+</tr>
+<tr>
+<td><img src="Docs/images/readme/settings-devices.png" alt="设置：设备配对"></td>
+<td></td>
+</tr>
+<tr>
 <td align="center"><sub>设备：查看已配对设备并随时撤销，旧 token 立即失效</sub></td>
+<td></td>
 </tr>
 </table>
 
@@ -305,7 +343,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 52 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 84 项，含真实 TCP 服务器与真实应用激活的端到端用例
 ```
 
 ## 已知限制
@@ -355,7 +393,8 @@ Sources/MacAppControlDeck/
 │   ├── RemoteControl/           # 电脑遥控模块：HTTP 服务/配对/手机面板/按钮
 │   ├── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
 │   ├── Sketch/                  # UI 草图模块：轻量代理 + 按需 runtime，关闭窗口释放
-│   └── Calendar/                # 万年历模块：轻量代理 + 按需 runtime，关闭窗口释放
+│   ├── Calendar/                # 万年历模块：轻量代理 + 按需 runtime，关闭窗口释放
+│   └── Pet/                     # 桌面宠物模块：透明 NSPanel + CGEventTap + 按需 runtime
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
 ├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
 ├── Server/                      # remote 模块：NWListener HTTP 服务、路由
@@ -373,16 +412,17 @@ Build/
 ├── make-icon.swift              # 生成 AppIcon.iconset
 └── Info.plist                   # Bundle 元数据（含 Automation 用途说明）
 BuildOutput/                     # 构建产物（.gitignore）
-Docs/images/readme/             # README 功能截图（菜单栏、设置页、手机面板、UI 草图）
+Docs/images/readme/             # README 功能截图（菜单栏、设置页、手机面板、UI 草图、桌面宠物）
 Docs/architecture/MODULES.md     # 【强制】模块边界与隔离规则
 Docs/architecture/UPSTREAM_PORTING.md # 上游开源集成方法、验收标准与踩坑记录
 Docs/archive/                    # 历史归档
 ```
 
-> 模块边界是硬约束：`remote`、`capture` 与 `sketch` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
+> 模块边界是硬约束：`remote`、`capture`、`sketch`、`calendar` 与 `pet` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
 
 ## 归档
 
+- 2026-11-21 桌面宠物（Bongo Cat 结构、五套皮肤、三档尺寸、按轮廓点击穿透）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md)
 - 2026-11-21 区域截图图标与设置信息架构修复：[Docs 记录](Docs/archive/2026-11-21-settings-ia-and-capture-icon/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-fix-settings-ia-and-capture-icon/proposal.md) · [设置规格](openspec/specs/settings-navigation/spec.md) · [菜单图标规格](openspec/specs/menu-item-icons/spec.md)
 - 2026-11-21 UI 草图懒加载与释放：[Docs 记录](Docs/archive/2026-11-21-sketch-lazy-runtime/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-sketch-lazy-runtime/proposal.md) · [能力规格](openspec/specs/sketch-lazy-runtime/spec.md)
 - 2026-11-21 万年历附加模块（菜单入口 + 独立窗口 + 懒加载释放）：[Docs 记录](Docs/archive/2026-11-21-chinese-calendar/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-chinese-calendar/proposal.md) · [能力规格](openspec/specs/calendar-window/spec.md)
