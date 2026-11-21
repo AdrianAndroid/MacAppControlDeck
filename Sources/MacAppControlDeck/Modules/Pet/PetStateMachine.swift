@@ -80,6 +80,18 @@ final class PetStateMachine: ObservableObject {
     private var rasterPawMouse = Spring(value: 0)
     private var mouseClickUntil: TimeInterval = 0
     private var rasterHeadPitch = Spring(value: 0)
+    // v6 全身骨架
+    private var rasterTorsoDeg = Spring(value: 0)
+    private var rasterTorsoLift = Spring(value: 0)
+    private var rasterArmL = Spring(value: 0)
+    private var rasterArmR = Spring(value: 0)
+    private var rasterPupilX = Spring(value: 0)
+    private var rasterPupilY = Spring(value: 0)
+    // 键位列 → 爪横向跟随目标（设计 pt，相对爪的家位）
+    private var leftColumnTarget: CGFloat = 0
+    private var rightColumnTarget: CGFloat = 0
+    private var leftColumnUntil: TimeInterval = 0
+    private var rightColumnUntil: TimeInterval = 0
 
     init(settings: PetSettings,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
@@ -238,13 +250,13 @@ final class PetStateMachine: ObservableObject {
         // ---- v4 光栅骨架：全屏视线 + 头部微动 ----
         let gazeX = gazeCursorX
         let gazeY = min(gazeCursorY + (typingTarget > 0 ? 0.22 : 0), 1)
-        rasterEyeX.step(to: (gazeX + (reduceMotion ? 0 : sin(timestamp * 1.73) * 0.05)) * 10, dt: dt, stiffness: 520, damping: 34)
-        rasterEyeY.step(to: (gazeY + (reduceMotion ? 0 : sin(timestamp * 1.21) * 0.05)) * 6, dt: dt, stiffness: 520, damping: 34)
+        rasterEyeX.step(to: (gazeX + (reduceMotion ? 0 : sin(timestamp * 1.73) * 0.05)) * 11, dt: dt, stiffness: 520, damping: 34)
+        rasterEyeY.step(to: (gazeY + (reduceMotion ? 0 : sin(timestamp * 1.21) * 0.05)) * 7, dt: dt, stiffness: 520, damping: 34)
         // 微扫视：常驻 ±0.08 的细小位移，让共视不至于像贴纸
         let saccadeX = reduceMotion ? 0 : (sin(timestamp * 1.73) * 0.6 + sin(timestamp * 2.31 + 1.1) * 0.4) * 0.08
         let saccadeY = reduceMotion ? 0 : (sin(timestamp * 1.21 + 0.7) * 0.6 + sin(timestamp * 2.77 + 2.3) * 0.4) * 0.05
-        rasterHeadYaw.step(to: (gazeX + saccadeX) * 6.0, dt: dt, stiffness: 150, damping: 26)
-        rasterHeadPitch.step(to: (gazeY - 0.35 + saccadeY) * 3.2, dt: dt, stiffness: 150, damping: 26)
+        rasterHeadYaw.step(to: (gazeX + saccadeX) * 8.0, dt: dt, stiffness: 165, damping: 26)
+        rasterHeadPitch.step(to: (gazeY - 0.35 + saccadeY) * 4.0, dt: dt, stiffness: 165, damping: 26)
         let rasterCaps = keycaps.compactMap { keycap -> PetKeycap? in
             let progress = CGFloat((timestamp - keycap.startedAt) / Self.keycapLife)
             guard progress < 1 else { return nil }
@@ -252,15 +264,40 @@ final class PetStateMachine: ObservableObject {
                              progress: max(progress, 0), isModifier: keycap.isModifier,
                              row: keycap.row, column: keycap.column)
         }
-        // v5：局部爪子 / 眨眼 / 尾耳 / 呼吸
+        // ---- v6 全身骨架：视线驱动躯干 → 手臂 → 颈头 → 尾耳，全部同一坐标系 ----
         let leftDown = zones.contains(.left)
         let rightDown = zones.contains(.right)
         let mouseDown = timestamp < mouseClickUntil
+        let leanBoy = reduceMotion ? 0 : (gazeX - 0.2)          // -1.2 … 0.8
         rasterPawL.step(to: reduceMotion ? 0 : (leftDown ? 1 : 0), dt: dt, stiffness: 420, damping: 30)
         rasterPawR.step(to: reduceMotion ? 0 : (rightDown ? 1 : 0), dt: dt, stiffness: 420, damping: 30)
         rasterPawMouse.step(to: reduceMotion ? 0 : (mouseDown ? 1 : 0), dt: dt, stiffness: 380, damping: 28)
+        rasterArmL.step(to: rasterPawL.value, dt: dt, stiffness: 210, damping: 26)
+        rasterArmR.step(to: rasterPawR.value, dt: dt, stiffness: 210, damping: 26)
+        // 躯干：跟着视线侧倾 + 打字的轻微前倾，呼吸上下
+        let typingLean = typingTarget > 0 ? CGFloat(0.9) : 0
+        rasterTorsoDeg.step(to: leanBoy * 3.4 + (reduceMotion ? 0 : sin(timestamp * 0.62) * 0.6),
+                            dt: dt, stiffness: 150, damping: 26)
+        let breathPhase = CGFloat((sin(timestamp / 4.2 * 2 * Double.pi) + 1) / 2)
+        rasterTorsoLift.step(to: (reduceMotion ? 0 : -breathPhase * 2.4) + rasterArmL.value * 1.2 + typingLean,
+                             dt: dt, stiffness: 240, damping: 30)
+        // 瞳孔在虹膜之上再追一段，让“看”有第二层反馈
+        rasterPupilX.step(to: reduceMotion ? 0 : gazeX * 9.0, dt: dt, stiffness: 480, damping: 30)
+        rasterPupilY.step(to: reduceMotion ? 0 : gazeY * 6.0, dt: dt, stiffness: 480, damping: 30)
         let blinkCycle = timestamp.truncatingRemainder(dividingBy: 4.2)
         let v5Blink = blinkCycle < 0.11 ? CGFloat(sin(Double.pi * blinkCycle / 0.11)) : 0
+        // 尾巴两段：基准慢摆 + 打字/惊讶时加力，第二段滞后 0.18s
+        let tailBase = reduceMotion ? 0 : CGFloat(sin(timestamp * 1.36) * 5.2)
+        let tailLag = reduceMotion ? 0 : CGFloat(sin((timestamp - 0.18) * 1.36) * 7.4)
+        let tailEnergy = (reduceMotion ? 0 : min(typingFocusSpring.value * 2.2 + tailBoost, 8))
+        // 耳：间歇抽动
+        let earTick = reduceMotion ? 0 : (sin(timestamp * 2.4) > 0.965 ? 4.5 : 0)
+        let armPush = 26.0
+        // 键位列 → 爪子横向跟到对应键区（单骨臂：肩轴旋转 + 有界平移）
+        if timestamp > leftColumnUntil { leftColumnTarget = 0 }
+        if timestamp > rightColumnUntil { rightColumnTarget = 0 }
+        let leftFollow = reduceMotion ? 0 : leftColumnTarget
+        let rightFollow = reduceMotion ? 0 : rightColumnTarget
         let newRaster = PetRasterFrame(
             eyeX: rasterEyeX.value,
             eyeY: rasterEyeY.value,
@@ -274,7 +311,22 @@ final class PetStateMachine: ObservableObject {
             pawMouse: rasterPawMouse.value,
             tailDeg: reduceMotion ? 0 : CGFloat(sin(timestamp * 1.76) * 1.8),
             earDeg: reduceMotion ? 0 : CGFloat(sin(timestamp * 2.9) > 0.96 ? 5 : 0),
-            breath: reduceMotion ? 0 : CGFloat((sin(timestamp / 4.2 * 2 * Double.pi) + 1) / 2)
+            breath: reduceMotion ? 0 : breathPhase,
+            torsoDeg: rasterTorsoDeg.value,
+            torsoLift: rasterTorsoLift.value,
+            armLDeg: rasterArmL.value * -7.0 + leftFollow * 0.08,
+            armRDeg: rasterArmR.value * 7.0 + rightFollow * 0.08,
+            armLPush: rasterArmL.value * armPush,
+            armRPush: rasterArmR.value * armPush,
+            armLSlide: leftFollow,
+            armRSlide: rightFollow,
+            tail1Deg: tailBase + tailEnergy * (tailEnergy > 0 ? 1 : 0),
+            tail2Deg: tailLag + tailEnergy * 0.6,
+            earLDeg: earTick,
+            earRDeg: -earTick * 0.8,
+            pupilX: rasterPupilX.value,
+            pupilY: rasterPupilY.value,
+            mousePress: rasterPawMouse.value
         )
         if newRaster != rasterFrame {
             rasterFrame = newRaster
@@ -291,6 +343,21 @@ final class PetStateMachine: ObservableObject {
         typingUntil = timestamp + 0.55
         gazeTargetX = normalizedX(for: PetKeyboardLayout.center(row: key.row, column: key.column))
         gazeTargetY = normalizedY(for: PetKeyboardLayout.center(row: key.row, column: key.column))
+        // v6：按键列 → 爪子横向跟到对应键区（有界，避免手臂被拉断）
+        if let m = PetV6Assets.shared?.manifest {
+            let col = CGFloat(min(max(key.column, 0), 12))
+            let keyX = m.keyboardGrid.colStartX + col * m.keyboardGrid.colGap
+            let useLeft = key.zone == .left
+            let home = useLeft ? m.rig.pawL[0] : m.rig.pawR[0]
+            let delta = min(max((keyX - home) * 0.85, -32), 32)
+            if useLeft {
+                leftColumnTarget = delta
+                leftColumnUntil = timestamp + 0.6
+            } else {
+                rightColumnTarget = delta
+                rightColumnUntil = timestamp + 0.6
+            }
+        }
 
         if isRepeat {
             tick()

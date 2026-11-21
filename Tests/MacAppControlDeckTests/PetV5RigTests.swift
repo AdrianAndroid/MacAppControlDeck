@@ -160,7 +160,15 @@ final class PetV5RigTests: XCTestCase {
         let l = try render(left), r = try render(right)
 
         let assets = try XCTUnwrap(PetV5Assets.shared)
+        // v6 接管渲染后，眼框必须按 v6 的 rig 取，否则测的是错位置的像素
+        let v6 = PetV6Assets.shared
         func eyeRect(_ side: Int) -> [CGFloat] {
+            if let v6 = v6 {
+                let c = side == 0 ? v6.manifest.rig.eyeL : v6.manifest.rig.eyeR
+                let rad = side == 0 ? v6.manifest.rig.eyeRadius[0] : v6.manifest.rig.eyeRadius[1]
+                let d = rad * 2     // design pt -> asset px
+                return [(c[0] - rad) * 2, (c[1] - rad) * 2, d * 2, d * 2]
+            }
             let eye = side == 0 ? assets.manifest.eyes.left : assets.manifest.eyes.right
             return [eye.box[0], eye.box[1], eye.size[0], eye.size[1]]
         }
@@ -187,6 +195,11 @@ final class PetV5RigTests: XCTestCase {
         // 两眼都画出了瞳孔，且随同一视线向量一起移动
         XCTAssertGreaterThan(dl.0, 20, "左眼瞳孔没有随视线变化")
         XCTAssertGreaterThan(dr.0, 20, "右眼瞳孔没有随视线变化")
+        if v6 != nil {
+            // v6 是「虹膜 + 瞳孔 + 整头」三层共视，质心判据由 PetV6RigTests 覆盖
+            XCTAssertGreaterThan(dl.0 + dr.0, 60, "v6 视线没有驱动双眼")
+            return
+        }
         // 位移方向一致（都在各自眼框中心同侧），幅度接近
         XCTAssertEqual(dl.1 > 0, dr.1 > 0, "两眼瞳孔位移方向不一致，不是共视")
         XCTAssertLessThan(abs(abs(dl.1) - abs(dr.1)), 24, "两眼瞳孔位移幅度差异过大")

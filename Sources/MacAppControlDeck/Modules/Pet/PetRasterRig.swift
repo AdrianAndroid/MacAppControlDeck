@@ -19,6 +19,22 @@ struct PetRasterFrame: Equatable {
     var tailDeg: CGFloat = 0
     var earDeg: CGFloat = 0
     var breath: CGFloat = 0
+    /// v6：躯干倾角 / 起伏、双前臂（含爪）的转角和位移、双尾段、双耳、瞳孔额外偏移、鼠标下压
+    var torsoDeg: CGFloat = 0
+    var torsoLift: CGFloat = 0
+    var armLDeg: CGFloat = 0
+    var armRDeg: CGFloat = 0
+    var armLPush: CGFloat = 0
+    var armRPush: CGFloat = 0
+    var armLSlide: CGFloat = 0
+    var armRSlide: CGFloat = 0
+    var tail1Deg: CGFloat = 0
+    var tail2Deg: CGFloat = 0
+    var earLDeg: CGFloat = 0
+    var earRDeg: CGFloat = 0
+    var pupilX: CGFloat = 0
+    var pupilY: CGFloat = 0
+    var mousePress: CGFloat = 0
 
     static let idle = PetRasterFrame()
 }
@@ -136,6 +152,10 @@ final class PetRasterAssets {
 /// v4 的分层绘制：场景 → 头部（含眼球，整体旋转）→ 键帽。
 enum PetRasterRenderer {
     static func draw(_ frame: PetRasterFrame, in context: inout GraphicsContext, size: CGSize) {
+        if PetV6Assets.shared != nil {
+            PetV6Renderer.draw(frame, in: &context, size: size)
+            return
+        }
         if PetV5Assets.shared != nil {
             PetV5Renderer.draw(frame, in: &context, size: size)
             return
