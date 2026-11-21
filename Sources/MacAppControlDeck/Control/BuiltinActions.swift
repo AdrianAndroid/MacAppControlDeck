@@ -15,7 +15,8 @@ enum BuiltinActions {
         Preset(id: "capture.window", name: "截窗口", symbol: "⬚"),
         Preset(id: "capture.scroll", name: "滚动截图", symbol: "⇕"),
         Preset(id: "capture.ocr", name: "OCR（区域）", symbol: "⌖"),
-        Preset(id: "sketch.open", name: "打开 UI 草图", symbol: "✎")
+        Preset(id: "sketch.open", name: "打开 UI 草图", symbol: "✎"),
+        Preset(id: "calendar.open", name: "打开万年历", symbol: "▦")
     ]
 
     static func preset(for id: String) -> Preset? {
@@ -40,6 +41,7 @@ enum BuiltinActions {
             case "capture.scroll": MacShotController.shared.scrollCapture()
             case "capture.ocr": MacShotController.shared.quickOCRArea()
             case "sketch.open": SketchWindowController.shared.show()
+            case "calendar.open": CalendarModule.shared.open()
             default: break
             }
         }

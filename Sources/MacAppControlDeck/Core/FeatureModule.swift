@@ -14,8 +14,16 @@ protocol FeatureModule: AnyObject {
     func stop()
     func menuItems() -> [NSMenuItem]
     func settingsView() -> AnyView
+
+    /// 是否支持“常驻内存”设置。默认不支持，核心模块或轻量代理不需要额外开关。
+    var supportsResidency: Bool { get }
+    var isResident: Bool { get }
+    func setResident(_ resident: Bool)
 }
 
 extension FeatureModule {
     func menuItems() -> [NSMenuItem] { [] }
+    var supportsResidency: Bool { false }
+    var isResident: Bool { true }
+    func setResident(_ resident: Bool) {}
 }

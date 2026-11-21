@@ -32,7 +32,8 @@
 - **录屏（Mac 本机模块）**：区域 / 全屏 / 窗口 MP4（H.264 + 系统音频，真实帧时序），15/30/60/120 fps；区域 GIF（5/10/15 fps）；3-2-1 倒计时；顶部录制 HUD 与录制边框；磁盘不足/休眠自动停止
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`
-- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏与 UI 草图，关闭一个不影响另一个
+- **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
+- **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图与万年历，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
 
@@ -117,6 +118,7 @@ open /Applications/MacAppControlDeck.app
    - 「应用」「快捷操作」子菜单就是已配置的功能按钮，点一下立即执行（应用带真实图标）
    - 「截图与录屏」子菜单：全屏 / 区域 / 窗口 / 滚动截图；快速保存、快速 OCR；录制 MP4 / GIF；截图延时；最近截图；输出到 `~/Pictures/MacAppControlDeck` 与 `~/Movies/MacAppControlDeck`
    - 「UI 草图」子菜单：打开画板（`⌃⌥D`）/ 新建 / 复制当前草图（`⌘⇧C`）/ 保存 PNG 与源文件（`⌘S`）/ 最近草图 / 保存目录
+   - 「万年历」子菜单：今日公历、农历、宜忌、节假日倒计时；「打开万年历…」进入独立日历窗口
    - 「配对手机…」生成 6 位配对码并打开设置
    - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
 3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
@@ -172,6 +174,31 @@ open /Applications/MacAppControlDeck.app
 
 <img src="Docs/images/readme/sketch-libraries.png" alt="UI 草图：内置精选素材库">
 
+## 万年历
+
+独立日历窗口，参考中文日历的信息密度：公历大数字、农历小字、节气/节日彩色标记、法定节假日 `休/班` 角标，底部是选中日期的干支生肖与宜忌。
+
+<img src="Docs/images/readme/calendar-window.png" alt="万年历窗口：2026 年 11 月">
+
+使用方式：
+
+1. **入口**：菜单栏「万年历 → 打开万年历…」，或手机面板/菜单栏快捷操作里的「万年历」按钮
+2. **查看**：默认周一开头，可前后翻月、回到今天；点击日期切换底部详情
+3. **节假日**：法定休息日显示绿色 `休`，调休上班显示橙色 `班`；底部显示下一个节假日倒计时
+4. **内存**：默认「打开才加载，关闭即释放」。设置 →「万年历 → 常驻内存」开启后，关闭窗口仍保留历法数据，再次打开更快；关闭开关且窗口已关闭时立即释放
+5. **隐私**：纯本地 LunarSwift 计算，不联网、不读取系统日历/提醒、不申请定位与通讯录权限
+
+<table>
+<tr>
+<td width="45%"><img src="Docs/images/readme/settings-calendar.png" alt="设置：万年历"></td>
+<td width="55%"><img src="Docs/images/readme/calendar-window.png" alt="万年历窗口"></td>
+</tr>
+<tr>
+<td align="center"><sub>设置：常驻内存、周一/周日起始、隐私说明</sub></td>
+<td align="center"><sub>月历、节气/节日、休/班、宜忌与节假日倒计时</sub></td>
+</tr>
+</table>
+
 ## 手机端使用
 
 1. 手机与 Mac 连接同一 Wi-Fi
@@ -219,14 +246,16 @@ open /Applications/MacAppControlDeck.app
 <td><img src="Docs/images/readme/settings-sketch.png" alt="设置：UI 草图"></td>
 </tr>
 <tr>
-<td align="center"><sub>模块：独立开关电脑控制、截图录屏与 UI 草图</sub></td>
+<td align="center"><sub>模块：独立开关电脑控制、截图录屏、UI 草图与万年历；可选模块支持常驻内存</sub></td>
 <td align="center"><sub>UI 草图：打开画板、保存目录、导出倍率与背景</sub></td>
 </tr>
 <tr>
-<td colspan="2"><img src="Docs/images/readme/settings-devices.png" alt="设置：设备配对"></td>
+<td><img src="Docs/images/readme/settings-calendar.png" alt="设置：万年历"></td>
+<td><img src="Docs/images/readme/settings-devices.png" alt="设置：设备配对"></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><sub>设备：查看已配对设备并随时撤销，旧 token 立即失效</sub></td>
+<td align="center"><sub>万年历：常驻内存、周一/周日起始、隐私说明</sub></td>
+<td align="center"><sub>设备：查看已配对设备并随时撤销，旧 token 立即失效</sub></td>
 </tr>
 </table>
 
@@ -314,7 +343,8 @@ Sources/MacAppControlDeck/
 ├── Modules/
 │   ├── RemoteControl/           # 电脑遥控模块：HTTP 服务/配对/手机面板/按钮
 │   ├── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
-│   └── Sketch/                  # UI 草图模块：离线 Excalidraw + WKWebView，不接 HTTP
+│   ├── Sketch/                  # UI 草图模块：离线 Excalidraw + WKWebView，不接 HTTP
+│   └── Calendar/                # 万年历模块：轻量代理 + 按需 runtime，关闭窗口释放
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
 ├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
 ├── Server/                      # remote 模块：NWListener HTTP 服务、路由
@@ -342,6 +372,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-21 万年历附加模块（菜单入口 + 独立窗口 + 懒加载释放）：[Docs 记录](Docs/archive/2026-11-21-chinese-calendar/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-chinese-calendar/proposal.md) · [能力规格](openspec/specs/calendar-window/spec.md)
 - 2026-11-21 F1 区域截图全局快捷键：[Docs 记录](Docs/archive/2026-11-21-f1-capture-shortcut/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-f1-capture-shortcut/proposal.md) · [能力规格](openspec/specs/capture-overlay-parity/spec.md)
 - 2026-11-21 README 功能截图与使用路径（需求归档）：[Docs 记录](Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-readme-feature-screenshots/proposal.md) · [能力规格](openspec/specs/project-documentation/spec.md)
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)

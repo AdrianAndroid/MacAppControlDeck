@@ -168,6 +168,13 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(BuiltinActions.symbol(for: "sketch.open"), "✎")
     }
 
+    func test_calendarQuickOpenBuiltinPresetIsRegistered() {
+        let preset = BuiltinActions.preset(for: "calendar.open")
+        XCTAssertNotNil(preset)
+        XCTAssertEqual(preset?.name, "打开万年历")
+        XCTAssertEqual(BuiltinActions.symbol(for: "calendar.open"), "▦")
+    }
+
     func test_routerDispatchesShortcutToInjector() async {
         let injector = FakeShortcutInjector()
         let router = makeRouter(injector: injector)

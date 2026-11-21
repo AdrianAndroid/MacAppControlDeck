@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ModuleRegistry.shared.register(RemoteControlModule())
         ModuleRegistry.shared.register(CaptureModule.shared)
         ModuleRegistry.shared.register(SketchModule.shared)
+        ModuleRegistry.shared.register(CalendarModule.shared)
         GlobalHotKeys.shared.install()
         MenuBarController.shared.install()
     }

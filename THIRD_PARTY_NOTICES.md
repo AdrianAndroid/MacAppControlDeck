@@ -81,3 +81,14 @@ https://github.com/excalidraw/excalidraw-libraries ，均标注 **MIT License**�
   完整仓库级许可见上游 `LICENSE`。
 - 页面「精选素材」面板底部保留来源与许可标识；用户从面板或原生「素材库」按钮
   均可访问这些素材。
+
+## 万年历历法数据（`6tail/lunar-swift`）
+
+- 上游：https://github.com/6tail/lunar-swift
+- 许可证：MIT License
+- 引入方式：Swift Package Manager 依赖，产品名 `LunarSwift`，固定版本 `1.1.9`。
+- 使用范围：仅使用农历、干支、生肖、节气、节日、宜忌与法定节假日数据；
+  不引入上游 UI、示例应用或其他平台代码。
+- 生效模块：`Sources/MacAppControlDeck/Modules/Calendar/`。
+- 不联网：所有计算在本地完成，不请求上游或第三方服务。
+- 法定节假日数据由上游按年维护；升级依赖后需回归 2027 年及以后节假日。

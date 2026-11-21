@@ -7,6 +7,7 @@ enum SettingsTab: Hashable {
     case modules
     case capture
     case sketch
+    case calendar
     case buttons
     case devices
     case about
@@ -35,6 +36,9 @@ struct SettingsView: View {
                 }
                 Section("UI 草图") {
                     sidebarRow(.sketch, "UI 草图", "pencil.and.outline")
+                }
+                Section("万年历") {
+                    sidebarRow(.calendar, "万年历", "calendar")
                 }
                 Section("关于") {
                     sidebarRow(.about, "关于", "info.circle")
@@ -65,6 +69,8 @@ struct SettingsView: View {
             CaptureSettingsView()
         case .sketch:
             SketchSettingsView()
+        case .calendar:
+            CalendarSettingsView()
         case .buttons:
             ButtonsSettingsView()
         case .devices:
@@ -128,6 +134,22 @@ struct ModulesSettingsView: View {
                     .toggleStyle(.switch)
                     .labelsHidden()
                     .accessibilityLabel("\(module.title)开关")
+                }
+
+                if module.supportsResidency, registry.isEnabled(module.id) {
+                    HStack(spacing: 12) {
+                        Toggle("常驻内存", isOn: Binding(
+                            get: { module.isResident },
+                            set: { module.setResident($0) }
+                        ))
+                        .toggleStyle(.switch)
+                        Text(module.isResident
+                             ? "关闭窗口后仍保留数据，再次打开更快。"
+                             : "关闭窗口后释放窗口与数据；打开时再加载。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
                 }
 
                 if module.id == CaptureModule.id, registry.isEnabled(module.id) {

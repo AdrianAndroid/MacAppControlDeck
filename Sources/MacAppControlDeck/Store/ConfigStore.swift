@@ -60,6 +60,20 @@ final class ConfigStore {
             UserDefaults.standard.set(true, forKey: builtinKey)
         }
 
+        let calendarKey = "config.builtin.calendar.seeded.v1"
+        if !UserDefaults.standard.bool(forKey: calendarKey) {
+            if !buttons.contains(where: { $0.builtinAction == "calendar.open" }) {
+                let quickMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
+                buttons.append(ButtonConfig(id: "builtin.calendar.open",
+                                            kind: .builtin,
+                                            name: "万年历",
+                                            sortOrder: quickMax + 1,
+                                            builtinAction: "calendar.open"))
+                changed = true
+            }
+            UserDefaults.standard.set(true, forKey: calendarKey)
+        }
+
         UserDefaults.standard.set(true, forKey: seededKey)
         if changed { saveButtons() }
     }

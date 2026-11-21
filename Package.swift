@@ -4,6 +4,9 @@ import PackageDescription
 let package = Package(
     name: "MacAppControlDeck",
     platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(url: "https://github.com/6tail/lunar-swift.git", from: "1.1.9")
+    ],
     targets: [
         .target(
             name: "MacShotKit",
@@ -13,7 +16,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "MacAppControlDeck",
-            dependencies: ["MacShotKit"],
+            dependencies: ["MacShotKit", .product(name: "LunarSwift", package: "lunar-swift")],
             path: "Sources/MacAppControlDeck",
             resources: [.copy("Modules/Sketch/Resources/Sketch")]
         ),
@@ -23,7 +26,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MacAppControlDeckTests",
-            dependencies: ["MacAppControlDeck", "MacShotKit"],
+            dependencies: ["MacAppControlDeck", "MacShotKit", .product(name: "LunarSwift", package: "lunar-swift")],
             path: "Tests/MacAppControlDeckTests",
             linkerSettings: [.linkedFramework("ScreenCaptureKit"), .unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "ScreenCaptureKit"])]
         )
