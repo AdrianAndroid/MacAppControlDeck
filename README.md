@@ -239,7 +239,7 @@ open /Applications/MacAppControlDeck.app
    - **`activate(from:)` / LSOpen**：公开 API 兜底
 3. **成功判定**：目标应用是否成为前台应用。窗口可见性只记诊断日志——进程内 `CGWindowList` 数据在真机上与其他进程不一致，不可作为判定依据
 
-详细原理、实测记录与取舍见 `openspec/changes/add-core-control-loop/design.md`。
+详细原理、实测记录与取舍见 `openspec/changes/archive/2026-11-19-add-core-control-loop/design.md`。
 
 ## 安全边界（务必阅读）
 
@@ -338,7 +338,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
-- 2026-11-21 README 功能截图与使用路径（需求归档）：[Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md](Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md)
+- 2026-11-21 README 功能截图与使用路径（需求归档）：[Docs 记录](Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-readme-feature-screenshots/proposal.md) · [能力规格](openspec/specs/project-documentation/spec.md)
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)
 - 2026-11-19 远程快捷操作（快捷键 / 命令按钮 / 桌面切换）经验总结：[Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md](Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md)
 - 2026-11-19 构建补齐、局域网地址与面板配对修复：[Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md](Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md)

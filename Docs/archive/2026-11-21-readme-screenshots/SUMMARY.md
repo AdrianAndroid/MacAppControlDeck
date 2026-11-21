@@ -81,6 +81,16 @@ README 当时只有文字说明，功能与使用方式需要读者自己在大�
   - `Docs/images/readme/`（14 张截图）
 - GitHub：<https://github.com/AdrianAndroid/MacAppControlDeck/blob/main/README.md>
 
+## OpenSpec 归档
+
+- 变更：`openspec/changes/archive/2026-11-21-add-readme-feature-screenshots/`
+  - `proposal.md`：需求背景、变更范围、非目标与影响
+  - `design.md`：实机截图流程、图片处理、README 排版与取舍
+  - `tasks.md`：截图、改写、验证、提交的完整任务清单
+  - `specs/project-documentation/spec.md`：本次新增能力的规格增量
+- 能力规格：`openspec/specs/project-documentation/spec.md`
+- 归档方式：按已有 `openspec/changes/archive/YYYY-MM-DD-<change-id>/` 结构保存，`spec delta` 使用 `## ADDED Requirements`，能力规格使用 `## Purpose` / `## Requirements`。
+
 ## 已知限制 / 后续
 
 - 设置页覆盖通用、菜单、模块、设备、截图、UI 草图；**按钮管理页、关于页未单独截图**。
