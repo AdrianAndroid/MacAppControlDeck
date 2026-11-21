@@ -4,6 +4,19 @@
 
 同时按“功能模块”组织：电脑遥控、截图/录屏、UI 草图是三个独立模块，各自拥有服务、数据、权限和生命周期。截图/录屏与 UI 草图在 Mac 本机使用，不经过手机。
 
+<table>
+<tr>
+<td width="58%" align="center"><img src="Docs/images/readme/menu.png" width="460" alt="菜单栏下拉菜单"></td>
+<td width="42%" align="center"><img src="Docs/images/readme/phone-panel.png" width="280" alt="手机端控制面板"></td>
+</tr>
+<tr>
+<td align="center"><sub>Mac 菜单栏：应用、快捷操作、截图录屏、UI 草图、设置</sub></td>
+<td align="center"><sub>手机端：已配对后的应用与快捷操作面板</sub></td>
+</tr>
+</table>
+
+> 下文截图全部来自本机实际运行，覆盖菜单栏、设置页、截图/录屏、UI 草图与手机面板。
+
 需求与设计见 `openspec/`（OpenSpec 管理，变更 `add-core-control-loop`）。
 
 ---
@@ -108,6 +121,55 @@ open /Applications/MacAppControlDeck.app
    - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
 3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
 
+<img src="Docs/images/readme/menu-computer-control.png" alt="电脑控制子菜单">
+
+<sub>电脑控制子菜单：面板地址、在浏览器打开面板、应用、快捷操作、配对手机、重启服务。</sub>
+
+## 截图、录屏与视频剪辑
+
+截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。
+
+<table>
+<tr>
+<td width="40%"><img src="Docs/images/readme/menu-capture-record.png" alt="截图与录屏子菜单"></td>
+<td width="60%"><img src="Docs/images/readme/settings-capture.png" alt="截图与录屏设置页"></td>
+</tr>
+<tr>
+<td align="center"><sub>菜单栏子菜单：截图、OCR、录屏、GIF、最近截图</sub></td>
+<td align="center"><sub>设置页：保存/剪贴板/快门音、命名模板、格式与质量、录屏目录</sub></td>
+</tr>
+</table>
+
+<img src="Docs/images/readme/capture-selection.png" width="560" alt="区域截图选区覆盖层">
+
+<sub>区域截图：桌面变暗后拖选区域；窗口自动高亮，可按 `F` 切全屏，选好后进入标注编辑器。</sub>
+
+使用方式：
+
+1. **截图**：菜单栏 → 截图与录屏 → 全屏 / 区域 / 窗口 / 滚动截图；`快速保存（区域）` 直接写文件，`快速 OCR（区域）` 直接识别文字
+2. **标注**：截图后进入标注编辑器，可加矩形、椭圆、箭头、画笔、文字、序号、马赛克、模糊、聚光灯、测量与裁剪，再复制或保存
+3. **钉图**：编辑器里钉到屏幕，或菜单栏「钉剪贴板内容」，用于对照抄写、比对设计稿
+4. **录屏**：录制屏幕（区域 / 全屏）/ 窗口，可选系统声音与麦克风、鼠标指针、15–120 fps；录制时有顶部 HUD 与边框，可随时停止
+5. **视频剪辑**：录制完成后可多段剪切、0.5–4× 变速、加字幕、调分轨音量，导出 MP4 或 GIF
+
+默认输出：截图到 `~/Pictures/MacAppControlDeck`，录屏到 `~/Movies/MacAppControlDeck`；均可在设置页修改。
+
+## UI 草图
+
+完全离线的 Excalidraw 画板，用来快速画 UI 线框/流程，再把图片或 JSON 直接粘给 AI。全局快捷键 `⌃⌥D` 打开画板。
+
+<img src="Docs/images/readme/sketch-board.png" alt="UI 草图：多画布手绘线框">
+
+使用方式：
+
+1. **新建画布**：左上角「画布」下拉新建/重命名/删除，每张画布独立保存内容与视口；`⌘N` 也可新建
+2. **手绘**：矩形、椭圆、箭头、文字、便签、自由画笔齐全，支持网格、吸附、图层与透明度
+3. **载入素材**：顶部「精选素材」内置 16 组、285 个组件、1531 个元素（Excalidraw 官方素材库，MIT），可搜索、分类载入；也可用原生「素材库」侧栏
+4. **交给 AI**：选中后「复制图片」只复制选中对象，不选则复制整板；「复制 JSON」输出带 `isDiagram` / `ai.kind=diagram` 的场景 JSON
+5. **保存**：`⌘S` 或「保存」会同时写 PNG 与同名 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`
+
+<img src="Docs/images/readme/sketch-libraries.png" alt="UI 草图：内置精选素材库">
+
 ## 手机端使用
 
 1. 手机与 Mac 连接同一 Wi-Fi
@@ -117,6 +179,17 @@ open /Applications/MacAppControlDeck.app
 
 点击按钮后的状态行会如实显示结果（`已切换到前台` / `已启动并切到前台` / 具体失败原因）。
 
+<table>
+<tr>
+<td width="50%" align="center"><img src="Docs/images/readme/phone-pairing.png" width="300" alt="手机端首次配对"></td>
+<td width="50%" align="center"><img src="Docs/images/readme/phone-panel.png" width="300" alt="手机端已配对面板"></td>
+</tr>
+<tr>
+<td align="center"><sub>首次打开：输入 Mac 端生成的 6 位配对码</sub></td>
+<td align="center"><sub>配对后：应用按钮 + 快捷操作，可直接添加到主屏幕</sub></td>
+</tr>
+</table>
+
 ## 添加 / 管理按钮（Mac 端）
 
 菜单栏 →「设置…」→「按钮」标签页：
@@ -125,6 +198,35 @@ open /Applications/MacAppControlDeck.app
 - 每行支持「⋯ → 重命名…」、↑↓ 排序、「⋯ → 删除…」（删除有确认）
 - 应用被删除/移动后按钮显示「应用缺失」，可回到 App 列表重新绑定
 - 「设备」标签页可撤销任意设备的配对（撤销后旧凭证立即失效）
+
+## 设置界面
+
+所有配置集中在「设置…」（`⌘,`）里，左侧按模块分组：
+
+<table>
+<tr>
+<td width="50%"><img src="Docs/images/readme/settings-general.png" alt="设置：通用"></td>
+<td width="50%"><img src="Docs/images/readme/settings-menu.png" alt="设置：菜单"></td>
+</tr>
+<tr>
+<td align="center"><sub>通用：面板地址、权限状态、配对码、登录启动</sub></td>
+<td align="center"><sub>菜单：置顶命令、各模块命令显隐与上下排序</sub></td>
+</tr>
+<tr>
+<td><img src="Docs/images/readme/settings-modules.png" alt="设置：模块"></td>
+<td><img src="Docs/images/readme/settings-sketch.png" alt="设置：UI 草图"></td>
+</tr>
+<tr>
+<td align="center"><sub>模块：独立开关电脑控制、截图录屏与 UI 草图</sub></td>
+<td align="center"><sub>UI 草图：打开画板、保存目录、导出倍率与背景</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="Docs/images/readme/settings-devices.png" alt="设置：设备配对"></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><sub>设备：查看已配对设备并随时撤销，旧 token 立即失效</sub></td>
+</tr>
+</table>
 
 ## 激活策略（简述）
 
@@ -161,7 +263,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 40 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 51 项，含真实 TCP 服务器与真实应用激活的端到端用例
 ```
 
 ## 已知限制
@@ -226,6 +328,7 @@ Build/
 ├── make-icon.swift              # 生成 AppIcon.iconset
 └── Info.plist                   # Bundle 元数据（含 Automation 用途说明）
 BuildOutput/                     # 构建产物（.gitignore）
+Docs/images/readme/             # README 功能截图（菜单栏、设置页、手机面板、UI 草图）
 Docs/architecture/MODULES.md     # 【强制】模块边界与隔离规则
 Docs/architecture/UPSTREAM_PORTING.md # 上游开源集成方法、验收标准与踩坑记录
 Docs/archive/                    # 历史归档
