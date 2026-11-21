@@ -125,6 +125,17 @@ final class PetPanelController {
         updateHitCache()
     }
 
+    /// v4：以宠物所在屏幕的可见区域归一化，做全屏光标跟随。
+    func normalizedGazePosition() -> CGPoint {
+        let mouse = NSEvent.mouseLocation
+        let visible = screen(containing: panel.frame).visibleFrame
+        guard visible.width > 0, visible.height > 0 else { return .zero }
+        return CGPoint(
+            x: min(max((mouse.x - visible.midX) / (visible.width / 2), -1), 1),
+            y: min(max((visible.midY - mouse.y) / (visible.height / 2), -1), 1)
+        )
+    }
+
     func normalizedMousePosition() -> CGPoint {
         let mouse = NSEvent.mouseLocation
         let visual = visualBounds
@@ -251,6 +262,8 @@ final class PetPanelController {
             hasMousePoint = true
             let normalized = normalizedMousePosition()
             state.handleMouseMoved(normalizedX: normalized.x, normalizedY: normalized.y)
+            let gaze = normalizedGazePosition()
+            state.handleGaze(normalizedX: gaze.x, normalizedY: gaze.y)
         }
         let local = hostingView.convert(panel.convertPoint(fromScreen: mouse), from: nil)
         let visual = visualBounds

@@ -24,8 +24,8 @@ enum PetRigLayout {
     static let tailMid = PetPoint(232, 250)
     static let tailTip = PetPoint(244, 198)
 
-    static let mouseCenter = PetPoint(20, 338)
-    static let mouseSize = CGSize(width: 44, height: 28)
+    static let mouseCenter = PetPoint(26, 338)
+    static let mouseSize = CGSize(width: 40, height: 26)
     static let rightRestPaw = PetPoint(176, 328)
 
     /// 两段 IK。bend 为 -1 时肘向外侧弯，+1 向内。

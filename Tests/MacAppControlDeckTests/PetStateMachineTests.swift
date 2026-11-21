@@ -42,7 +42,7 @@ final class PetStateMachineTests: XCTestCase {
     func testTypingLandsPawOnKeyAndLooksDown() {
         let (state, _, advance) = makeClockedState()
         state.handleKeyDown(12) // Q, 左半区
-        advance(0.8)
+        advance(0.25)
         guard let q = PetKeyMap.center(for: 12) else { return XCTFail("missing Q") }
         XCTAssertEqual(state.snapshot.leftPawPoint.x, q.x - 3, accuracy: 3)
         XCTAssertEqual(state.snapshot.leftPawPoint.y, q.y - 1, accuracy: 3)
@@ -61,8 +61,8 @@ final class PetStateMachineTests: XCTestCase {
         advance(0.8)
         XCTAssertGreaterThan(state.snapshot.eyeX, 0.4)
         XCTAssertLessThan(state.snapshot.eyeY, -0.25)
-        XCTAssertEqual(state.snapshot.leftPawPoint.x, PetRigLayout.mouseCenter.x + 9 + 4, accuracy: 3)
-        XCTAssertEqual(state.snapshot.leftPawPoint.y, PetRigLayout.mouseCenter.y - 4 + 4, accuracy: 3)
+        XCTAssertEqual(state.snapshot.leftPawPoint.x, PetRigLayout.mouseCenter.x + 0.7 * 4 + 3, accuracy: 3)
+        XCTAssertEqual(state.snapshot.leftPawPoint.y, PetRigLayout.mouseCenter.y - 0.5 * 2 + 4, accuracy: 3)
         XCTAssertGreaterThan(state.snapshot.headYaw, 1)
     }
 

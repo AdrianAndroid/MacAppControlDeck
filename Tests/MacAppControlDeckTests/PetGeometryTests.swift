@@ -3,12 +3,12 @@ import XCTest
 
 final class PetGeometryTests: XCTestCase {
     func testWindowSizesKeepSameVisualRatio() {
-        XCTAssertEqual(PetGeometry.visualSize(for: .small), CGSize(width: 195, height: 270))
-        XCTAssertEqual(PetGeometry.visualSize(for: .medium), CGSize(width: 260, height: 360))
-        XCTAssertEqual(PetGeometry.visualSize(for: .large), CGSize(width: 351, height: 486))
+        XCTAssertEqual(PetGeometry.visualSize(for: .small), CGSize(width: 230, height: 307))
+        XCTAssertEqual(PetGeometry.visualSize(for: .medium), CGSize(width: 288, height: 384))
+        XCTAssertEqual(PetGeometry.visualSize(for: .large), CGSize(width: 374, height: 499))
         XCTAssertEqual(
             PetGeometry.windowSize(for: .medium),
-            CGSize(width: 268, height: 368)
+            CGSize(width: 296, height: 392)
         )
     }
 
@@ -30,7 +30,7 @@ final class PetGeometryTests: XCTestCase {
 
     func testNormalizedPositionRoundTrip() {
         let visible = CGRect(x: 100, y: 50, width: 1200, height: 800)
-        let frame = CGRect(x: 900, y: 120, width: 268, height: 368)
+        let frame = CGRect(x: 900, y: 120, width: 296, height: 392)
         let point = PetGeometry.normalizedPosition(of: frame, in: visible)
         let restored = PetGeometry.frame(normalizedPosition: point, in: visible, size: .medium)
         XCTAssertEqual(restored.origin.x, frame.origin.x, accuracy: 1)
@@ -43,7 +43,7 @@ final class PetGeometryTests: XCTestCase {
         XCTAssertFalse(PetGeometry.contains(CGPoint(x: 3, y: 3), skin: skin, in: bounds))
         XCTAssertFalse(PetGeometry.contains(CGPoint(x: 258, y: 30), skin: skin, in: bounds))
         XCTAssertTrue(PetGeometry.contains(CGPoint(x: 130, y: 190), skin: skin, in: bounds))
-        XCTAssertTrue(PetGeometry.contains(CGPoint(x: 130, y: 330), skin: skin, in: bounds))
+        XCTAssertTrue(PetGeometry.contains(CGPoint(x: 130, y: 250), skin: skin, in: bounds))
     }
 
     func testPartHitTesting() {

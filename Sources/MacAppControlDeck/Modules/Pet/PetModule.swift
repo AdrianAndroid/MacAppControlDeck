@@ -94,6 +94,7 @@ final class PetModule: FeatureModule {
         sizeItem.submenu = sizeMenu
         submenu.addItem(sizeItem)
 
+        // v4 光栅骨架是单套写实素材；素材存在时不展示无效的换肤入口。
         let skinItem = NSMenuItem(title: "换肤", action: nil, keyEquivalent: "")
         skinItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
         let skinMenu = NSMenu(title: "换肤")
@@ -105,7 +106,9 @@ final class PetModule: FeatureModule {
             skinMenu.addItem(child)
         }
         skinItem.submenu = skinMenu
-        submenu.addItem(skinItem)
+        if PetRasterAssets.shared == nil {
+            submenu.addItem(skinItem)
+        }
 
         submenu.addItem(.separator())
         submenu.addItem(item("重置位置", #selector(resetPosition), "arrow.uturn.backward", id: "pet.resetPosition"))

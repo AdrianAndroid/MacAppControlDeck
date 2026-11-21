@@ -4,7 +4,7 @@ import CoreGraphics
 /// 桌宠的纯几何计算：尺寸、位置、点击路径、锚点。
 /// 不持有窗口或状态，方便单元测试。
 enum PetGeometry {
-    static let baseSize = CGSize(width: 260, height: 360)
+    static let baseSize = CGSize(width: 288, height: 384)
     static let windowPadding: CGFloat = 4
     static let screenMargin: CGFloat = 24
 

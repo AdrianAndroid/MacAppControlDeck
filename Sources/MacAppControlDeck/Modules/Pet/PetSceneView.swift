@@ -5,12 +5,18 @@ struct PetSceneView: View {
     @ObservedObject var state: PetStateMachine
 
     var body: some View {
-        PetVectorArt(
-            skin: state.skin,
-            theme: state.keyboardTheme,
-            detail: state.size.detail,
-            snapshot: state.snapshot
-        )
+        Group {
+            if PetRasterAssets.shared != nil {
+                PetRasterArt(frame: state.rasterFrame)
+            } else {
+                PetVectorArt(
+                    skin: state.skin,
+                    theme: state.keyboardTheme,
+                    detail: state.size.detail,
+                    snapshot: state.snapshot
+                )
+            }
+        }
         .frame(
             width: PetGeometry.visualSize(for: state.size).width,
             height: PetGeometry.visualSize(for: state.size).height
@@ -28,6 +34,17 @@ struct PetLivePreview: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
+            if PetRasterAssets.shared != nil {
+                PetRasterArt(frame: PetRasterFrame(
+                    eyeX: CGFloat(sin(t * 1.1)) * 8,
+                    eyeY: CGFloat(sin(t * 0.7)) * 3,
+                    headYaw: CGFloat(sin(t * 0.8)) * 2.5,
+                    headPitch: CGFloat(sin(t * 0.6)) * 1.5,
+                    bob: CGFloat(sin(t * 1.3)) * 1.2,
+                    keycaps: []
+                ))
+                .frame(width: 200, height: 266)
+            } else {
             PetVectorArt(
                 skin: settings.skin,
                 theme: settings.keyboardTheme,
@@ -40,6 +57,7 @@ struct PetLivePreview: View {
                 )
             )
             .frame(width: 200, height: 277)
+            }
         }
         .frame(width: 200, height: 277)
         .background(

@@ -315,7 +315,10 @@ struct PetVectorArt: View {
     }
 
     private func drawMouse(_ context: inout GraphicsContext) {
-        let shift = snapshot.mouseShift
+        let shift = CGPoint(
+            x: min(max(snapshot.mouseShift.x, -4), 4),
+            y: min(max(snapshot.mouseShift.y, -2), 2)
+        )
         let center = CGPoint(
             x: PetRigLayout.mouseCenter.x + shift.x,
             y: PetRigLayout.mouseCenter.y + shift.y
@@ -487,7 +490,7 @@ struct PetVectorArt: View {
             let pop = progress < 0.12
                 ? 0.7 + progress / 0.12 * 0.4
                 : (progress < 0.2 ? 1.1 - (progress - 0.12) / 0.08 * 0.1 : 1.0)
-            let alpha: CGFloat = progress > 0.78 ? max(0.01, (1 - progress) / 0.22) : 1
+            let alpha: CGFloat = progress > 0.7 ? max(0.01, (1 - progress) / 0.3) : 1
             let width: CGFloat = keycap.label.count > 2 ? 36 : 31
             let rect = CGRect(x: slot.0 - width / 2, y: slot.1 - 11, width: width, height: 22)
 

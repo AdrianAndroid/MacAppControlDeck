@@ -33,7 +33,7 @@
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
-- **桌面宠物（Mac 本机模块）**：参考视频 1:1 的透明置顶桌宠——完整蹲坐黑猫、大绿竖瞳、白色小鼠标与大键盘；光标移动时左爪操作鼠标并锁定视线，打字时视线看向目标键、爪子落到键位、弹出逐键键帽，肩肘髋尾全身联动；三档竖版尺寸、五套皮肤、键盘主题、按轮廓点击穿透、无权限降级；隐藏即释放窗口、输入监听与动画资源
+- **桌面宠物（Mac 本机模块）**：v4 定稿主视觉的透明置顶桌宠——黑猫蹲坐木桌后，桌前白色键盘与白色鼠标，场景无墙面；大绿瞳连续跟随全屏光标、头部随视线轻微转动，打字时弹出印着真实字符的键帽（0.6s 生命周期、最多 4 个）；三档竖版尺寸、按轮廓点击穿透、无权限降级；隐藏即释放窗口、输入监听与动画资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
@@ -120,7 +120,7 @@ open /Applications/MacAppControlDeck.app
    - 「截图与录屏」子菜单：全屏 / 区域 / 窗口 / 滚动截图；快速保存、快速 OCR；录制 MP4 / GIF；截图延时；最近截图；输出到 `~/Pictures/MacAppControlDeck` 与 `~/Movies/MacAppControlDeck`
    - 「UI 草图」子菜单：打开画板（`⌃⌥D`）/ 新建 / 复制当前草图（`⌘⇧C`）/ 保存 PNG 与源文件（`⌘S`）/ 最近草图 / 保存目录
    - 「万年历」子菜单：今日公历、农历、宜忌、节假日倒计时；「打开万年历…」进入独立日历窗口
-   - 「桌面宠物」子菜单：打开/隐藏、暂停互动、点击穿透、三档尺寸、五套皮肤、重置位置与设置页；全局快捷键 `⌃⌥P`
+   - 「桌面宠物」子菜单：打开/隐藏、暂停互动、点击穿透、三档尺寸、重置位置与设置页；全局快捷键 `⌃⌥P`
    - 「配对手机…」生成 6 位配对码并打开设置
    - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
 3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
@@ -206,33 +206,39 @@ open /Applications/MacAppControlDeck.app
 
 ## 桌面宠物
 
-参考视频 1:1 重做的原生桌宠：完整蹲坐的黑猫，臀、后腿、脚掌与长尾全部可见；左侧白色小鼠标、接近满宽的大键盘，20 列 × 4 行高窄键帽与左右橙色键。鼠标移动时左臂和左爪操作鼠标、瞳孔锁定光标；打字时视线先移向目标键，左/右爪落到对应半区，键帽逐键弹入并最多堆叠 6 个；肩、肘、髋、后腿和尾巴随动作联动。窗口无边框、透明、置顶且不抢焦点；只有猫和键鼠轮廓拦截点击，透明留白直接穿透到下层应用。
+参考视频重做、v4 定稿的透明桌宠：黑猫蹲坐在木桌后，桌前是白色键盘与白色鼠标，桌面无杂物、无墙面，窗口无边框、透明、置顶且不抢焦点。整只猫是一套 2x 分层素材（场景 / 头 / 左右眼 / 键帽），Swift Canvas 每帧按状态实时合成，不做整帧序列播放。
 
-<img src="Docs/images/readme/desktop-pet-hero.png" alt="桌面宠物：午夜黑猫中号">
+- **视线跟随**：大绿瞳连续跟随全屏光标——用宠物所在屏幕的 `visibleFrame` 归一化 `NSEvent.mouseLocation`，眼球在 ±10 / ±6pt 范围内做弹簧插值，跨屏、快速移动都不跳变
+- **头部微动**：头绕颈部支点做 ±3° 偏航、±2.2° 俯仰，叠加 1.6pt 呼吸浮动；打字时视线下压 0.22，看向键盘
+- **键帽反馈**：键帽由 `CGEventTap` 的真实按键事件生成，帽面印的是真实字符（字母、数字、符号）而不是装饰图；生命周期 0.6s（0–80ms 升起、80–420ms 悬浮、420–600ms 上浮淡出），最多同时 4 个
+- **尺寸**：小 `230×307` / 中 `288×384` / 大 `374×499`（可视区），以底部中心为锚点缩放，靠近屏幕边缘自动夹回可见区域
+- **交互**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、调尺寸、重置位置；悬停头顶会害羞，长时间无输入会睡觉；只有猫和键鼠轮廓拦截点击，透明留白直接穿透到下层应用
+- **降级**：素材缺失时回退内置矢量皮肤（五套），正常安装走光栅主视觉
+
+<img src="Docs/images/readme/desktop-pet-hero.png" alt="桌面宠物：v4 黑猫蹲坐木桌，白色键鼠">
 
 <table>
 <tr>
-<td width="62%"><img src="Docs/images/readme/desktop-pet-skins.png" alt="桌面宠物：五套皮肤与三档尺寸"></td>
-<td width="38%"><img src="Docs/images/readme/desktop-pet-settings.png" alt="设置：桌面宠物"></td>
+<td width="62%"><img src="Docs/images/readme/desktop-pet-gaze.png" alt="桌面宠物：瞳孔跟随光标左 / 右"></td>
+<td width="38%"><img src="Docs/images/readme/desktop-pet-keycaps.png" alt="桌面宠物：按键弹出真实字符键帽"></td>
 </tr>
 <tr>
-<td align="center"><sub>五套皮肤 × 三档尺寸，窗口、猫、键盘与拦截轮廓同步缩放</sub></td>
-<td align="center"><sub>设置页：实时预览、皮肤、尺寸、键盘主题、行为与权限</sub></td>
+<td align="center"><sub>实机：光标移到屏幕左侧 / 右侧，瞳孔与头部偏转同步跟随</sub></td>
+<td align="center"><sub>实机：按下 ⌘ / ⇧ / ⌥ / ⌃ 时弹出的字符键帽（0.6s 生命周期、最多 4 个）</sub></td>
 </tr>
 </table>
 
 使用方式：
 
 1. **打开**：菜单栏「桌面宠物 → 打开桌宠」，或按 `⌃⌥P`，也可在「设置 → 按钮 → 添加内置操作」中添加「打开桌面宠物」，之后从菜单栏「快捷操作」与手机面板触发
-2. **换肤**：经典白猫、午夜黑猫、橘子虎斑、三花猫、奶油小狗；换肤时保持窗口位置与尺寸，键盘主题可单独切换奶油白 / 深色 / 马卡龙
-3. **调尺寸**：小 `195×270` / 中 `260×360` / 大 `351×486`（可视区，窗口另含 4pt 透明边）；以底部中心为锚点缩放，靠近屏幕边缘时自动夹回可见区域
-4. **互动**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、换肤、调尺寸、重置位置；悬停头顶会害羞（黑猫不画腮红），长时间无输入会睡觉，按任意键唤醒
-5. **自动避让**：全屏应用、屏幕锁定/休眠、Secure Input、低电量与自带录屏期间自动暂停或隐藏；恢复后继续，且不覆盖手动暂停
-6. **隐私与降级**：输入监听只读 `keyCode`，不记录字符、不联网；没有「输入监控」权限时仍能显示、眨眼和跟随鼠标，设置页提供授权入口
+2. **调尺寸**：小 / 中 / 大三档，以底部中心为锚点缩放，多屏时按宠物所在屏幕贴边
+3. **互动**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、调尺寸、重置位置；悬停头顶会害羞，长时间无输入会睡觉，按任意键唤醒
+4. **自动避让**：全屏应用、屏幕锁定/休眠、Secure Input、低电量与自带录屏期间自动暂停或隐藏；恢复后继续，且不覆盖手动暂停
+5. **隐私与降级**：输入监听只读 `keyCode`，不记录字符、不联网；没有「输入监控」权限时仍能显示、眨眼和跟随鼠标，设置页提供授权入口
 
-默认位置在主屏右下角 Dock 上方 24pt；位置按显示器分别保存，隐藏后释放 `PetRuntime` 与 `CGEventTap`。空闲动画 2fps、按键交互 8fps，实测空闲约 1.5% CPU / 25MB，持续打字约 8% CPU。
+默认位置在主屏右下角 Dock 上方 24pt；位置按显示器分别保存，隐藏后释放 `PetRuntime` 与 `CGEventTap`。光栅渲染走 30fps 悬停定时器，静止时降到 1fps 级别的弹簧收敛。
 
-需求记录：[`rebuild-desktop-pet-rig`](openspec/changes/archive/2026-11-21-rebuild-desktop-pet-rig/proposal.md)
+需求记录：[`add-desktop-pet-v4-raster-rig`](openspec/changes/archive/2026-11-21-add-desktop-pet-v4-raster-rig/proposal.md) · 分层资产规格：[Docs/design/desktop-pet-v4-layer-spec.md](Docs/design/desktop-pet-v4-layer-spec.md)
 
 ## 手机端使用
 
@@ -294,11 +300,11 @@ open /Applications/MacAppControlDeck.app
 </tr>
 <tr>
 <td><img src="Docs/images/readme/settings-calendar.png" alt="设置：万年历"></td>
-<td><img src="Docs/images/readme/desktop-pet-settings.png" alt="设置：桌面宠物"></td>
+<td></td>
 </tr>
 <tr>
 <td align="center"><sub>万年历：常驻内存、周一/周日起始、隐私说明</sub></td>
-<td align="center"><sub>桌面宠物：实时预览、五套皮肤、尺寸、键盘主题与权限</sub></td>
+<td></td>
 </tr>
 <tr>
 <td><img src="Docs/images/readme/settings-devices.png" alt="设置：设备配对"></td>
@@ -396,7 +402,7 @@ Sources/MacAppControlDeck/
 │   ├── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
 │   ├── Sketch/                  # UI 草图模块：轻量代理 + 按需 runtime，关闭窗口释放
 │   ├── Calendar/                # 万年历模块：轻量代理 + 按需 runtime，关闭窗口释放
-│   └── Pet/                     # 桌面宠物模块：透明 NSPanel + CGEventTap + 按需 runtime
+│   └── Pet/                     # 桌面宠物模块：透明 NSPanel + 光栅分层渲染 + CGEventTap + 按需 runtime
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
 ├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
 ├── Server/                      # remote 模块：NWListener HTTP 服务、路由
@@ -424,6 +430,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-21 桌面宠物 v4 光栅分层（黑猫蹲坐木桌、白键鼠、全屏视线跟随、头部微动、真实字符键帽）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v4/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v4-raster-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层规格](Docs/design/desktop-pet-v4-layer-spec.md)
 - 2026-11-21 桌面宠物（Bongo Cat 结构、五套皮肤、三档尺寸、按轮廓点击穿透）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md)
 - 2026-11-21 区域截图图标与设置信息架构修复：[Docs 记录](Docs/archive/2026-11-21-settings-ia-and-capture-icon/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-fix-settings-ia-and-capture-icon/proposal.md) · [设置规格](openspec/specs/settings-navigation/spec.md) · [菜单图标规格](openspec/specs/menu-item-icons/spec.md)
 - 2026-11-21 UI 草图懒加载与释放：[Docs 记录](Docs/archive/2026-11-21-sketch-lazy-runtime/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-sketch-lazy-runtime/proposal.md) · [能力规格](openspec/specs/sketch-lazy-runtime/spec.md)

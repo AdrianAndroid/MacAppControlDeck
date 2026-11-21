@@ -93,12 +93,12 @@ enum PetSkinCatalog {
     )
 
     private static let sharedHitRegions: [PetHitRegion] = [
-        PetHitRegion(rect: CGRect(x: 0.30, y: 0.38, width: 0.40, height: 0.44), shape: .ellipse),
-        PetHitRegion(rect: CGRect(x: 0.30, y: 0.12, width: 0.40, height: 0.29), shape: .ellipse),
-        PetHitRegion(rect: CGRect(x: 0.30, y: 0.82, width: 0.40, height: 0.12), shape: .ellipse),
-        PetHitRegion(rect: CGRect(x: 0.00, y: 0.87, width: 0.20, height: 0.12), shape: .roundedRect),
-        PetHitRegion(rect: CGRect(x: 0.03, y: 0.77, width: 0.93, height: 0.22), shape: .roundedRect),
-        PetHitRegion(rect: CGRect(x: 0.78, y: 0.52, width: 0.19, height: 0.28), shape: .ellipse)
+        PetHitRegion(rect: CGRect(x: 0.20, y: 0.46, width: 0.56, height: 0.26), shape: .ellipse),
+        PetHitRegion(rect: CGRect(x: 0.22, y: 0.21, width: 0.48, height: 0.30), shape: .ellipse),
+        PetHitRegion(rect: CGRect(x: 0.24, y: 0.63, width: 0.50, height: 0.12), shape: .ellipse),
+        PetHitRegion(rect: CGRect(x: 0.72, y: 0.72, width: 0.16, height: 0.10), shape: .roundedRect),
+        PetHitRegion(rect: CGRect(x: 0.08, y: 0.66, width: 0.64, height: 0.14), shape: .roundedRect),
+        PetHitRegion(rect: CGRect(x: 0.70, y: 0.50, width: 0.28, height: 0.24), shape: .ellipse)
     ]
 
     static let classicWhite = PetSkin(

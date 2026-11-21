@@ -18,7 +18,7 @@ let package = Package(
             name: "MacAppControlDeck",
             dependencies: ["MacShotKit", .product(name: "LunarSwift", package: "lunar-swift")],
             path: "Sources/MacAppControlDeck",
-            resources: [.copy("Modules/Sketch/Resources/Sketch")]
+            resources: [.copy("Modules/Sketch/Resources/Sketch"), .copy("Modules/Pet/Resources/v4")]
         ),
         .executableTarget(
             name: "KeySender",

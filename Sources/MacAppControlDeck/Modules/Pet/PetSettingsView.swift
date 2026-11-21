@@ -71,16 +71,22 @@ struct PetSettingsView: View {
                 Text("皮肤")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                HStack(spacing: 10) {
-                    ForEach(PetSkinCatalog.all) { skin in
-                        Button {
-                            settings.chooseSkin(skin.id)
-                        } label: {
-                            PetSkinSwatch(skin: skin, selected: settings.skinID == skin.id)
+                if PetRasterAssets.shared != nil {
+                    Text("当前使用 v4 实拍分层素材：黑猫蹲坐、木桌白键盘白鼠标，眼球跟随全屏光标，头部随视线微转。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 10) {
+                        ForEach(PetSkinCatalog.all) { skin in
+                            Button {
+                                settings.chooseSkin(skin.id)
+                            } label: {
+                                PetSkinSwatch(skin: skin, selected: settings.skinID == skin.id)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        Spacer()
                     }
-                    Spacer()
                 }
 
                 Divider()
@@ -97,16 +103,18 @@ struct PetSettingsView: View {
                     .frame(width: 330)
                 }
 
-                HStack {
-                    Text("键盘主题")
-                    Spacer()
-                    Picker("", selection: $settings.keyboardTheme) {
-                        ForEach(PetKeyboardTheme.allCases) { theme in
-                            Text(theme.label).tag(theme)
+                if PetRasterAssets.shared == nil {
+                    HStack {
+                        Text("键盘主题")
+                        Spacer()
+                        Picker("", selection: $settings.keyboardTheme) {
+                            ForEach(PetKeyboardTheme.allCases) { theme in
+                                Text(theme.label).tag(theme)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .frame(width: 260)
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 260)
                 }
 
                 Text("切换尺寸时窗口、猫、键盘和点击拦截区一起缩放，底部中心保持不动。")

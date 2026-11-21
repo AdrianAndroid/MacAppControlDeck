@@ -18,9 +18,9 @@ enum PetSize: String, CaseIterable, Identifiable {
 
     var scale: CGFloat {
         switch self {
-        case .small: return 0.75
+        case .small: return 0.8
         case .medium: return 1.0
-        case .large: return 1.35
+        case .large: return 1.3
         }
     }
 

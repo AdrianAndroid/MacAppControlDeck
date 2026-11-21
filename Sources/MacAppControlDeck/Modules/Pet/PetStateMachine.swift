@@ -5,6 +5,8 @@ import Foundation
 @MainActor
 final class PetStateMachine: ObservableObject {
     @Published private(set) var snapshot = PetSnapshot.idle
+    /// v4 光栅骨架的每帧状态，与 snapshot 同源产出。
+    @Published private(set) var rasterFrame = PetRasterFrame.idle
     @Published var skin: PetSkin
     @Published var keyboardTheme: PetKeyboardTheme
     @Published var size: PetSize
@@ -45,9 +47,13 @@ final class PetStateMachine: ObservableObject {
     private var recentKeys: [(code: UInt16, time: TimeInterval)] = []
     private var keycaps: [KeycapState] = []
     private var nextKeycapID = 0
+    static let keycapLife: TimeInterval = 0.6
+    static let keycapSlots = 4
 
     private var cursorX: CGFloat = 0
     private var cursorY: CGFloat = 0
+    private var gazeCursorX: CGFloat = 0
+    private var gazeCursorY: CGFloat = 0
     private var gazeTargetX: CGFloat = 0
     private var gazeTargetY: CGFloat = 0
 
@@ -64,6 +70,10 @@ final class PetStateMachine: ObservableObject {
     private var bodyImpact = Spring(value: 0)
     private var typingFocusSpring = Spring(value: 0)
     private var tailBoost: CGFloat = 0
+    private var rasterEyeX = Spring(value: 0)
+    private var rasterEyeY = Spring(value: 0)
+    private var rasterHeadYaw = Spring(value: 0)
+    private var rasterHeadPitch = Spring(value: 0)
 
     init(settings: PetSettings,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
@@ -101,7 +111,7 @@ final class PetStateMachine: ObservableObject {
 
     func tick() {
         let timestamp = now()
-        let dt = min(max(timestamp - lastTick, 0), 1.0 / 30.0)
+        let dt = min(max(timestamp - lastTick, 0), 1.0 / 20.0)
         lastTick = timestamp
 
         let hasKeyboardTarget = !activeKeys.isEmpty
@@ -120,13 +130,13 @@ final class PetStateMachine: ObservableObject {
         }
 
         let typingTarget: CGFloat = hasKeyboardTarget || timestamp < typingUntil ? 1 : 0
-        typingFocusSpring.step(to: typingTarget, dt: dt, stiffness: 90, damping: 18)
+        typingFocusSpring.step(to: typingTarget, dt: dt, stiffness: 300, damping: 30)
 
-        eyeXSpring.step(to: gazeTargetX, dt: dt, stiffness: 150, damping: 19)
-        eyeYSpring.step(to: gazeTargetY, dt: dt, stiffness: 150, damping: 19)
+        eyeXSpring.step(to: gazeTargetX, dt: dt, stiffness: 700, damping: 40)
+        eyeYSpring.step(to: gazeTargetY, dt: dt, stiffness: 700, damping: 40)
         headYawSpring.step(
             to: gazeTargetX * 7 + (typingTarget > 0 ? (lastRightKey == nil ? -1.5 : 1.5) : 0),
-            dt: dt, stiffness: 60, damping: 14
+            dt: dt, stiffness: 240, damping: 28
         )
 
         var blink: CGFloat = 0
@@ -145,15 +155,15 @@ final class PetStateMachine: ObservableObject {
 
         let leftTargetPoint = pawTarget(for: .left)
         let rightTargetPoint = pawTarget(for: .right)
-        leftPawXSpring.step(to: leftTargetPoint.x, dt: dt, stiffness: 70, damping: 15)
-        leftPawYSpring.step(to: leftTargetPoint.y, dt: dt, stiffness: 70, damping: 15)
-        rightPawXSpring.step(to: rightTargetPoint.x, dt: dt, stiffness: 70, damping: 15)
-        rightPawYSpring.step(to: rightTargetPoint.y, dt: dt, stiffness: 70, damping: 15)
+        leftPawXSpring.step(to: leftTargetPoint.x, dt: dt, stiffness: 650, damping: 40)
+        leftPawYSpring.step(to: leftTargetPoint.y, dt: dt, stiffness: 650, damping: 40)
+        rightPawXSpring.step(to: rightTargetPoint.x, dt: dt, stiffness: 650, damping: 40)
+        rightPawYSpring.step(to: rightTargetPoint.y, dt: dt, stiffness: 650, damping: 40)
 
-        let mouseTargetX = cursorX * 9
-        let mouseTargetY = cursorY * 4
-        mouseShiftXSpring.step(to: mouseTargetX, dt: dt, stiffness: 50, damping: 16)
-        mouseShiftYSpring.step(to: mouseTargetY, dt: dt, stiffness: 50, damping: 16)
+        let mouseTargetX = cursorX * 4
+        let mouseTargetY = cursorY * 2
+        mouseShiftXSpring.step(to: mouseTargetX, dt: dt, stiffness: 220, damping: 26)
+        mouseShiftYSpring.step(to: mouseTargetY, dt: dt, stiffness: 220, damping: 26)
 
         bodyImpact.step(to: 0, dt: dt, stiffness: 160, damping: 15)
         let leanTarget = min(max(
@@ -162,7 +172,7 @@ final class PetStateMachine: ObservableObject {
                 + (rightPawXSpring.value - PetRigLayout.rightRestPaw.x) * 0.02,
             -5.5
         ), 5.5)
-        bodyLeanSpring.step(to: leanTarget, dt: dt, stiffness: 65, damping: 16)
+        bodyLeanSpring.step(to: leanTarget, dt: dt, stiffness: 220, damping: 28)
 
         let sleeping = sleepingTarget
         let surprised = timestamp < surprisedUntil ? CGFloat(1) : 0
@@ -176,7 +186,7 @@ final class PetStateMachine: ObservableObject {
             PetKeyPress(code: $0.code, label: $0.label, zone: $0.zone, depth: 1)
         }
         let visibleKeycaps = keycaps.compactMap { keycap -> PetKeycap? in
-            let progress = CGFloat((timestamp - keycap.startedAt) / 1.55)
+            let progress = CGFloat((timestamp - keycap.startedAt) / Self.keycapLife)
             guard progress < 1 else { return nil }
             return PetKeycap(
                 id: keycap.id,
@@ -186,7 +196,7 @@ final class PetStateMachine: ObservableObject {
                 isModifier: keycap.isModifier
             )
         }
-        keycaps.removeAll { timestamp - $0.startedAt >= 1.55 }
+        keycaps.removeAll { timestamp - $0.startedAt >= Self.keycapLife }
 
         let zones: Set<PetKeyZone> = Set(pressed.map(\.zone))
         let newSnapshot = PetSnapshot(
@@ -215,6 +225,31 @@ final class PetStateMachine: ObservableObject {
         )
         if newSnapshot != snapshot {
             snapshot = newSnapshot
+        }
+
+        // ---- v4 光栅骨架：全屏视线 + 头部微动 ----
+        let gazeX = gazeCursorX
+        let gazeY = min(gazeCursorY + (typingTarget > 0 ? 0.22 : 0), 1)
+        rasterEyeX.step(to: gazeX * 10, dt: dt, stiffness: 520, damping: 34)
+        rasterEyeY.step(to: gazeY * 6, dt: dt, stiffness: 520, damping: 34)
+        rasterHeadYaw.step(to: gazeX * 3, dt: dt, stiffness: 150, damping: 26)
+        rasterHeadPitch.step(to: (gazeY - 0.1) * 2.2, dt: dt, stiffness: 150, damping: 26)
+        let rasterCaps = keycaps.compactMap { keycap -> PetKeycap? in
+            let progress = CGFloat((timestamp - keycap.startedAt) / Self.keycapLife)
+            guard progress < 1 else { return nil }
+            return PetKeycap(id: keycap.id, label: keycap.label, slot: keycap.slot,
+                             progress: max(progress, 0), isModifier: keycap.isModifier)
+        }
+        let newRaster = PetRasterFrame(
+            eyeX: rasterEyeX.value,
+            eyeY: rasterEyeY.value,
+            headYaw: rasterHeadYaw.value,
+            headPitch: rasterHeadPitch.value,
+            bob: reduceMotion ? 0 : sin(timestamp * 1.35) * 1.6,
+            keycaps: rasterCaps
+        )
+        if newRaster != rasterFrame {
+            rasterFrame = newRaster
         }
         tailBoost *= 0.9
     }
@@ -260,6 +295,13 @@ final class PetStateMachine: ObservableObject {
             lastRightKey = activeKeys.values.filter { $0.zone == PetKeyZone.right || $0.zone == PetKeyZone.center }.last?.code
         }
         tick()
+    }
+
+    /// v4 使用：以宠物所在屏幕的可见区域为参照，归一化全屏光标位置。
+    func handleGaze(normalizedX: CGFloat, normalizedY: CGFloat) {
+        wake()
+        gazeCursorX = min(max(normalizedX, -1), 1)
+        gazeCursorY = min(max(normalizedY, -1), 1)
     }
 
     func handleMouseMoved(normalizedX: CGFloat, normalizedY: CGFloat) {
@@ -317,11 +359,11 @@ final class PetStateMachine: ObservableObject {
     var isSleeping: Bool { snapshot.sleeping > 0 }
 
     private func addKeycap(label: String, isModifier: Bool) {
-        if keycaps.count >= 6 {
+        if keycaps.count >= Self.keycapSlots {
             keycaps.removeFirst()
         }
         let usedSlots = Set(keycaps.map(\.slot))
-        let slot = (0..<6).first(where: { !usedSlots.contains($0) }) ?? 0
+        let slot = (0..<Self.keycapSlots).first(where: { !usedSlots.contains($0) }) ?? 0
         keycaps.append(KeycapState(
             id: nextKeycapID,
             label: label,
@@ -330,7 +372,7 @@ final class PetStateMachine: ObservableObject {
             isModifier: isModifier
         ))
         nextKeycapID += 1
-        while keycaps.count > 6 {
+        while keycaps.count > Self.keycapSlots {
             keycaps.removeFirst()
         }
     }
@@ -353,8 +395,8 @@ final class PetStateMachine: ObservableObject {
         }
         if side == .left {
             return PetPoint(
-                PetRigLayout.mouseCenter.x + cursorX * 9 + 4,
-                PetRigLayout.mouseCenter.y + cursorY * 4 + 4
+                PetRigLayout.mouseCenter.x + cursorX * 4 + 3,
+                PetRigLayout.mouseCenter.y + cursorY * 2 + 4
             )
         }
         return PetRigLayout.rightRestPaw
