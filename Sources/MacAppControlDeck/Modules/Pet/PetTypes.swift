@@ -189,6 +189,9 @@ struct PetKeycap: Equatable, Identifiable {
     let slot: Int
     let progress: CGFloat
     let isModifier: Bool
+    /// 真实键位（用于把键帽落点映射到画出来的键盘上）
+    var row: Int = 0
+    var column: Int = 0
 }
 
 enum PetKeyZone: String, CaseIterable, Hashable {

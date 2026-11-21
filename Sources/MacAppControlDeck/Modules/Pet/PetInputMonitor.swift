@@ -7,6 +7,8 @@ enum PetRawEvent {
     case flagsChanged(UInt16, isDown: Bool)
     case mouseMoved
     case scroll
+    case mouseDown(isRight: Bool)
+    case mouseUp
 }
 
 /// 只读监听。不做键盘内容记录，不写日志。
@@ -84,13 +86,18 @@ final class PetInputMonitor {
             onEvent?(.mouseMoved)
         case .scrollWheel:
             onEvent?(.scroll)
+        case .leftMouseDown, .rightMouseDown:
+            onEvent?(.mouseDown(isRight: type == .rightMouseDown))
+        case .leftMouseUp, .rightMouseUp:
+            onEvent?(.mouseUp)
         default:
             break
         }
     }
 
     private static func eventMask() -> CGEventMask {
-        let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged, .mouseMoved, .scrollWheel]
+        let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged, .mouseMoved, .scrollWheel,
+                                    .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp]
         return types.reduce(CGEventMask(0)) { mask, type in
             mask | (CGEventMask(1) << CGEventMask(type.rawValue))
         }

@@ -33,7 +33,7 @@
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
-- **桌面宠物（Mac 本机模块）**：v4 定稿主视觉的透明置顶桌宠——黑猫蹲坐木桌后，桌前白色键盘与白色鼠标，场景无墙面；大绿瞳连续跟随全屏光标、头部随视线轻微转动，打字时弹出印着真实字符的键帽（0.6s 生命周期、最多 4 个）；三档竖版尺寸、按轮廓点击穿透、无权限降级；隐藏即释放窗口、输入监听与动画资源
+- **桌面宠物（Mac 本机模块）**：v5「Living Rig」的透明置顶桌宠——黑猫蹲坐在白色键盘前，右侧白色鼠标，**没有木桌、没有桌面底板**，只有一层柔和接触阴影；双眼共视（虹膜固定、瞳孔按同一视线向量偏移）、眼睑眨眼与微扫视，尾巴/耳朵/呼吸都有生命感；双爪按真实键位落下，打字时键帽从对应键位升起并印着真实字符（0.6s 生命周期、最多 4 个）；三档竖版尺寸、按轮廓点击穿透、无权限降级；隐藏即释放窗口、输入监听与动画资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
@@ -206,16 +206,18 @@ open /Applications/MacAppControlDeck.app
 
 ## 桌面宠物
 
-参考视频重做、v4 定稿的透明桌宠：黑猫蹲坐在木桌后，桌前是白色键盘与白色鼠标，桌面无杂物、无墙面，窗口无边框、透明、置顶且不抢焦点。整只猫是一套 2x 分层素材（场景 / 头 / 左右眼 / 键帽），Swift Canvas 每帧按状态实时合成，不做整帧序列播放。
+参考视频重做的透明桌宠，v5 定稿成 **Living Rig（活骨架）**：黑猫蹲在白色键盘前、右侧一只白鼠标，**桌子已经整个去掉**，场景里只剩猫、键鼠和一层柔和接触阴影；窗口无边框、透明、置顶且不抢焦点。整只猫是一套 2x 分层素材（阴影 / 键盘 / 鼠标 / 身体 / 颈补片 / 尾巴 / 头 / 双耳 / 双爪 / 虹膜 / 瞳孔 / 键帽，共 18 张），Swift Canvas 每帧按状态实时合成，不做整帧序列播放、不做三帧交叉淡化。
 
-- **视线跟随**：大绿瞳连续跟随全屏光标——用宠物所在屏幕的 `visibleFrame` 归一化 `NSEvent.mouseLocation`，眼球在 ±10 / ±6pt 范围内做弹簧插值，跨屏、快速移动都不跳变
-- **头部微动**：头绕颈部支点做 ±3° 偏航、±2.2° 俯仰，叠加 1.6pt 呼吸浮动；打字时视线下压 0.22，看向键盘
-- **键帽反馈**：键帽由 `CGEventTap` 的真实按键事件生成，帽面印的是真实字符（字母、数字、符号）而不是装饰图；生命周期 0.6s（0–80ms 升起、80–420ms 悬浮、420–600ms 上浮淡出），最多同时 4 个
+- **双眼共视**：不再是「左右眼各动各的」——虹膜像素固定，只有瞳孔按**同一 `GazeVector`** 偏移（上限约眼半径的 45%），两眼视线夹角恒定；眼睑每 4.2s 眨一次（110ms 正弦），平时叠加 1.2–3.5s 一次的 ±0.08 微扫视
+- **头部微动**：头绕颈部支点 (450,962) 做 ±6° 偏航、±3.2° 俯仰；转头时下方的 `neck` 补片顶上，不会露出白缝
+- **落爪姿态**：光标在左半屏 / 右半屏时，对应那只前爪以弹簧方式落下（位移 3px + squash），不做整帧切换；左右键按下时鼠标层轻沉，形成「按鼠标」姿态
+- **键帽从真实键位升起**：键帽由 `CGEventTap` 的真实按键事件生成，按 `PetKeyMap` 的 row/column 映射到键盘上的对应位置升起，帽面印真实字符；生命周期 0.6s（起飞 150ms、悬浮、上浮淡出），最多同时 4 个
+- **生命感**：尾巴绕尾根 `sin(t*1.76)*1.8°` 慢摆、耳朵随机抽动、身体 4.2s 一次呼吸并被头部按 0.6 倍跟随
 - **尺寸**：小 `230×307` / 中 `288×384` / 大 `374×499`（可视区），以底部中心为锚点缩放，靠近屏幕边缘自动夹回可见区域
 - **交互**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、调尺寸、重置位置；悬停头顶会害羞，长时间无输入会睡觉；只有猫和键鼠轮廓拦截点击，透明留白直接穿透到下层应用
 - **降级**：素材缺失时回退内置矢量皮肤（五套），正常安装走光栅主视觉
 
-<img src="Docs/images/readme/desktop-pet-hero.png" alt="桌面宠物：v4 黑猫蹲坐木桌，白色键鼠">
+<img src="Docs/images/readme/desktop-pet-hero.png" alt="桌面宠物 v5：黑猫蹲在白色键盘前，右侧白鼠标，无桌面">
 
 <table>
 <tr>
@@ -223,8 +225,8 @@ open /Applications/MacAppControlDeck.app
 <td width="38%"><img src="Docs/images/readme/desktop-pet-keycaps.png" alt="桌面宠物：按键弹出真实字符键帽"></td>
 </tr>
 <tr>
-<td align="center"><sub>实机：光标移到屏幕左侧 / 右侧，瞳孔与头部偏转同步跟随</sub></td>
-<td align="center"><sub>实机：按下 ⌘ / ⇧ / ⌥ / ⌃ 时弹出的字符键帽（0.6s 生命周期、最多 4 个）</sub></td>
+<td align="center"><sub>实机：光标在左下 / 右上时，两只眼的瞳孔同向偏移、头部同时偏转</sub></td>
+<td align="center"><sub>实机：打字时键帽从对应键位升起，印的是真实字符（rs 截图为 D / R / H / S / C / B）</sub></td>
 </tr>
 </table>
 
@@ -238,7 +240,7 @@ open /Applications/MacAppControlDeck.app
 
 默认位置在主屏右下角 Dock 上方 24pt；位置按显示器分别保存，隐藏后释放 `PetRuntime` 与 `CGEventTap`。光栅渲染走 30fps 悬停定时器，静止时降到 1fps 级别的弹簧收敛。
 
-需求记录：[`add-desktop-pet-v4-raster-rig`](openspec/changes/archive/2026-11-21-add-desktop-pet-v4-raster-rig/proposal.md) · 分层资产规格：[Docs/design/desktop-pet-v4-layer-spec.md](Docs/design/desktop-pet-v4-layer-spec.md)
+需求记录：[`add-desktop-pet-v5-living-rig`](openspec/changes/archive/2026-11-21-add-desktop-pet-v5-living-rig/proposal.md) · 分层资产规格：[Docs/design/desktop-pet-v5-layer-spec.md](Docs/design/desktop-pet-v5-layer-spec.md) · 上一版：[v4](openspec/changes/archive/2026-11-21-add-desktop-pet-v4-raster-rig/proposal.md)
 
 ## 手机端使用
 
@@ -430,6 +432,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-21 桌面宠物 v5「Living Rig」（去桌面、双眼共视 + 眨眼、局部落爪、尾巴/耳/呼吸、键帽从真实键位升起）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v5/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v5-living-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层规格](Docs/design/desktop-pet-v5-layer-spec.md)
 - 2026-11-21 桌面宠物 v4 光栅分层（黑猫蹲坐木桌、白键鼠、全屏视线跟随、头部微动、真实字符键帽）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v4/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v4-raster-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层规格](Docs/design/desktop-pet-v4-layer-spec.md)
 - 2026-11-21 桌面宠物（Bongo Cat 结构、五套皮肤、三档尺寸、按轮廓点击穿透）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md)
 - 2026-11-21 区域截图图标与设置信息架构修复：[Docs 记录](Docs/archive/2026-11-21-settings-ia-and-capture-icon/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-fix-settings-ia-and-capture-icon/proposal.md) · [设置规格](openspec/specs/settings-navigation/spec.md) · [菜单图标规格](openspec/specs/menu-item-icons/spec.md)

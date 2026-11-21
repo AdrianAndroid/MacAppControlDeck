@@ -334,6 +334,11 @@ final class PetRuntime {
         case .scroll:
             state.handleScroll()
             state.tick()
+        case .mouseDown:
+            state.handleClick(isDown: true)
+            state.tick()
+        case .mouseUp:
+            break
         }
     }
 }

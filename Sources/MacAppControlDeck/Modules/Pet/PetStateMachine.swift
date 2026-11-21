@@ -29,6 +29,8 @@ final class PetStateMachine: ObservableObject {
         let slot: Int
         let startedAt: TimeInterval
         let isModifier: Bool
+        let row: Int
+        let column: Int
     }
 
     private let now: () -> TimeInterval
@@ -73,6 +75,10 @@ final class PetStateMachine: ObservableObject {
     private var rasterEyeX = Spring(value: 0)
     private var rasterEyeY = Spring(value: 0)
     private var rasterHeadYaw = Spring(value: 0)
+    private var rasterPawL = Spring(value: 0)
+    private var rasterPawR = Spring(value: 0)
+    private var rasterPawMouse = Spring(value: 0)
+    private var mouseClickUntil: TimeInterval = 0
     private var rasterHeadPitch = Spring(value: 0)
 
     init(settings: PetSettings,
@@ -193,7 +199,9 @@ final class PetStateMachine: ObservableObject {
                 label: keycap.label,
                 slot: keycap.slot,
                 progress: max(progress, 0),
-                isModifier: keycap.isModifier
+                isModifier: keycap.isModifier,
+                row: keycap.row,
+                column: keycap.column
             )
         }
         keycaps.removeAll { timestamp - $0.startedAt >= Self.keycapLife }
@@ -230,23 +238,43 @@ final class PetStateMachine: ObservableObject {
         // ---- v4 光栅骨架：全屏视线 + 头部微动 ----
         let gazeX = gazeCursorX
         let gazeY = min(gazeCursorY + (typingTarget > 0 ? 0.22 : 0), 1)
-        rasterEyeX.step(to: gazeX * 10, dt: dt, stiffness: 520, damping: 34)
-        rasterEyeY.step(to: gazeY * 6, dt: dt, stiffness: 520, damping: 34)
-        rasterHeadYaw.step(to: gazeX * 3, dt: dt, stiffness: 150, damping: 26)
-        rasterHeadPitch.step(to: (gazeY - 0.1) * 2.2, dt: dt, stiffness: 150, damping: 26)
+        rasterEyeX.step(to: (gazeX + (reduceMotion ? 0 : sin(timestamp * 1.73) * 0.05)) * 10, dt: dt, stiffness: 520, damping: 34)
+        rasterEyeY.step(to: (gazeY + (reduceMotion ? 0 : sin(timestamp * 1.21) * 0.05)) * 6, dt: dt, stiffness: 520, damping: 34)
+        // 微扫视：常驻 ±0.08 的细小位移，让共视不至于像贴纸
+        let saccadeX = reduceMotion ? 0 : (sin(timestamp * 1.73) * 0.6 + sin(timestamp * 2.31 + 1.1) * 0.4) * 0.08
+        let saccadeY = reduceMotion ? 0 : (sin(timestamp * 1.21 + 0.7) * 0.6 + sin(timestamp * 2.77 + 2.3) * 0.4) * 0.05
+        rasterHeadYaw.step(to: (gazeX + saccadeX) * 6.0, dt: dt, stiffness: 150, damping: 26)
+        rasterHeadPitch.step(to: (gazeY - 0.35 + saccadeY) * 3.2, dt: dt, stiffness: 150, damping: 26)
         let rasterCaps = keycaps.compactMap { keycap -> PetKeycap? in
             let progress = CGFloat((timestamp - keycap.startedAt) / Self.keycapLife)
             guard progress < 1 else { return nil }
             return PetKeycap(id: keycap.id, label: keycap.label, slot: keycap.slot,
-                             progress: max(progress, 0), isModifier: keycap.isModifier)
+                             progress: max(progress, 0), isModifier: keycap.isModifier,
+                             row: keycap.row, column: keycap.column)
         }
+        // v5：局部爪子 / 眨眼 / 尾耳 / 呼吸
+        let leftDown = zones.contains(.left)
+        let rightDown = zones.contains(.right)
+        let mouseDown = timestamp < mouseClickUntil
+        rasterPawL.step(to: reduceMotion ? 0 : (leftDown ? 1 : 0), dt: dt, stiffness: 420, damping: 30)
+        rasterPawR.step(to: reduceMotion ? 0 : (rightDown ? 1 : 0), dt: dt, stiffness: 420, damping: 30)
+        rasterPawMouse.step(to: reduceMotion ? 0 : (mouseDown ? 1 : 0), dt: dt, stiffness: 380, damping: 28)
+        let blinkCycle = timestamp.truncatingRemainder(dividingBy: 4.2)
+        let v5Blink = blinkCycle < 0.11 ? CGFloat(sin(Double.pi * blinkCycle / 0.11)) : 0
         let newRaster = PetRasterFrame(
             eyeX: rasterEyeX.value,
             eyeY: rasterEyeY.value,
             headYaw: rasterHeadYaw.value,
             headPitch: rasterHeadPitch.value,
             bob: reduceMotion ? 0 : sin(timestamp * 1.35) * 1.6,
-            keycaps: rasterCaps
+            keycaps: rasterCaps,
+            blink: reduceMotion ? 0 : v5Blink,
+            pawL: rasterPawL.value,
+            pawR: rasterPawR.value,
+            pawMouse: rasterPawMouse.value,
+            tailDeg: reduceMotion ? 0 : CGFloat(sin(timestamp * 1.76) * 1.8),
+            earDeg: reduceMotion ? 0 : CGFloat(sin(timestamp * 2.9) > 0.96 ? 5 : 0),
+            breath: reduceMotion ? 0 : CGFloat((sin(timestamp / 4.2 * 2 * Double.pi) + 1) / 2)
         )
         if newRaster != rasterFrame {
             rasterFrame = newRaster
@@ -273,7 +301,7 @@ final class PetStateMachine: ObservableObject {
         if key.zone == .left || key.zone == .center { lastLeftKey = keyCode }
         if key.zone == .right || key.zone == .center { lastRightKey = keyCode }
         bodyImpact.velocity -= 26
-        addKeycap(label: key.label, isModifier: key.isModifier)
+        addKeycap(label: key.label, isModifier: key.isModifier, row: key.row, column: key.column)
 
         recentKeys.removeAll { timestamp - $0.time > 0.3 }
         if !recentKeys.contains(where: { $0.code == keyCode }) {
@@ -313,6 +341,12 @@ final class PetStateMachine: ObservableObject {
             gazeTargetY = cursorY
         }
         tick()
+    }
+
+    /// 真实鼠标点击 → 右爪按鼠标姿态（0.35s 后自动抬起）
+    func handleClick(isDown: Bool) {
+        guard !reduceMotion else { return }
+        if isDown { mouseClickUntil = now() + 0.35 }
     }
 
     func handleMouseDown(part: PetPart) {
@@ -358,7 +392,7 @@ final class PetStateMachine: ObservableObject {
 
     var isSleeping: Bool { snapshot.sleeping > 0 }
 
-    private func addKeycap(label: String, isModifier: Bool) {
+    private func addKeycap(label: String, isModifier: Bool, row: Int = 0, column: Int = 0) {
         if keycaps.count >= Self.keycapSlots {
             keycaps.removeFirst()
         }
@@ -369,7 +403,9 @@ final class PetStateMachine: ObservableObject {
             label: label,
             slot: slot,
             startedAt: now(),
-            isModifier: isModifier
+            isModifier: isModifier,
+            row: row,
+            column: column
         ))
         nextKeycapID += 1
         while keycaps.count > Self.keycapSlots {

@@ -11,6 +11,14 @@ struct PetRasterFrame: Equatable {
     var headPitch: CGFloat = 0
     var bob: CGFloat = 0
     var keycaps: [PetKeycap] = []
+    /// v5：眨眼（0 开 / 1 闭）、两爪下压进度、鼠标下压、尾摆角、耳抽动角、呼吸相位
+    var blink: CGFloat = 0
+    var pawL: CGFloat = 0
+    var pawR: CGFloat = 0
+    var pawMouse: CGFloat = 0
+    var tailDeg: CGFloat = 0
+    var earDeg: CGFloat = 0
+    var breath: CGFloat = 0
 
     static let idle = PetRasterFrame()
 }
@@ -128,6 +136,10 @@ final class PetRasterAssets {
 /// v4 的分层绘制：场景 → 头部（含眼球，整体旋转）→ 键帽。
 enum PetRasterRenderer {
     static func draw(_ frame: PetRasterFrame, in context: inout GraphicsContext, size: CGSize) {
+        if PetV5Assets.shared != nil {
+            PetV5Renderer.draw(frame, in: &context, size: size)
+            return
+        }
         guard let assets = PetRasterAssets.shared, size.width > 0 else { return }
         let manifest = assets.manifest
         let unit = size.width / manifest.designWidth
