@@ -6,8 +6,6 @@ import WebKit
 @MainActor
 final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate,
     SketchBridgeDelegate {
-    static let shared = SketchWindowController()
-
     private var window: NSWindow?
     private var webView: WKWebView?
     private var bridge: SketchBridge?
@@ -19,7 +17,7 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
     private var pendingOpenURL: URL?
 
     private let settings = SketchSettings.shared
-    private let store = SketchStore.shared
+    private let store: SketchStore
     private lazy var boards = SketchBoardStore(directory: settings.boardsDirectory)
 
     private enum PendingAction {
@@ -29,7 +27,13 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
         case new
     }
 
-    private override init() { super.init() }
+    init(store: SketchStore) {
+        self.store = store
+        super.init()
+    }
+
+    /// 用户关闭窗口、落盘完成后回调；SketchModule 根据 resident 决定是否释放 runtime。
+    var onClose: (() -> Void)?
 
     var isOpen: Bool {
         window?.isVisible == true
@@ -37,6 +41,10 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
 
     var isBoardReady: Bool {
         isReady
+    }
+
+    var isWebViewLoaded: Bool {
+        webView != nil
     }
 
     // MARK: - 打开 / 关闭
@@ -612,6 +620,7 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
         Task {
             await flushDraft()
             self.teardownAfterClose()
+            self.onClose?()
         }
         return false
     }

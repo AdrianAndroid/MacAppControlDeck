@@ -40,7 +40,7 @@ enum BuiltinActions {
             case "capture.window": MacShotController.shared.captureWindow()
             case "capture.scroll": MacShotController.shared.scrollCapture()
             case "capture.ocr": MacShotController.shared.quickOCRArea()
-            case "sketch.open": SketchWindowController.shared.show()
+            case "sketch.open": SketchModule.shared.openBoard()
             case "calendar.open": CalendarModule.shared.open()
             default: break
             }

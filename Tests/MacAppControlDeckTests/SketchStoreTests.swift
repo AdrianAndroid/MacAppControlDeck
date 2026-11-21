@@ -6,9 +6,11 @@ import XCTest
 final class SketchStoreTests: XCTestCase {
     private var directory: URL!
     private var previousDirectory: String!
+    private var store: SketchStore!
 
     override func setUpWithError() throws {
         previousDirectory = SketchSettings.shared.saveDirectoryPath
+        store = SketchStore()
         directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("deck-sketch-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -38,7 +40,7 @@ final class SketchStoreTests: XCTestCase {
 
     func testSaveWritesPNGAndExcalidrawSource() throws {
         let scene = #"{"type":"excalidraw","version":2,"elements":[{"id":"a"}]}"#
-        let result = try SketchStore.shared.save(sceneJSON: scene, pngData: try makePNG())
+        let result = try store.save(sceneJSON: scene, pngData: try makePNG())
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: result.pngURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: result.sourceURL.path))
@@ -51,8 +53,8 @@ final class SketchStoreTests: XCTestCase {
 
     func testConsecutiveSavesNeverOverwrite() throws {
         let scene = #"{"type":"excalidraw","version":2,"elements":[{"id":"b"}]}"#
-        let first = try SketchStore.shared.save(sceneJSON: scene, pngData: try makePNG())
-        let second = try SketchStore.shared.save(sceneJSON: scene, pngData: try makePNG())
+        let first = try store.save(sceneJSON: scene, pngData: try makePNG())
+        let second = try store.save(sceneJSON: scene, pngData: try makePNG())
 
         XCTAssertNotEqual(first.pngURL, second.pngURL)
         XCTAssertNotEqual(first.sourceURL, second.sourceURL)
@@ -61,13 +63,13 @@ final class SketchStoreTests: XCTestCase {
     }
 
     func testEmptySceneIsRejected() throws {
-        XCTAssertThrowsError(try SketchStore.shared.save(sceneJSON: "", pngData: try makePNG())) { error in
+        XCTAssertThrowsError(try store.save(sceneJSON: "", pngData: try makePNG())) { error in
             XCTAssertEqual((error as? SketchError), .emptyBoard)
         }
     }
 
     func testInvalidPNGIsRejected() throws {
-        XCTAssertThrowsError(try SketchStore.shared.save(sceneJSON: "{}", pngData: Data("not a png".utf8))) { error in
+        XCTAssertThrowsError(try store.save(sceneJSON: "{}", pngData: Data("not a png".utf8))) { error in
             XCTAssertEqual((error as? SketchError), .invalidImage)
         }
     }

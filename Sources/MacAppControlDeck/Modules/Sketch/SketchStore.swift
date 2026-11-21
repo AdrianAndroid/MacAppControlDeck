@@ -4,13 +4,11 @@ import Foundation
 /// sketch 模块自己的文件存储：草稿、导出、最近列表。数据只写 Sketch 目录和用户选择的导出目录。
 @MainActor
 final class SketchStore {
-    static let shared = SketchStore()
-
     private let fileManager = FileManager.default
     private let settings = SketchSettings.shared
     private let timestampFormatter: DateFormatter
 
-    private init() {
+    init() {
         timestampFormatter = DateFormatter()
         timestampFormatter.locale = Locale(identifier: "en_US_POSIX")
         timestampFormatter.dateFormat = "yyyy-MM-dd-HHmmss"
@@ -134,6 +132,16 @@ final class SketchStore {
 
     func revealLastSaved() {
         openInFinder(settings.lastSavedURL)
+    }
+
+    /// 菜单栏在 runtime 未加载时使用的轻量查询，不创建 SketchRuntime。
+    static func recentSketches(limit: Int = 8) -> [URL] {
+        SketchStore().recentSketches(limit: limit)
+    }
+
+    static func revealLastSaved() {
+        guard let url = SketchSettings.shared.lastSavedURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 }
 

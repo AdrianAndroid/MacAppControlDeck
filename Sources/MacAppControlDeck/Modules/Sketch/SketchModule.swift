@@ -1,25 +1,42 @@
 import AppKit
 import SwiftUI
 
-/// UI 草图模块：Mac 本机使用，离线 Excalidraw 画板，不注册 HTTP、不进入手机面板。
+/// UI 草图模块的轻量代理。窗口、WebView、Store 都由 runtime 持有。
 @MainActor
 final class SketchModule: FeatureModule {
     static let id = "sketch"
     static let shared = SketchModule()
+    static let runtimeDidChange = Notification.Name("SketchModule.runtimeDidChange")
+
+    private var runtime: SketchRuntime?
 
     var id: String { Self.id }
     var title: String { "UI 草图" }
-    var summary: String { "多画布手绘 UI 意图，复制图片或 JSON 直接粘贴给 AI；完全离线，不经过手机。" }
+    var summary: String { "多画布手绘 UI 意图，复制图片或 JSON 直接粘贴给 AI；完全离线，打开画板才加载。" }
     var systemImage: String { "pencil.and.outline" }
     var defaultEnabled: Bool { true }
 
-    private var controller: SketchWindowController { .shared }
-    private var store: SketchStore { .shared }
+    var supportsResidency: Bool { true }
+    var isResident: Bool { SketchSettings.shared.resident }
+    var isRuntimeLoaded: Bool { runtime != nil }
 
-    func start() {}
+    func start() {
+        if isResident {
+            _ = ensureRuntime()
+        }
+    }
 
     func stop() {
-        controller.shutdown()
+        releaseRuntime()
+    }
+
+    func setResident(_ resident: Bool) {
+        SketchSettings.shared.resident = resident
+        if resident {
+            _ = ensureRuntime()
+        } else if let runtime, !runtime.controller.isOpen {
+            releaseRuntime()
+        }
     }
 
     func menuItems() -> [NSMenuItem] {
@@ -69,7 +86,7 @@ final class SketchModule: FeatureModule {
         recent.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: nil)
         recent.identifier = NSUserInterfaceItemIdentifier("sketch.recent")
         let recentMenu = NSMenu(title: "最近草图")
-        let items = store.recentSketches()
+        let items = SketchStore.recentSketches()
         if items.isEmpty {
             let empty = NSMenuItem(title: "暂无草图", action: nil, keyEquivalent: "")
             empty.isEnabled = false
@@ -130,31 +147,58 @@ final class SketchModule: FeatureModule {
     }
 
     @objc func openBoard() {
-        controller.show()
+        ensureRuntime().controller.show()
     }
 
     @objc func newBoard() {
-        controller.newBoard()
+        ensureRuntime().controller.newBoard()
     }
 
     @objc func copyCurrent() {
-        controller.copyCurrentSketch()
+        ensureRuntime().controller.copyCurrentSketch()
     }
 
     @objc func saveCurrent() {
-        controller.saveCurrentSketch()
+        ensureRuntime().controller.saveCurrentSketch()
     }
 
     @objc func openRecentSketch(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
-        controller.openSketch(at: url)
+        ensureRuntime().controller.openSketch(at: url)
     }
 
     @objc func revealLastSaved() {
-        store.revealLastSaved()
+        SketchStore.revealLastSaved()
+    }
+
+    func applyAlwaysOnTop() {
+        runtime?.controller.applyAlwaysOnTop()
     }
 
     @objc func openSettings() {
         MenuBarController.shared.openSettings(tab: .sketch)
+    }
+
+    private func ensureRuntime() -> SketchRuntime {
+        if let runtime {
+            return runtime
+        }
+        let runtime = SketchRuntime()
+        runtime.controller.onClose = { [weak self] in
+            guard let self, !self.isResident else { return }
+            // 等 teardown 回调退出后再释放 controller 自身。
+            DispatchQueue.main.async {
+                self.releaseRuntime()
+            }
+        }
+        self.runtime = runtime
+        NotificationCenter.default.post(name: Self.runtimeDidChange, object: nil)
+        return runtime
+    }
+
+    private func releaseRuntime() {
+        runtime?.controller.shutdown()
+        runtime = nil
+        NotificationCenter.default.post(name: Self.runtimeDidChange, object: nil)
     }
 }

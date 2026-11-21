@@ -4,6 +4,7 @@ import SwiftUI
 struct SketchSettingsView: View {
     @ObservedObject private var settings = SketchSettings.shared
     @ObservedObject private var registry = ModuleRegistry.shared
+    @State private var runtimeLoaded = false
 
     var body: some View {
         ScrollView {
@@ -16,6 +17,10 @@ struct SketchSettingsView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .onAppear { runtimeLoaded = SketchModule.shared.isRuntimeLoaded }
+        .onReceive(NotificationCenter.default.publisher(for: SketchModule.runtimeDidChange)) { _ in
+            runtimeLoaded = SketchModule.shared.isRuntimeLoaded
         }
     }
 
@@ -30,7 +35,7 @@ struct SketchSettingsView: View {
                         .font(.headline)
                     Spacer()
                     Button("打开画板") {
-                        SketchWindowController.shared.show()
+                        SketchModule.shared.openBoard()
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -67,11 +72,11 @@ struct SketchSettingsView: View {
                         settings.resetDirectory()
                     }
                     Button("在 Finder 中显示上次保存") {
-                        SketchStore.shared.revealLastSaved()
+                        SketchStore.revealLastSaved()
                     }
                     Spacer()
                     Button("新建画布…") {
-                        SketchWindowController.shared.newBoard()
+                        SketchModule.shared.newBoard()
                     }
                 }
                 .font(.caption)
@@ -125,15 +130,36 @@ struct SketchSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("窗口置顶", isOn: $settings.alwaysOnTop)
                     .onChange(of: settings.alwaysOnTop) { _, _ in
-                        SketchWindowController.shared.applyAlwaysOnTop()
+                        SketchModule.shared.applyAlwaysOnTop()
                     }
-                Text("画布窗口默认 1100×760，关闭后会释放网页进程；再次打开自动恢复上次画布。")
+                Toggle("常驻内存", isOn: Binding(
+                    get: { settings.resident },
+                    set: { SketchModule.shared.setResident($0) }
+                ))
+                .toggleStyle(.switch)
+
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(runtimeLoaded ? Color.green : Color.secondary.opacity(0.35))
+                        .frame(width: 8, height: 8)
+                    Text(runtimeLoaded ? "当前画板 runtime 已加载" : "当前画板 runtime 未加载")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+
+                Text(settings.resident
+                     ? "关闭窗口后保留轻量控制器与画布索引；网页进程仍然销毁。"
+                     : "关闭窗口后释放窗口、网页进程、画布索引与 Store；再次打开重新加载。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("画布窗口默认 1100×760；再次打开自动恢复上次画布。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding(6)
         } label: {
-            Label("窗口", systemImage: "macwindow")
+            Label("窗口与内存", systemImage: "macwindow")
         }
     }
 

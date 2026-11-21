@@ -33,6 +33,9 @@ final class SketchSettings: ObservableObject {
     @Published var saveDirectoryPath: String {
         didSet { defaults.set(saveDirectoryPath, forKey: "sketch.saveDirectory") }
     }
+    @Published var resident: Bool {
+        didSet { defaults.set(resident, forKey: "sketch.resident") }
+    }
 
     var saveDirectory: URL {
         URL(fileURLWithPath: (saveDirectoryPath as NSString).expandingTildeInPath, isDirectory: true)
@@ -58,6 +61,7 @@ final class SketchSettings: ObservableObject {
         alwaysOnTop = defaults.bool(forKey: "sketch.alwaysOnTop")
         saveDirectoryPath = defaults.string(forKey: "sketch.saveDirectory")
             ?? Self.defaultSaveDirectoryPath.path
+        resident = defaults.object(forKey: "sketch.resident") as? Bool ?? false
     }
 
     func resetDirectory() {
