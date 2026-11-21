@@ -338,6 +338,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-21 README 功能截图与使用路径（需求归档）：[Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md](Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md)
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)
 - 2026-11-19 远程快捷操作（快捷键 / 命令按钮 / 桌面切换）经验总结：[Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md](Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md)
 - 2026-11-19 构建补齐、局域网地址与面板配对修复：[Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md](Docs/archive/2026-11-19-build-network-panel-fixes/SUMMARY.md)
