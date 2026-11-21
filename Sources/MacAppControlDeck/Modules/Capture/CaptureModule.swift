@@ -39,7 +39,7 @@ import SwiftUI
 
         submenu.addItem(item("全屏截图", #selector(captureFullScreen), "camera"))
         submenu.addItem(item("全屏截图（全部显示器拼接）", #selector(captureAllScreens), "display"))
-        submenu.addItem(item("区域截图", #selector(captureArea), "selection"))
+        submenu.addItem(item("区域截图", #selector(captureArea), "rectangle.dashed"))
         submenu.addItem(item("窗口截图", #selector(captureWindow), "rectangle.on.rectangle"))
         submenu.addItem(item("滚动截图（区域）", #selector(scrollCapture), "scroll"))
         submenu.addItem(item("快速保存（区域）", #selector(quickSaveArea), "square.and.arrow.down"))

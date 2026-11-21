@@ -18,7 +18,7 @@ final class DeckState: ObservableObject {
     @Published var inputMonitoringReady = CGPreflightListenEventAccess()
     @Published var missionControlSpaceSwitchEnabled = DeckState.readSpaceSwitchSetting()
     @Published var automationReady = DeckState.readAutomationPermission()
-    /// 从菜单栏跳到设置时指定要显示的标签页（例如「配对手机…」定位到通用）。
+    /// 从菜单栏跳到设置时指定要显示的标签页（例如「配对手机…」定位到电脑控制 → 服务）。
     @Published var requestedSettingsTab: SettingsTab?
 
     let store: ConfigStore

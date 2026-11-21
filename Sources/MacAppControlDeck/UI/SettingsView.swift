@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ServiceManagement
 
@@ -10,6 +11,7 @@ enum SettingsTab: Hashable {
     case calendar
     case buttons
     case devices
+    case remoteService
     case about
 }
 
@@ -28,6 +30,7 @@ struct SettingsView: View {
                     sidebarRow(.modules, "模块", "square.stack.3d.up")
                 }
                 Section("电脑控制") {
+                    sidebarRow(.remoteService, "服务", "network")
                     sidebarRow(.buttons, "按钮", "square.grid.2x2")
                     sidebarRow(.devices, "设备", "iphone")
                 }
@@ -75,6 +78,8 @@ struct SettingsView: View {
             ButtonsSettingsView()
         case .devices:
             DevicesSettingsView()
+        case .remoteService:
+            RemoteServiceSettingsView()
         case .about:
             AboutSettingsView()
         }
@@ -187,17 +192,114 @@ struct ModulesSettingsView: View {
 // MARK: - 通用
 
 struct GeneralSettingsView: View {
-    @ObservedObject private var state = DeckState.shared
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
+
+    private var dataDirectory: URL { ConfigStore.defaultDirectory() }
+    private var logDirectory: URL { dataDirectory.appendingPathComponent("logs") }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                startupCard
+                dataCard
+                Text("这些设置作用于整个应用，不依赖电脑控制、截图或草图模块。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var startupCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("登录时自动启动（菜单栏常驻）", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        updateLoginItem(enabled: newValue)
+                    }
+                if let loginError {
+                    Text(loginError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                Text("需要应用位于 /Applications 下，且使用稳定的代码签名。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("启动", systemImage: "power")
+        }
+    }
+
+    private var dataCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                pathRow("配置与设备记录", url: dataDirectory)
+                pathRow("运行日志", url: logDirectory)
+                Text("按钮、设备与偏好只保存在本机；日志记录本机操作结果，不上传云端。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("数据与日志", systemImage: "folder")
+        }
+    }
+
+    private func pathRow(_ title: String, url: URL) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline)
+                Text(url.path)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            Button("显示") {
+                try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private func updateLoginItem(enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            loginError = nil
+        } catch {
+            loginError = "设置失败：\(error.localizedDescription)"
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+}
+
+// MARK: - 电脑控制 · 服务
+
+struct RemoteServiceSettingsView: View {
+    @ObservedObject private var state = DeckState.shared
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("以下设置只作用于「电脑控制」模块：手机面板、跨桌面切换与设备配对。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
                 serviceCard
                 permissionsCard
                 pairingCard
-                startupCard
                 Text("明文 HTTP 可能被同网段设备嗅探，仅建议在可信网络使用。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -240,7 +342,7 @@ struct GeneralSettingsView: View {
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
-            Text("远程面板").font(.headline)
+            Label("远程面板", systemImage: "network")
         }
     }
 
@@ -283,7 +385,7 @@ struct GeneralSettingsView: View {
                         Text("系统设置 → 桌面与程序坞 → 调度中心：切换到某个应用程序时，会切换到包含该应用程序的打开窗口的空间")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                     }
+                    }
                     Spacer()
                     Button("打开设置") { state.openDesktopDockSettings() }
                         .buttonStyle(.bordered)
@@ -292,7 +394,7 @@ struct GeneralSettingsView: View {
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
-            Text("权限").font(.headline)
+            Label("权限", systemImage: "lock.shield")
         }
     }
 
@@ -353,44 +455,7 @@ struct GeneralSettingsView: View {
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
-            Text("设备配对").font(.headline)
-        }
-    }
-
-    private var startupCard: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 6) {
-                Toggle("登录时自动启动（菜单栏常驻）", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, newValue in
-                        updateLoginItem(enabled: newValue)
-                    }
-                if let loginError {
-                    Text(loginError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                Text("需要应用位于 /Applications 下，且使用稳定的代码签名。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Text("启动").font(.headline)
-        }
-    }
-
-    private func updateLoginItem(enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-            loginError = nil
-        } catch {
-            loginError = "设置失败：\(error.localizedDescription)"
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            Label("设备配对", systemImage: "iphone")
         }
     }
 }
@@ -407,7 +472,7 @@ struct DevicesSettingsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         if state.devices.isEmpty {
-                            Text("暂无已配对设备。在「通用」里生成配对码，用手机面板完成配对。")
+                            Text("暂无已配对设备。在「服务」里生成配对码，用手机面板完成配对。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.vertical, 4)

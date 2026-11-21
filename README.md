@@ -206,7 +206,7 @@ open /Applications/MacAppControlDeck.app
 
 1. 手机与 Mac 连接同一 Wi-Fi
 2. Safari 打开 Mac 端显示的面板地址
-3. 点击 Mac 菜单栏「配对手机…」（或设置 → 通用 → 生成 6 位配对码），在手机输入 → 配对成功，显示按钮列表
+3. 点击 Mac 菜单栏「配对手机…」（或设置 → 电脑控制 → 服务 → 生成 6 位配对码），在手机输入 → 配对成功，显示按钮列表
 4. （可选）Safari 分享 → 添加到主屏幕，之后像 App 一样全屏使用
 
 点击按钮后的状态行会如实显示结果（`已切换到前台` / `已启动并切到前台` / 具体失败原因）。
@@ -233,7 +233,7 @@ open /Applications/MacAppControlDeck.app
 
 ## 设置界面
 
-所有配置集中在「设置…」（`⌘,`）里，左侧按模块分组：
+所有配置集中在「设置…」（`⌘,`）里，左侧按应用、模块与电脑控制分组：
 
 <table>
 <tr>
@@ -241,8 +241,16 @@ open /Applications/MacAppControlDeck.app
 <td width="50%"><img src="Docs/images/readme/settings-menu.png" alt="设置：菜单"></td>
 </tr>
 <tr>
-<td align="center"><sub>通用：面板地址、权限状态、配对码、登录启动</sub></td>
+<td align="center"><sub>通用：登录启动、数据与日志目录</sub></td>
 <td align="center"><sub>菜单：置顶命令、各模块命令显隐与上下排序</sub></td>
+</tr>
+<tr>
+<td><img src="Docs/images/readme/settings-service.png" alt="设置：电脑控制服务"></td>
+<td><img src="Docs/images/readme/settings-capture.png" alt="设置：截图与录屏"></td>
+</tr>
+<tr>
+<td align="center"><sub>服务：远程面板、权限状态、配对码</sub></td>
+<td align="center"><sub>截图与录屏：保存、格式、延时与录制</sub></td>
 </tr>
 <tr>
 <td><img src="Docs/images/readme/settings-modules.png" alt="设置：模块"></td>
@@ -375,6 +383,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-21 区域截图图标与设置信息架构修复：[Docs 记录](Docs/archive/2026-11-21-settings-ia-and-capture-icon/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-fix-settings-ia-and-capture-icon/proposal.md) · [设置规格](openspec/specs/settings-navigation/spec.md) · [菜单图标规格](openspec/specs/menu-item-icons/spec.md)
 - 2026-11-21 UI 草图懒加载与释放：[Docs 记录](Docs/archive/2026-11-21-sketch-lazy-runtime/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-sketch-lazy-runtime/proposal.md) · [能力规格](openspec/specs/sketch-lazy-runtime/spec.md)
 - 2026-11-21 万年历附加模块（菜单入口 + 独立窗口 + 懒加载释放）：[Docs 记录](Docs/archive/2026-11-21-chinese-calendar/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-chinese-calendar/proposal.md) · [能力规格](openspec/specs/calendar-window/spec.md)
 - 2026-11-21 F1 区域截图全局快捷键：[Docs 记录](Docs/archive/2026-11-21-f1-capture-shortcut/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-f1-capture-shortcut/proposal.md) · [能力规格](openspec/specs/capture-overlay-parity/spec.md)

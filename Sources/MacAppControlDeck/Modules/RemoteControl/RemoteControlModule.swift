@@ -108,7 +108,7 @@ final class RemoteControlModule: FeatureModule {
     }
     @objc private func pairPhone() {
         DeckState.shared.generatePairingCode()
-        MenuBarController.shared.openSettings(tab: .general)
+        MenuBarController.shared.openSettings(tab: .remoteService)
     }
     @objc private func restartServer() { DeckState.shared.restart() }
 }
