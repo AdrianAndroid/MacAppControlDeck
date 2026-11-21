@@ -212,6 +212,9 @@ struct CaptureSettingsView: View {
                         NSWorkspace.shared.open(prefs.directoryURL)
                     }
                 }
+                Text("快捷键：F1 直接打开区域截图；⌘⇧X 同样可用。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Text("截图后会打开标注编辑器：矩形、椭圆、直线、箭头、画笔、荧光笔、文字、序号、马赛克、裁剪。")
                     .font(.caption)
                     .foregroundStyle(.secondary)

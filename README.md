@@ -127,7 +127,7 @@ open /Applications/MacAppControlDeck.app
 
 ## 截图、录屏与视频剪辑
 
-截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。
+截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。全局快捷键 **`F1`** 或 `⌘⇧X` 可直接打开区域截图。
 
 <table>
 <tr>
@@ -146,13 +146,15 @@ open /Applications/MacAppControlDeck.app
 
 使用方式：
 
-1. **截图**：菜单栏 → 截图与录屏 → 全屏 / 区域 / 窗口 / 滚动截图；`快速保存（区域）` 直接写文件，`快速 OCR（区域）` 直接识别文字
+1. **截图**：按 `F1` 或 `⌘⇧X` 直接进入区域截图；也可菜单栏 → 截图与录屏 → 全屏 / 区域 / 窗口 / 滚动截图。`快速保存（区域）` 直接写文件，`快速 OCR（区域）` 直接识别文字
 2. **标注**：截图后进入标注编辑器，可加矩形、椭圆、箭头、画笔、文字、序号、马赛克、模糊、聚光灯、测量与裁剪，再复制或保存
 3. **钉图**：编辑器里钉到屏幕，或菜单栏「钉剪贴板内容」，用于对照抄写、比对设计稿
 4. **录屏**：录制屏幕（区域 / 全屏）/ 窗口，可选系统声音与麦克风、鼠标指针、15–120 fps；录制时有顶部 HUD 与边框，可随时停止
 5. **视频剪辑**：录制完成后可多段剪切、0.5–4× 变速、加字幕、调分轨音量，导出 MP4 或 GIF
 
 默认输出：截图到 `~/Pictures/MacAppControlDeck`，录屏到 `~/Movies/MacAppControlDeck`；均可在设置页修改。
+
+> `F1` 是全局快捷键，其他应用在前台也能触发。若 Apple 键盘把 F1 用作亮度调节，请在「系统设置 → 键盘」开启「将 F1、F2 等键用作标准功能键」，或按 `fn + F1`。
 
 ## UI 草图
 
@@ -263,7 +265,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 51 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 52 项，含真实 TCP 服务器与真实应用激活的端到端用例
 ```
 
 ## 已知限制
@@ -293,6 +295,8 @@ swift test     # 51 项，含真实 TCP 服务器与真实应用激活的端到�
 | 辅助功能状态灯一直橙色 | TCC 记录绑定了旧签名：删除该条目，重新添加 `/Applications/MacAppControlDeck.app`，再重启程序 |
 | 已授权屏幕录制却仍提示授权 | ad-hoc 签名每次构建都会变，系统会保留旧条目而 `CGPreflightScreenCaptureAccess` 误报未授权。本版会先用真实窗口抓取探针确认，能抓到画面就不再弹窗；若仍提示，删除系统设置里的旧条目重新添加，或执行 `Build/setup-signing.sh` 固定证书后授权一次 |
 | F1 触发不了 Snipaste 等全局热键应用 | 已知限制：请改用「命令按钮」（应用选 Snipaste、参数 `snip`）。普通应用中 F1 可正常注入 |
+| F1 不打开区域截图 | ①Apple 键盘默认把 F1 当亮度键：开启「将 F1、F2 等键用作标准功能键」或按 `fn + F1`；②F1 被其他程序占用：本程序每 2 秒自动重试，重试期间用 `⌘⇧X` |
+| 手机端 F1 按钮没有发到目标应用 | 已知限制：应用运行期间 Deck 的全局 F1 优先，会打开区域截图。需要向目标应用发送 F1 时，先退出 Deck 或改用命令按钮 |
 | 点击启动台/系统界面后显示"未确认" | 启动台等系统界面不会以常规应用注册进程，属正常；已打开即可用 |
 | 快捷键提示"当前处于安全输入状态" | 密码框/锁屏等安全输入场景会屏蔽按键注入，退出安全输入后重试 |
 | 桌面左/右切换无反应 | 检查「自动化」权限：系统设置 → 隐私与安全性 → 自动化 → 勾选 MacAppControlDeck → System Events；并确认系统键盘快捷键「向左/向右切换桌面」为默认的 ⌃←/⌃→ |
@@ -338,6 +342,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-21 F1 区域截图全局快捷键：[Docs 记录](Docs/archive/2026-11-21-f1-capture-shortcut/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-f1-capture-shortcut/proposal.md) · [能力规格](openspec/specs/capture-overlay-parity/spec.md)
 - 2026-11-21 README 功能截图与使用路径（需求归档）：[Docs 记录](Docs/archive/2026-11-21-readme-screenshots/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-readme-feature-screenshots/proposal.md) · [能力规格](openspec/specs/project-documentation/spec.md)
 - 2026-11-19 MVP 0.1.0：[Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md](Docs/archive/2026-11-19-mvp-0.1.0/SUMMARY.md)
 - 2026-11-19 远程快捷操作（快捷键 / 命令按钮 / 桌面切换）经验总结：[Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md](Docs/archive/2026-11-19-remote-quick-actions/SUMMARY.md)

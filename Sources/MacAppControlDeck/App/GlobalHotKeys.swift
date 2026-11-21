@@ -6,6 +6,17 @@ import MacShotKit
 final class GlobalHotKeys {
     static let shared = GlobalHotKeys()
 
+    struct BindingSpec: Equatable {
+        let id: UInt32
+        let keyCode: UInt32
+        let modifiers: UInt32
+    }
+
+    /// F1 区域截图：沿用 Snipaste 的使用习惯，单独暴露给测试校验键码与修饰键。
+    static let captureAreaF1 = BindingSpec(id: 9,
+                                           keyCode: UInt32(kVK_F1),
+                                           modifiers: 0)
+
     private struct Binding {
         let id: UInt32
         let keyCode: UInt32
@@ -40,6 +51,11 @@ final class GlobalHotKeys {
         let bindings: [Binding] = [
             Binding(id: 1, keyCode: UInt32(kVK_ANSI_X), modifiers: UInt32(cmdKey | shiftKey),
                     action: { MainActor.assumeIsolated { MacShotController.shared.captureArea() } }),
+            // F1：用户从 Snipaste 迁移过来的区域截图肌肉记忆，⌘⇧X 继续保留。
+            Binding(id: Self.captureAreaF1.id,
+                    keyCode: Self.captureAreaF1.keyCode,
+                    modifiers: Self.captureAreaF1.modifiers,
+                    action: { MainActor.assumeIsolated { CaptureModule.shared.captureArea() } }),
             Binding(id: 2, keyCode: UInt32(kVK_ANSI_F), modifiers: UInt32(cmdKey | shiftKey),
                     action: { MainActor.assumeIsolated { MacShotController.shared.captureFullScreen() } }),
             Binding(id: 3, keyCode: UInt32(kVK_ANSI_W), modifiers: UInt32(cmdKey | shiftKey),

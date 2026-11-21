@@ -41,6 +41,13 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(preset("escape").combo.keyCode, 53)
     }
 
+    func test_f1CaptureHotKeySpec() {
+        // F1 沿用 Snipaste 肌肉记忆：无修饰键、keyCode 122、独立热键 id。
+        XCTAssertEqual(GlobalHotKeys.captureAreaF1.keyCode, 122)
+        XCTAssertEqual(GlobalHotKeys.captureAreaF1.modifiers, 0)
+        XCTAssertEqual(GlobalHotKeys.captureAreaF1.id, 9)
+    }
+
     func test_spaceSwitchClassification() {
         let left = ShortcutCombo(modifiers: [.control], keyCode: 123, keyLabel: "←")
         let right = ShortcutCombo(modifiers: [.control], keyCode: 124, keyLabel: "→")
