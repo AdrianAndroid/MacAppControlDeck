@@ -106,6 +106,7 @@ final class PetRuntime {
 
     func shutdown() {
         input.stop()
+        PetLive2DBridge.shared.resetInput()
         clock.stop()
         panel.shutdown()
         settings.visible = false
@@ -291,11 +292,13 @@ final class PetRuntime {
             && !(settings.hideDuringCapture && captureActive)
         guard shouldRun else {
             input.stop()
+            PetLive2DBridge.shared.resetInput()
             return
         }
         permissionGranted = CGPreflightListenEventAccess()
         guard permissionGranted else {
             input.stop()
+            PetLive2DBridge.shared.resetInput()
             return
         }
         guard !input.isRunning else { return }
@@ -306,6 +309,7 @@ final class PetRuntime {
         }
         input.onTapDisabled = { [weak self] in
             MainActor.assumeIsolated {
+                PetLive2DBridge.shared.resetInput()
                 self?.clock.kick()
             }
         }
@@ -314,6 +318,7 @@ final class PetRuntime {
 
     private func handleRawEvent(_ event: PetRawEvent) {
         guard settings.visible, !settings.paused else { return }
+        PetLive2DBridge.shared.handleInput(event)
         clock.kick()
         switch event {
         case .keyDown(let code, let isRepeat):

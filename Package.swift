@@ -20,7 +20,8 @@ let package = Package(
             path: "Sources/MacAppControlDeck",
             resources: [.copy("Modules/Sketch/Resources/Sketch"), .copy("Modules/Pet/Resources/v4"),
                 .copy("Modules/Pet/Resources/v5"),
-            .copy("Modules/Pet/Resources/v6")]
+            .copy("Modules/Pet/Resources/v6"),
+                .copy("Modules/Pet/Resources/live2d")]
         ),
         .executableTarget(
             name: "KeySender",

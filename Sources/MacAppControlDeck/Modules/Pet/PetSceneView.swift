@@ -3,10 +3,13 @@ import SwiftUI
 /// 面板里的唯一根视图。只订阅状态机，不处理鼠标。
 struct PetSceneView: View {
     @ObservedObject var state: PetStateMachine
+    @ObservedObject private var settings = PetSettings.shared
 
     var body: some View {
         Group {
-            if PetRasterAssets.shared != nil {
+            if settings.live2DMode, PetLive2DResources.locate() != nil {
+                PetLive2DArt()
+            } else if PetRasterAssets.shared != nil {
                 PetRasterArt(frame: state.rasterFrame)
             } else {
                 PetVectorArt(
@@ -18,8 +21,14 @@ struct PetSceneView: View {
             }
         }
         .frame(
-            width: PetGeometry.visualSize(for: state.size).width,
-            height: PetGeometry.visualSize(for: state.size).height
+            width: PetGeometry.visualSize(
+                for: state.size,
+                bongoCat: settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)
+            ).width,
+            height: PetGeometry.visualSize(
+                for: state.size,
+                bongoCat: settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)
+            ).height
         )
         .animation(.easeOut(duration: 0.18), value: state.size)
         .allowsHitTesting(false)

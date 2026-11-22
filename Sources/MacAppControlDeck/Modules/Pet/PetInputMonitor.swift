@@ -8,7 +8,7 @@ enum PetRawEvent {
     case mouseMoved
     case scroll
     case mouseDown(isRight: Bool)
-    case mouseUp
+    case mouseUp(isRight: Bool)
 }
 
 /// 只读监听。不做键盘内容记录，不写日志。
@@ -89,7 +89,7 @@ final class PetInputMonitor {
         case .leftMouseDown, .rightMouseDown:
             onEvent?(.mouseDown(isRight: type == .rightMouseDown))
         case .leftMouseUp, .rightMouseUp:
-            onEvent?(.mouseUp)
+            onEvent?(.mouseUp(isRight: type == .rightMouseUp))
         default:
             break
         }

@@ -68,11 +68,12 @@ struct PetSettingsView: View {
     private var appearanceCard: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
+                Toggle("Live2D 骨骼渲染（官方猫模型，真网格变形）", isOn: $settings.live2DMode)
                 Text("皮肤")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                if PetRasterAssets.shared != nil {
-                    Text("当前使用 v4 实拍分层素材：黑猫蹲坐、木桌白键盘白鼠标，眼球跟随全屏光标，头部随视线微转。")
+                if settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel) {
+                    Text("当前使用 BongoCat 官方 standard 模型：鼠标＋键盘，真实按键与鼠标左右键驱动，光标带动视线和爪子。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -96,7 +97,7 @@ struct PetSettingsView: View {
                     Spacer()
                     Picker("", selection: $settings.size) {
                         ForEach(PetSize.allCases) { size in
-                            Text("\(size.label)（\(Int(PetGeometry.windowSize(for: size).width))px）").tag(size)
+                            Text("\(size.label)（\(Int(PetGeometry.windowSize(for: size, bongoCat: settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)).width))px）").tag(size)
                         }
                     }
                     .pickerStyle(.segmented)

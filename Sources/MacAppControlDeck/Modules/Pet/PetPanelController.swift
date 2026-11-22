@@ -29,6 +29,9 @@ final class PetPanelController {
 
     var isOpen: Bool { panel.isVisible }
     var window: NSWindow { panel }
+    private var usesBongoScene: Bool {
+        settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)
+    }
 
     init(settings: PetSettings, state: PetStateMachine) {
         self.settings = settings
@@ -46,7 +49,7 @@ final class PetPanelController {
     }
 
     func show() {
-        if panel.frame.size != PetGeometry.windowSize(for: settings.size) {
+        if panel.frame.size != PetGeometry.windowSize(for: settings.size, bongoCat: usesBongoScene) {
             restoreFrame()
         }
         panel.ignoresMouseEvents = settings.clickThrough
@@ -68,7 +71,7 @@ final class PetPanelController {
     }
 
     func refresh() {
-        if panel.frame.size != PetGeometry.windowSize(for: settings.size) {
+        if panel.frame.size != PetGeometry.windowSize(for: settings.size, bongoCat: usesBongoScene) {
             resize(to: settings.size, animated: true)
         } else {
             updateCollectionBehavior()
@@ -78,11 +81,11 @@ final class PetPanelController {
     }
 
     func resize(to size: PetSize, animated: Bool) {
-        guard size != settings.size || panel.frame.size != PetGeometry.windowSize(for: size) else { return }
+        guard size != settings.size || panel.frame.size != PetGeometry.windowSize(for: size, bongoCat: usesBongoScene) else { return }
         let anchor = CGPoint(x: panel.frame.midX, y: panel.frame.minY)
         let screen = screen(containing: panel.frame)
         let target = PetGeometry.clamp(
-            PetGeometry.frame(anchor: anchor, size: size),
+            PetGeometry.frame(anchor: anchor, size: size, bongoCat: usesBongoScene),
             to: screen.visibleFrame
         )
         if animated {
@@ -101,8 +104,8 @@ final class PetPanelController {
     func resetPosition() {
         let screen = NSScreen.main ?? NSScreen.screens.first
         guard let screen else { return }
-        let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size)
-        let frame = PetGeometry.frame(anchor: anchor, size: settings.size)
+        let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene)
+        let frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene)
         panel.setFrame(frame, display: true)
         settings.savePosition(
             PetGeometry.normalizedPosition(of: frame, in: screen.visibleFrame),
@@ -119,7 +122,8 @@ final class PetPanelController {
         let newFrame = PetGeometry.frame(
             normalizedPosition: normalized,
             in: screen.visibleFrame,
-            size: settings.size
+            size: settings.size,
+            bongoCat: usesBongoScene
         )
         panel.setFrame(newFrame, display: true)
         updateHitCache()
@@ -208,11 +212,12 @@ final class PetPanelController {
             frame = PetGeometry.frame(
                 normalizedPosition: saved,
                 in: screen.visibleFrame,
-                size: settings.size
+                size: settings.size,
+                bongoCat: usesBongoScene
             )
         } else {
-            let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size)
-            frame = PetGeometry.frame(anchor: anchor, size: settings.size)
+            let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene)
+            frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene)
         }
         panel.setFrame(frame, display: false)
         settings.savePosition(
@@ -310,7 +315,9 @@ final class PetPanelController {
     private func updateHitCache() {
         cachedSkinID = state.skin.id
         cachedSize = state.size
-        cachedPath = PetGeometry.hitPath(for: state.skin, in: visualBounds)
+        cachedPath = usesBongoScene
+            ? CGPath(rect: visualBounds, transform: nil)
+            : PetGeometry.hitPath(for: state.skin, in: visualBounds)
     }
 
     private func expandedPath(for path: CGPath) -> CGPath {

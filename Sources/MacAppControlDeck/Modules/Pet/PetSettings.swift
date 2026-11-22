@@ -21,6 +21,9 @@ final class PetSettings: ObservableObject {
         static let allowFullScreen = "pet.allowFullScreen"
         static let hideDuringCapture = "pet.hideDuringCapture"
         static let firstRunDone = "pet.firstRunDone"
+        static let live2d = "pet.live2d"
+        static let live2dModel = "pet.live2d.model"
+        static let live2dTint = "pet.live2d.tint"
         static let positionPrefix = "pet.position."
     }
 
@@ -65,6 +68,19 @@ final class PetSettings: ObservableObject {
     @Published var hideDuringCapture: Bool {
         didSet { defaults.set(hideDuringCapture, forKey: Key.hideDuringCapture) }
     }
+    @Published var live2DMode: Bool {
+        didSet { defaults.set(live2DMode, forKey: Key.live2d) }
+    }
+
+    /// Live2D 皮肤：同一套骨架，只换模型/调色
+    @Published var live2dModel: String {
+        didSet { defaults.set(live2dModel, forKey: Key.live2dModel) }
+    }
+
+    @Published var live2dTint: String {
+        didSet { defaults.set(live2dTint, forKey: Key.live2dTint) }
+    }
+
     @Published var firstRunDone: Bool {
         didSet { defaults.set(firstRunDone, forKey: Key.firstRunDone) }
     }
@@ -86,6 +102,9 @@ final class PetSettings: ObservableObject {
         allowFullScreen = defaults.bool(forKey: Key.allowFullScreen)
         hideDuringCapture = defaults.object(forKey: Key.hideDuringCapture) as? Bool ?? true
         firstRunDone = defaults.bool(forKey: Key.firstRunDone)
+        live2DMode = defaults.object(forKey: Key.live2d) as? Bool ?? (PetLive2DResources.locate() != nil)
+        live2dModel = defaults.string(forKey: Key.live2dModel) ?? "bongocat"
+        live2dTint = defaults.string(forKey: Key.live2dTint) ?? "ffffff"
         if !PetSkinCatalog.all.contains(where: { $0.id == skinID }) {
             skinID = PetSkinCatalog.defaultID
         }
