@@ -55,3 +55,46 @@
 - 需求直接改代码，事后才补 OpenSpec → 不合格。
 - 只建 `proposal.md`，没有能力 delta 就归档 → 不合格。
 - 归档后没有同步 `openspec/specs/` → 不合格。
+
+## R2. 本机固定签名，禁止 ad-hoc 重置系统授权
+
+本机开发和日常安装必须固定使用同一个代码签名身份，避免辅助功能、输入监控、屏幕录制和自动化授权反复失效。
+
+### 唯一固定身份
+
+- 名称：`MacAppControlDeck Self-Signed`
+- SHA-1：`E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`
+- Bundle ID：`com.zhaojian.MacAppControlDeck`
+- 自签名身份不加 hardened runtime；Apple Development 身份才使用 `--options runtime`
+
+### 强制清单
+
+1. 本机构建统一执行 `./Build/build.sh`，禁止手工 `codesign --sign -` 或手工 ad-hoc 重签后再安装。
+2. `Build/build.sh` 和 `Build/package-release.sh` 必须通过 `Build/signing.sh` 的 `deck_sign_app` 签名，不得各自维护一套签名分支。
+3. 签名后必须校验 designated requirement：
+   - 稳定：`identifier "com.zhaojian.MacAppControlDeck" and certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`
+   - 不稳定：只有 `cdhash H"..."`
+4. 证书缺失时必须失败并提示 `./Build/setup-signing.sh`，禁止静默降级为 ad-hoc。
+5. 本机日常使用的 `/Applications/MacAppControlDeck.app` 不得安装 ad-hoc 包；release 包只有显式 `DECK_ALLOW_ADHOC=1` 才允许 ad-hoc，并必须在说明中写明该包会重置 TCC 授权。
+6. 禁止修改 Bundle ID、固定签名证书、自签名签名的 runtime 标志。任何一项变化都会让已有 TCC 授权失配。
+7. 提测前必须执行：
+   - `./Build/verify-signing.sh BuildOutput/MacAppControlDeck.app`
+   - 覆盖安装后再执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`
+8. 系统设置里出现重复条目时，只删除旧条目后重新添加当前 App；不得用 `tccutil reset` 批量清空用户其他权限。
+9. 任何签名、打包或权限流程的变更，必须新建 OpenSpec 变更并在归档时同步 `openspec/specs/stable-code-signing/spec.md`。
+
+### TCC 授权范围
+
+以下授权都按签名身份匹配，不按 Bundle ID 无条件继承：
+
+- 辅助功能：跨桌面激活、Event Tap 等
+- 输入监控：桌宠/快捷键读取物理按键
+- 屏幕录制：截图、录屏
+- 自动化：通过 System Events 切换桌面
+
+### 反例
+
+- 为了省事用 `codesign --sign -` 打本机包 → 不合格。
+- 发布脚本继续固定 ad-hoc，导致每次升级都重新授权 → 不合格。
+- 构建日志没有输出实际签名身份，也没有检查 DR → 不合格。
+- 签名失败后自动退回 ad-hoc 并继续构建 → 不合格。

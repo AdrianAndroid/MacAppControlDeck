@@ -63,13 +63,16 @@
 | Apple Silicon（M 系列） | `MacAppControlDeck-<版本>-arm64.dmg` |
 | Intel | `MacAppControlDeck-<版本>-x86_64.dmg` |
 
-终端执行 `uname -m` 可确认芯片（`arm64` / `x86_64`）。发布包为 ad-hoc 签名、未公证，首次打开需右键「打开」或在「隐私与安全性」中允许。
+终端执行 `uname -m` 可确认芯片（`arm64` / `x86_64`）。发布包未公证，首次打开需右键「打开」或在「隐私与安全性」中允许。本机执行 `package-release.sh` 时默认使用固定自签名身份；只有在没有该证书的机器上显式设置 `DECK_ALLOW_ADHOC=1` 才会生成 ad-hoc 包，而 ad-hoc 包每次重建都会重置系统授权，不建议安装到日常使用的 `/Applications`。
 
 ## 构建与安装
 
+首次在新机器构建时，先创建固定自签名证书；已有该证书则直接跳过：
+
 ```zsh
-./Build/setup-signing.sh   # 可选：创建稳定自签名证书（无 Apple 开发证书时建议执行一次）
-./Build/build.sh           # swift build -c release + 组装 .app + 签名 + 图标
+./Build/setup-signing.sh   # 首次必须执行，创建 MacAppControlDeck Self-Signed
+./Build/build.sh           # swift build -c release + 组装 .app + 固定签名 + 图标
+./Build/verify-signing.sh BuildOutput/MacAppControlDeck.app
 open BuildOutput/MacAppControlDeck.app
 ```
 
@@ -77,6 +80,7 @@ open BuildOutput/MacAppControlDeck.app
 
 ```zsh
 cp -R BuildOutput/MacAppControlDeck.app /Applications/
+./Build/verify-signing.sh /Applications/MacAppControlDeck.app
 open /Applications/MacAppControlDeck.app
 ```
 
@@ -87,7 +91,7 @@ open /Applications/MacAppControlDeck.app
 ./Build/package-release.sh x86_64
 ```
 
-> **为什么需要稳定证书**：辅助功能授权（TCC）按签名绑定。ad-hoc 签名每次重新构建都会变，系统会保留旧授权条目但实际不信任（表现为「开关是开的、授权却不生效」）。用固定证书（Apple Development 或自签名）后，重新构建不再需要重新授权。
+> **固定签名规则**：本机构建与本地发布包默认使用固定身份 `MacAppControlDeck Self-Signed`（SHA-1 `E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`），其 designated requirement 必须包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`。如果签名身份缺失，`build.sh` 会直接失败，不会静默退回 ad-hoc。辅助功能、输入监控、屏幕录制和自动化授权都绑定这个身份，因此重新构建后不需要反复授权；不要把 ad-hoc release 包装到本机日常环境。
 
 运行后：菜单栏出现滑块图标，Dock 也有图标。App 自动在本机局域网 IP 上监听（默认端口 47615，被占用自动 +1），窗口首屏显示面板地址（形如 `http://192.168.x.x:47615/panel/`），可点击复制。
 
@@ -381,15 +385,15 @@ swift test     # 84 项，含真实 TCP 服务器与真实应用激活的端到�
 | Android Chrome 一直转圈/提示无法连接 | 浏览器把 `http://` 强制升级成 HTTPS，而服务只支持明文 HTTP。完整输入 `http://IP:端口/panel/`，关闭 Chrome「始终使用安全连接」（或 `chrome://flags/#https-upgrades` 设为 Disabled），也可改用 Firefox |
 | 配对提示成功但仍停在配对页 | 旧版在「按钮数为 0」时会退回配对页；本版已修复为进入主界面并显示空状态，按提示在 Mac 端添加按钮即可（面板 5 秒自动刷新） |
 | 点击后只切菜单栏、不跳桌面 | ①检查调度中心开关（见上）；②检查辅助功能状态灯是否绿色。手动点 Dock 图标也不跳桌面即为开关问题 |
-| 辅助功能状态灯一直橙色 | TCC 记录绑定了旧签名：删除该条目，重新添加 `/Applications/MacAppControlDeck.app`，再重启程序 |
-| 已授权屏幕录制却仍提示授权 | ad-hoc 签名每次构建都会变，系统会保留旧条目而 `CGPreflightScreenCaptureAccess` 误报未授权。本版会先用真实窗口抓取探针确认，能抓到画面就不再弹窗；若仍提示，删除系统设置里的旧条目重新添加，或执行 `Build/setup-signing.sh` 固定证书后授权一次 |
+| 辅助功能状态灯一直橙色 | 先执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`；若显示 ad-hoc/纯 cdhash，说明装错了 release 包，换回 `./Build/build.sh` 的固定签名包。若签名正常，删除系统设置里的旧条目，重新添加当前 App，再重启程序 |
+| 已授权屏幕录制却仍提示授权 | 先确认当前 App 不是 ad-hoc：`./Build/verify-signing.sh`。固定签名包的 designated requirement 应包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`；若仍是纯 cdhash，重新执行 `./Build/build.sh` 并覆盖安装，再授权一次 |
 | F1 触发不了 Snipaste 等全局热键应用 | 已知限制：请改用「命令按钮」（应用选 Snipaste、参数 `snip`）。普通应用中 F1 可正常注入 |
 | F1 不打开区域截图 | ①Apple 键盘默认把 F1 当亮度键：开启「将 F1、F2 等键用作标准功能键」或按 `fn + F1`；②F1 被其他程序占用：本程序每 2 秒自动重试，重试期间用 `⌘⇧X` |
 | 手机端 F1 按钮没有发到目标应用 | 已知限制：应用运行期间 Deck 的全局 F1 优先，会打开区域截图。需要向目标应用发送 F1 时，先退出 Deck 或改用命令按钮 |
 | 点击启动台/系统界面后显示"未确认" | 启动台等系统界面不会以常规应用注册进程，属正常；已打开即可用 |
 | 快捷键提示"当前处于安全输入状态" | 密码框/锁屏等安全输入场景会屏蔽按键注入，退出安全输入后重试 |
 | 桌面左/右切换无反应 | 检查「自动化」权限：系统设置 → 隐私与安全性 → 自动化 → 勾选 MacAppControlDeck → System Events；并确认系统键盘快捷键「向左/向右切换桌面」为默认的 ⌃←/⌃→ |
-| 重新构建后授权失效 | 确认 `build.sh` 输出了「已使用签名身份：…」而不是「ad-hoc 签名」；必要时执行 `setup-signing.sh` 并在钥匙串中信任该证书 |
+| 重新构建后授权失效 | 执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`。若输出 ad-hoc/纯 cdhash，说明装了 release 的 ad-hoc 包：改用 `./Build/build.sh` 固定签名包并覆盖安装，再授权一次。正常固定签名包的 DR 包含 `certificate root = H"e835..."`，后续重建不需要重新授权 |
 
 运行日志：`~/Library/Application Support/MacAppControlDeck/logs/activation.log`（含每条激活策略的执行结果）。
 
@@ -419,6 +423,8 @@ Web/sketch/                      # UI 草图 Web 包装层源码（Vite + React 
 Build/
 ├── build.sh                     # 构建/签名/打包（含图标），产出到 BuildOutput/
 ├── package-release.sh           # 按 arm64 / x86_64 生成可分发 DMG + ZIP
+├── signing.sh                   # 固定签名身份、签名与 DR 校验
+├── verify-signing.sh            # 检查构建产物/已安装 App 是否仍是稳定签名
 ├── setup-signing.sh             # 一次性创建稳定自签名证书
 ├── make-icon.swift              # 生成 AppIcon.iconset
 └── Info.plist                   # Bundle 元数据（含 Automation 用途说明）
@@ -432,6 +438,8 @@ Docs/archive/                    # 历史归档
 > 模块边界是硬约束：`remote`、`capture`、`sketch`、`calendar` 与 `pet` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
 
 ## 归档
+
+- 2026-11-22 固定代码签名与 TCC 授权（本机构建/发布默认使用 `MacAppControlDeck Self-Signed`，禁止静默 ad-hoc）：[Docs 记录](Docs/archive/2026-11-22-stable-code-signing/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-add-stable-code-signing/proposal.md) · [能力规格](openspec/specs/stable-code-signing/spec.md)
 
 - 2026-11-21 桌面宠物 v5「Living Rig」（去桌面、双眼共视 + 眨眼、局部落爪、尾巴/耳/呼吸、键帽从真实键位升起）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v5/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v5-living-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层规格](Docs/design/desktop-pet-v5-layer-spec.md)
 - 2026-11-21 桌面宠物 v6「Full-Body Rig」（17 层解剖分层 + 统一躯干坐标系、整条前臂跟列落键、键帽弹起 34pt、三张独立干净母版）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v6/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v6-full-body-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层与骨骼规格](Docs/design/desktop-pet-v6-layer-spec.md)

@@ -33,32 +33,7 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
 echo "==> 签名"
-IDENTITY="${DECK_SIGN_IDENTITY:-}"
-if [[ -z "$IDENTITY" ]]; then
-  # 任何有效的本仓库自签名身份都可用于稳定签名（Dev / Self-Signed 均可）。
-  IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(MacAppControlDeck[^"]*\)"/\1/p' | head -1)
-fi
-if [[ -z "$IDENTITY" ]]; then
-  IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Apple Development:.*\)"/\1/p' | head -1)
-fi
-
-if [[ -n "$IDENTITY" ]]; then
-  # 自签名证书不加 hardened runtime：TCC 对该类身份按代码哈希绑定，
-  # runtime 标志变化会导致重建后授权失效；Apple Development 身份保留 runtime。
-  SIGN_FLAGS=(--force)
-  case "$IDENTITY" in
-    "Apple Development"*) SIGN_FLAGS+=(--options runtime) ;;
-  esac
-  codesign "${SIGN_FLAGS[@]}" --sign "$IDENTITY" "$APP/Contents/MacOS/KeySender"
-  codesign "${SIGN_FLAGS[@]}" --sign "$IDENTITY" "$APP"
-  echo "已使用签名身份：$IDENTITY（flags: ${SIGN_FLAGS[*]})"
-else
-  codesign --force --sign - "$APP/Contents/MacOS/KeySender"
-  codesign --force --sign - "$APP"
-  echo "警告：未找到稳定证书，已使用 ad-hoc 签名（重建后需重新授权辅助功能）。建议先执行 ./Build/setup-signing.sh"
-fi
-
-codesign --verify --deep --strict --verbose=2 "$APP"
+source "$ROOT/Build/signing.sh"
+deck_sign_app "$APP"
+deck_print_signature_summary "$APP"
 echo "==> 完成: $APP"

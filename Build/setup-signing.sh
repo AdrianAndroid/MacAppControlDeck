@@ -1,6 +1,6 @@
 #!/bin/zsh
 # 一次性创建稳定自签名证书（TCC 授权按签名绑定，固定证书可让重新构建后授权不失效）。
-# 若本机已有 Apple Development 证书，build.sh 会优先使用它，无需运行本脚本。
+# build.sh 现在固定使用该证书，不再回退 Apple Development 或 ad-hoc。
 set -euo pipefail
 cd "$(dirname "$0")"
 

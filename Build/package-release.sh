@@ -42,10 +42,10 @@ swift "$ROOT/Build/make-icon.swift" "$ICONSET" >/dev/null
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
-echo "==> 签名（未公证，分发用 ad-hoc）"
-codesign --force --sign - "$APP/Contents/MacOS/KeySender"
-codesign --force --sign - "$APP"
-codesign --verify --deep --strict --verbose=2 "$APP"
+echo "==> 签名（默认固定自签名；ad-hoc 需显式 DECK_ALLOW_ADHOC=1）"
+source "$ROOT/Build/signing.sh"
+deck_sign_app "$APP"
+deck_print_signature_summary "$APP"
 
 echo "==> 校验架构"
 ACTUAL=$(lipo -archs "$APP/Contents/MacOS/$APP_NAME")
