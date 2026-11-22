@@ -16,11 +16,11 @@
 
 ## 3. 提交与发布
 
-- [ ] 3.1 只暂存本次发布相关文件并提交
-- [ ] 3.2 创建 annotated tag `v0.3.1`
-- [ ] 3.3 推送 `main` 与 tag
-- [ ] 3.4 在本机 Chrome 创建 GitHub Release，上传 5 个资产
-- [ ] 3.5 GitHub API 核对 tag、Latest、资产名称与大小
+- [x] 3.1 只暂存本次发布相关文件并提交
+- [x] 3.2 创建 annotated tag `v0.3.1`
+- [x] 3.3 推送 `main` 与 tag
+- [x] 3.4 在本机 Chrome 创建 GitHub Release，上传 5 个资产
+- [x] 3.5 GitHub API 核对 tag、Latest、资产名称与大小
 
 ## 4. 归档
 
