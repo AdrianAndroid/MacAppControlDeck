@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-20.5"
+    static let version = "2026-11-22.2"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -17,53 +17,73 @@ enum PanelHTML {
     <title>Mac 应用快捷控制台</title>
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <style>
-      :root { color-scheme: dark; --bg:#0f1220; --card:#1b2036; --line:#2a3152; --fg:#eef1ff; --muted:#8d96c5; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
+      :root {
+        color-scheme: dark;
+        --bg:#0f1220; --card:#1b2036; --line:#2a3152; --fg:#eef1ff; --muted:#8d96c5;
+        --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+        --u: clamp(3.2px, 1vmin, 4.8px);
+        --gap: calc(var(--u) * 2.5);
+        --app-cols: 2;
+        --app-rows: 4;
+        --sc-cols: 4;
+        --sc-rows: 2;
+        --sc-cell: clamp(60px, 9vh, 80px);
+        --icon: clamp(32px, 10.5vmin, 44px);
+        --label: clamp(11px, 3.1vmin, 13px);
+        --radius: calc(var(--u) * 4);
+        --rail-w: 140px;
+      }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      body { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-      .btn, .page, .pages { touch-action: manipulation; }
       html, body { height: 100%; }
       body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--fg);
-             display:flex; flex-direction:column; height:100vh; height:-webkit-fill-available; height:100dvh;
-             padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px); }
-      header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex:0 0 auto; }
-      h1 { font-size:16px; margin:0; font-weight:600; }
-      #status { font-size:12px; padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+             position:fixed; inset:0; overflow:hidden; overscroll-behavior:none;
+             display:flex; flex-direction:column;
+             padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px);
+             touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+      header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0 auto 8px; width:100%; max-width:1280px; flex:0 0 auto; }
+      h1 { font-size:clamp(14px,4.2vmin,17px); margin:0; font-weight:600; }
+      #status { font-size:clamp(11px,3.2vmin,12px); padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
       #status.ok { color:var(--ok); border-color:#1f4d33; }
       #status.err { color:var(--err); border-color:#5c2733; }
       #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 20px);
                background:#262c4c; color:var(--fg); padding:10px 16px; border-radius:12px; font-size:14px; max-width:90vw;
                opacity:0; transition:opacity .25s; pointer-events:none; z-index:20; box-shadow:0 6px 24px rgba(0,0,0,.4); }
       #toast.show { opacity:1; }
-      #main { display:none; flex-direction:column; flex:1 1 auto; min-height:0; gap:6px; overflow:hidden;
-              padding-bottom:var(--quick-h, 0px); }
+      #main { display:none; flex-direction:column; flex:1 1 auto; min-height:0; gap:var(--gap); overflow:hidden;
+              width:100%; max-width:1280px; margin:0 auto; padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 2px); }
       #main.show { display:flex; }
       .zone { display:flex; flex-direction:column; min-height:0; }
       #appsZone { flex:1 1 auto; min-height:0; overflow:hidden; }
-      #shortcutsZone { position:fixed; left:calc(env(safe-area-inset-left, 0px) + 12px); right:calc(env(safe-area-inset-right, 0px) + 12px);
-                       bottom:0; z-index:5; background:var(--bg);
-                       border-top:1px solid var(--line); padding-top:6px;
-                       padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 2px); }
-      .zone-title { font-size:11px; color:var(--muted); margin:2px 0 4px; letter-spacing:.5px; }
-      .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+      #shortcutsZone { flex:0 0 auto; border-top:1px solid var(--line); padding-top:calc(var(--gap) - 2px); }
+      .zone-title { flex:0 0 auto; display:flex; justify-content:space-between; align-items:baseline; gap:6px;
+                    font-size:clamp(10px,2.8vmin,11px); color:var(--muted); margin:0 0 4px; letter-spacing:.5px; }
+      .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none;
+               -webkit-overflow-scrolling:touch; touch-action:pan-x; overscroll-behavior-x:contain; }
       #appsPages { flex:1 1 auto; min-height:0; }
-      #shortcutPages { flex:0 0 auto; overflow-y:visible; }
+      #shortcutPages { flex:0 0 auto; height:calc(var(--sc-rows) * var(--sc-cell) + (var(--sc-rows) - 1) * var(--gap) + 2px); }
       .pages::-webkit-scrollbar { display:none; }
-      .page { flex:0 0 100%; width:100%; height:100%; scroll-snap-align:start; display:grid; gap:10px; padding:2px; align-content:start; }
+      .page { flex:0 0 100%; width:100%; height:100%; scroll-snap-align:start; display:grid; gap:var(--gap);
+              padding:1px; min-height:0; align-content:stretch; }
+      #appsPages .page { grid-template-columns:repeat(var(--app-cols),minmax(0,1fr)); grid-template-rows:repeat(var(--app-rows),minmax(0,1fr)); }
+      #shortcutPages .page { grid-template-columns:repeat(var(--sc-cols),minmax(0,1fr)); grid-template-rows:repeat(var(--sc-rows),minmax(0,1fr)); }
       .dots { display:flex; justify-content:center; gap:6px; padding:4px 0 2px; }
       .dots:empty { display:none; }
       .dots i { width:6px; height:6px; border-radius:50%; background:#3a4270; }
       .dots i.on { background:var(--muted); }
-      .btn { background:var(--card); border:1px solid var(--line); border-radius:16px; min-height:76px; color:var(--fg);
-             display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px 6px; cursor:pointer; position:relative; }
+      .btn { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); min-height:0; color:var(--fg);
+             display:flex; flex-direction:column; align-items:center; justify-content:center; gap:calc(var(--u) * .8);
+             padding:clamp(4px,var(--u),8px) clamp(3px,calc(var(--u) * .8),6px); cursor:pointer; position:relative; overflow:hidden; }
       .btn:active { background:#232a4a; }
-      .btn img { width:44px; height:44px; border-radius:10px; }
-      .btn .fallback { width:44px; height:44px; border-radius:10px; background:#2d3459; display:flex; align-items:center; justify-content:center; font-size:22px; }
-      .btn .symbol { font-size:20px; font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:1px; }
-      .btn .label { font-size:12px; line-height:1.2; text-align:center; color:var(--fg); word-break:break-all; }
-      .btn .state { font-size:10px; color:var(--muted); min-height:12px; }
+      .btn img { width:var(--icon); height:var(--icon); border-radius:calc(var(--u) * 2.5); }
+      .btn .fallback { width:var(--icon); height:var(--icon); border-radius:calc(var(--u) * 2.5); background:#2d3459;
+                       display:flex; align-items:center; justify-content:center; font-size:calc(var(--icon) * .5); }
+      .btn .symbol { font-size:calc(var(--label) * 1.55); font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:1px; line-height:1.1; }
+      .btn .label { font-size:var(--label); line-height:1.15; text-align:center; color:var(--fg); word-break:break-all; }
+      .btn .state { font-size:calc(var(--label) - 2px); color:var(--muted); min-height:calc(var(--label) - 1px); white-space:nowrap; }
       .btn.placeholder { background:transparent; border:1px dashed var(--line); opacity:.35; pointer-events:none; }
       .btn .state.busy { color:var(--warn); } .btn .state.done { color:var(--ok); } .btn .state.fail { color:var(--err); }
-      #pair { display:none; flex-direction:column; gap:12px; padding-top:8vh; }
+      #pair { display:none; flex:1 1 auto; min-height:0; flex-direction:column; gap:12px; padding-top:8vh;
+              overflow-y:auto; -webkit-overflow-scrolling:touch; }
       #pair.show { display:flex; }
       #pair input { font-size:24px; text-align:center; letter-spacing:8px; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
       #pair button, #pair input.dev { font-size:16px; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
@@ -75,7 +95,16 @@ enum PanelHTML {
       .empty span { font-size:12px; opacity:.85; line-height:1.9; }
       @media (orientation: landscape) {
         body { padding-left:calc(env(safe-area-inset-left) + 16px); padding-right:calc(env(safe-area-inset-right) + 16px); }
-        .btn { min-height:66px; }
+        #main { flex-direction:row; }
+        #appsZone { flex:1 1 auto; }
+        #shortcutsZone { flex:0 0 var(--rail-w, 140px); border-top:0; border-left:1px solid var(--line); padding:0 0 0 var(--gap); }
+        #shortcutPages { flex:1 1 auto; height:auto; min-height:0; }
+        #shortcutPages .page { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); }
+        #shortcutPages .btn { width:auto; height:100%; max-width:100%; aspect-ratio:1; justify-self:center; align-self:center; }
+        .zone-title { margin-bottom:3px; }
+      }
+      @media (max-height: 360px) {
+        :root { --u:3px; --gap:5px; --sc-cell:52px; --icon:32px; --label:11px; }
       }
     </style>
     </head>
@@ -144,6 +173,9 @@ enum PanelHTML {
       // 禁用双击缩放/双击选中（iOS Safari 与桌面浏览器行为一致）
       document.addEventListener('dblclick', e => e.preventDefault());
       document.addEventListener('gesturestart', e => e.preventDefault());
+      document.addEventListener('dragstart', e => e.preventDefault());
+      document.addEventListener('contextmenu', e => { if(!e.target.closest('input,textarea')) e.preventDefault(); });
+      document.addEventListener('selectstart', e => { if(!e.target.closest('input,textarea')) e.preventDefault(); });
       let lastTapAt = 0;
       document.addEventListener('touchend', e => {
         const now = Date.now();
@@ -186,10 +218,22 @@ enum PanelHTML {
 
       function chunk(list,n){ const out=[]; for(let i=0;i<list.length;i+=n) out.push(list.slice(i,i+n)); return out; }
 
+      let renderedApps=[], renderedShortcuts=[];
+
+      function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+      function px(v){ const n=parseFloat(v); return Number.isFinite(n)?n:0; }
+      function pageIndex(el){ return el&&el.clientWidth ? Math.round(el.scrollLeft/el.clientWidth) : 0; }
+      function restorePage(el,idx){
+        requestAnimationFrame(()=>{
+          const max=Math.max(0,el.children.length-1);
+          el.scrollLeft=Math.min(idx,max)*el.clientWidth;
+        });
+      }
+
       function render(buttons){
         buttons=buttons||[];
-        const apps=buttons.filter(b=>b.kind==='app'||!b.kind);
-        const shortcuts=buttons.filter(b=>b.kind==='shortcut'||b.kind==='command'||b.kind==='builtin');
+        renderedApps=buttons.filter(b=>b.kind==='app'||!b.kind);
+        renderedShortcuts=buttons.filter(b=>b.kind==='shortcut'||b.kind==='command'||b.kind==='builtin');
         if(!token){ mainEl.classList.remove('show'); pairEl.classList.add('show'); return; }
         // 已配对：始终进入主界面（即使还没有按钮），否则会出现"配对成功却退回配对页"
         mainEl.classList.add('show');
@@ -199,7 +243,6 @@ enum PanelHTML {
           appsPagesEl.innerHTML=''; appsDotsEl.innerHTML='';
           shortcutPagesEl.innerHTML=''; shortcutDotsEl.innerHTML='';
           shortcutsZone.style.display='none';
-          document.documentElement.style.setProperty('--quick-h','0px');
           const tip=document.createElement('div');
           tip.className='empty';
           tip.innerHTML='<b>还没有按钮</b>'+
@@ -207,40 +250,54 @@ enum PanelHTML {
           appsPagesEl.appendChild(tip);
           return;
         }
+        layoutNow();
+      }
 
+      function layoutNow(){
+        if(!token) return;
         const landscape=matchMedia('(orientation: landscape)').matches;
         const appCols=landscape?4:2;
-        const scCols=landscape?6:4;
-        const scRows=3;   // 固定 3 排，不足用空白占位补齐，贴底显示
+        const scCols=landscape?2:4;
+        const scRows=landscape?4:2;
+        const rootStyle=document.documentElement.style;
+        rootStyle.setProperty('--app-cols',String(appCols));
+        rootStyle.setProperty('--sc-cols',String(scCols));
+        rootStyle.setProperty('--sc-rows',String(scRows));
+        shortcutsZone.style.display=renderedShortcuts.length?'flex':'none';
 
-        // 快捷操作区高度固定为行数 × 行高，避免最后一行被截断
-        const scCell=72, scGap=10;
-        shortcutPagesEl.style.height=(scRows*scCell+(scRows-1)*scGap+2)+'px';
-
-        const renderAll=()=>{
-          const h=appsPagesEl.clientHeight;
-          const measured=h>0 ? Math.max(2, Math.min(6, Math.floor((h+10)/102))) : (landscape?3:4);
-          renderZone(appsPagesEl,appsDotsEl,apps,appCols,measured,'app');
-        };
-        renderAll();
-        if(shortcuts.length){
-          shortcutsZone.style.display='flex';
-          renderZone(shortcutPagesEl,shortcutDotsEl,shortcuts,scCols,scRows,'shortcut');
-        } else {
-          shortcutsZone.style.display='none';
+        if(landscape){
+          // 右栏宽度由 4 行方形按钮反推，先给临时宽度让快捷区拿到真实高度
+          const gap0=px(getComputedStyle(mainEl).gap)||8;
+          rootStyle.setProperty('--rail-w','140px');
+          const pagesH=shortcutPagesEl.clientHeight||0;
+          if(pagesH>0){
+            const card=Math.max(52,(pagesH-gap0*(scRows-1))/scRows);
+            const railW=card*scCols+gap0*(scCols+1);
+            rootStyle.setProperty('--rail-w',railW+'px');
+          }
         }
-        const syncFooter=()=>{
-          const h = shortcuts.length ? Math.ceil(shortcutsZone.getBoundingClientRect().height) : 0;
-          document.documentElement.style.setProperty('--quick-h', (h + 6) + 'px');
-          renderAll();
-        };
-        syncFooter();
-        requestAnimationFrame(()=>setTimeout(syncFooter, 60));
-        window.addEventListener('resize', $=>setTimeout(syncFooter, 80));
-        window.addEventListener('orientationchange', ()=>setTimeout(syncFooter, 200));
+
+        const h=appsPagesEl.clientHeight;
+        const gap=px(getComputedStyle(mainEl).gap)||8;
+        const vmin=Math.min(innerWidth,innerHeight);
+        const minH=Math.max(64,Math.min(88,vmin*0.20));
+        const measured=h>0?clamp(Math.floor((h+gap)/(minH+gap)),2,landscape?4:6):(landscape?3:4);
+        rootStyle.setProperty('--app-rows',String(measured));
+
+        const appPage=pageIndex(appsPagesEl);
+        const scPage=pageIndex(shortcutPagesEl);
+        renderZone(appsPagesEl,appsDotsEl,renderedApps,appCols,measured,'app');
+        if(renderedShortcuts.length){
+          renderZone(shortcutPagesEl,shortcutDotsEl,renderedShortcuts,scCols,scRows,'shortcut');
+        } else {
+          shortcutPagesEl.innerHTML=''; shortcutDotsEl.innerHTML='';
+        }
+        restorePage(appsPagesEl,appPage);
+        restorePage(shortcutPagesEl,scPage);
       }
 
       function renderZone(pagesEl,dotsEl,items,cols,rows,kind){
+        const prev=pageIndex(pagesEl);
         pagesEl.innerHTML=''; dotsEl.innerHTML='';
         if(!items.length){ return; }
         const per=cols*rows;
@@ -248,26 +305,30 @@ enum PanelHTML {
         pages.forEach(itemsInPage=>{
           const page=document.createElement('div');
           page.className='page';
-          page.style.gridTemplateColumns='repeat('+cols+',1fr)';
-          page.style.gridAutoRows= kind==='shortcut' ? '72px' : '1fr';
-          page.style.gridTemplateRows = kind==='shortcut' ? '' : ('repeat(' + rows + ', 1fr)');
           itemsInPage.forEach(b=>page.appendChild(makeButton(b,kind)));
-          if (kind==='shortcut') {
-            // 空白占位卡片：补满整页（固定 3 排的视觉）
-            for (let i=itemsInPage.length; i<per; i++) {
-              const ph=document.createElement('div');
-              ph.className='btn placeholder';
-              page.appendChild(ph);
-            }
+          for(let i=itemsInPage.length;i<per;i++){
+            const ph=document.createElement('div');
+            ph.className='btn placeholder';
+            page.appendChild(ph);
           }
           pagesEl.appendChild(page);
         });
         if(pages.length>1){
-          const dots=[...Array(pages.length)].map((_,i)=>{ const d=document.createElement('i'); if(i===0)d.className='on'; dotsEl.appendChild(d); return d; });
+          const dots=[...Array(pages.length)].map((_,i)=>{
+            const d=document.createElement('i');
+            if(i===0)d.className='on';
+            d.style.cursor='pointer';
+            d.addEventListener('click',()=>{
+              pagesEl.scrollTo({left:i*pagesEl.clientWidth,behavior:'smooth'});
+              dots.forEach((x,j)=>x.className=j===i?'on':'');
+            });
+            dotsEl.appendChild(d); return d;
+          });
           pagesEl.onscroll=()=>{ const idx=Math.round(pagesEl.scrollLeft/pagesEl.clientWidth); dots.forEach((d,i)=>d.className=i===idx?'on':''); };
         } else {
           pagesEl.onscroll=null;
         }
+        restorePage(pagesEl,Math.min(prev,pages.length-1));
       }
 
       function makeButton(b,kind){
@@ -359,13 +420,14 @@ enum PanelHTML {
       $('#pairBtn').addEventListener('click',doPair);
       $('#code').addEventListener('keydown',e=>{ if(e.key==='Enter') doPair(); });
 
-      let lastOrientation=matchMedia('(orientation: landscape)').matches;
-      function onResize(){
-        const now=matchMedia('(orientation: landscape)').matches;
-        if(now!==lastOrientation){ lastOrientation=now; const cached=localStorage.getItem('deck_buttons'); if(cached) render(JSON.parse(cached)); }
+      let layoutTimer=0;
+      function scheduleLayout(delay=80){
+        clearTimeout(layoutTimer);
+        layoutTimer=setTimeout(()=>{ layoutNow(); },delay);
       }
-      window.addEventListener('resize',onResize);
-      window.addEventListener('orientationchange',()=>setTimeout(onResize,200));
+      window.addEventListener('resize',()=>scheduleLayout(80));
+      window.addEventListener('orientationchange',()=>scheduleLayout(200));
+      if(window.visualViewport) window.visualViewport.addEventListener('resize',()=>scheduleLayout(120));
 
       document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkPanelVersion(); checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
       setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!anyRunning()) loadButtons(); }); },2000);

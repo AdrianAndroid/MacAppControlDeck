@@ -1,5 +1,7 @@
 # MacAppControlDeck · Mac 应用快捷控制台
 
+当前版本：`0.3.0`（2026-11-22）
+
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
 同时按“功能模块”组织：电脑遥控、截图/录屏、UI 草图、万年历与桌面宠物是彼此独立的模块，各自拥有服务、数据、权限和生命周期。截图/录屏、UI 草图、万年历与桌面宠物在 Mac 本机使用，不经过手机。
@@ -7,17 +9,17 @@
 <table>
 <tr>
 <td width="58%" align="center"><img src="Docs/images/readme/menu.png" width="460" alt="菜单栏下拉菜单"></td>
-<td width="42%" align="center"><img src="Docs/images/readme/phone-panel.png" width="280" alt="手机端控制面板"></td>
+<td width="42%" align="center"><img src="Docs/images/readme/phone-panel-adaptive-portrait.png" width="280" alt="手机端控制面板"></td>
 </tr>
 <tr>
 <td align="center"><sub>Mac 菜单栏：应用、快捷操作、截图录屏、UI 草图、设置</sub></td>
-<td align="center"><sub>手机端：已配对后的应用与快捷操作面板</sub></td>
+<td align="center"><sub>手机端：竖屏应用 2 列 + 底部快捷 4×2；横屏自动切右侧 2×4 方形快捷栏</sub></td>
 </tr>
 </table>
 
 > 下文截图全部来自本机实际运行，覆盖菜单栏、设置页、截图/录屏、UI 草图、万年历、桌面宠物与手机面板。
 
-需求与设计见 `openspec/`（OpenSpec 管理，变更 `add-core-control-loop`）。
+需求与设计见 `openspec/`；手机面板布局的最近一次变更见 `openspec/changes/archive/2026-11-22-adaptive-remote-panel-layout/`。
 
 ---
 
@@ -33,10 +35,10 @@
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
-- **桌面宠物（Mac 本机模块）**：v6「Full-Body Rig」的透明置顶桌宠——黑猫蹲坐在白色键盘前，右侧白色鼠标，**没有木桌、没有桌面底板**，只有一层柔和接触阴影；17 层解剖分层 + 统一躯干坐标系（躯干一动，头、双耳、双臂、两段尾巴全跟着动）；虹膜 + 瞳孔双层共视、头部 ±8° 偏航与 ±4° 俯仰；按键时该侧整条前臂绕肩旋转、下压并跟到该键列，键帽从真实键位弹起约 34pt；三档竖版尺寸、按轮廓点击穿透、无权限降级；隐藏即释放窗口、输入监听与动画资源
+- **桌面宠物（Mac 本机模块）**：BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
-- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；明文局域网 HTTP
+- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「应用 4 列 + 右侧 2×4 正方形快捷栏」；锁定视口，只保留横向翻页/页点，旋转保持当前页；明文局域网 HTTP
 
 ## 开发规则
 
@@ -60,8 +62,10 @@
 
 | 芯片 | 资产 |
 | --- | --- |
-| Apple Silicon（M 系列） | `MacAppControlDeck-<版本>-arm64.dmg` |
-| Intel | `MacAppControlDeck-<版本>-x86_64.dmg` |
+| Apple Silicon（M 系列） | `MacAppControlDeck-0.3.0-arm64.dmg` |
+| Intel | `MacAppControlDeck-0.3.0-x86_64.dmg` |
+
+每个 Release 同时提供 ZIP、DMG 与 `SHA256SUMS.txt`；下载后可用 `shasum -a 256 -c SHA256SUMS.txt` 校验。
 
 终端执行 `uname -m` 可确认芯片（`arm64` / `x86_64`）。发布包未公证，首次打开需右键「打开」或在「隐私与安全性」中允许。本机执行 `package-release.sh` 时默认使用固定自签名身份；只有在没有该证书的机器上显式设置 `DECK_ALLOW_ADHOC=1` 才会生成 ad-hoc 包，而 ad-hoc 包每次重建都会重置系统授权，不建议安装到日常使用的 `/Applications`。
 
@@ -210,42 +214,22 @@ open /Applications/MacAppControlDeck.app
 
 ## 桌面宠物
 
-参考视频重做的透明桌宠，v6 定稿成 **Full-Body Rig（全身骨骼）**：黑猫蹲在白色键盘前、右侧一只白鼠标，**桌子已经整个去掉**，场景里只剩猫、键鼠和一层柔和接触阴影；窗口无边框、透明、置顶且不抢焦点。整只猫由 **17 层解剖素材**（阴影 / 键盘 / 键帽 / 尾巴两段 / 鼠标 / 躯干 / 双臂 / 颈补片 / 头 / 双耳 / 虹膜×2 / 瞳孔×2）组成，运行时挂在一个**统一的躯干坐标系**下：躯干一转，头、耳、双臂、两段尾巴全部跟着走，不再是各层各动。
+默认桌宠是 BongoCat **standard** 的透明键鼠场景：白猫趴在圆角鼠标垫与完整键盘前，**没有白桌托板、没有第二条桌线**，透明区域直接透出壁纸。窗口无边框、置顶且不抢焦点，按轮廓点击穿透。
 
-- **整体联动**：躯干为根 → 尾巴两段 → 双臂 → 颈 → 头 → 双耳 → 眼；呼吸让躯干升降、光标让躯干倾斜，整只猫的身体语言是同一个
-- **双眼共视、明显可辨**：虹膜固定在眼窝内按半径比例偏移（≤ r×0.34），瞳孔在虹膜上再追一段（≤ r×0.62）；再叠加头部 ±8° 偏航 / ±4° 俯仰。光标从左下划到右上时，瞳、头、身三层同向，正常距离下明显看得出眼睛在跟
-- **整条前臂落键**：按 `CGEventTap` 的真实按键，该侧整条手臂绕肩轴旋转、下压 26pt、并横向跟到该键所在列（±32 设计 pt 内，0.6s 回落），不再只是「爪在原地抖」
-- **键帽从真实键位弹起**：按 `PetKeyMap` 的 row/column 映射到键盘网格，帽面印真实字符，0.8s 生命周期（0.18 快弹 → 0.62 悬停 → 回落淡出），升起 85 设计 pt（屏上约 34pt），最多同时 4 个，带光带投影与轻微歪斜
-- **生命感**：尾巴段1 `sin(t*1.36)*5.2°`、段2 滞后 0.18s 摆 `±7.4°`，耳朵随机抽动，4.2s 一次眨眼，按键时尾巴加速度摆动
-- **干净素材**：猫 / 键盘 / 鼠标是**三张独立母版**（键盘、鼠标由模型直接出透明底，猫由参考图重绘后抠纯白底），键盘底边无褐屑、鼠标滚轮缝清晰、轮廓无锯齿
-- **尺寸**：小 `230×307` / 中 `288×384` / 大 `374×499`（可视区），以底部中心为锚点缩放，靠近屏幕边缘自动夹回可见区域
-- **交互**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、调尺寸、重置位置；悬停头顶会害羞，长时间无输入会睡觉；只有猫和键鼠轮廓拦截点击，透明留白直接穿透到下层应用
-- **降级**：素材缺失时按 v6 → v5 → v4 → 内置矢量皮肤逐级回退，正常安装走 v6 主视觉
+<img src="Docs/images/readme/desktop-pet-bongocat.png" alt="桌面宠物：BongoCat standard 透明键鼠场景">
 
-<img src="Docs/images/readme/desktop-pet-hero.png" alt="桌面宠物 v6：黑猫蹲在白色键盘前，右侧白鼠标，无桌面">
+- **官方模型**：使用 BongoCat standard Live2D 模型、53 个键位图、表情与动作，统一 612×354 画布，窗口 612:372
+- **真实输入**：左爪响应键盘按下/松开与组合键 overlay，右爪响应鼠标左右键；数字小键盘复用主键区素材
+- **视线跟随**：光标按屏幕归一化，左上 / 右下对应模型视口方向，按帧阻尼过渡，跨屏直接切换
+- **透明背景**：`background.clean.png` 由官方背景派生，只保留鼠标垫与完整键盘，去掉白桌、方形边缘和斜线
+- **尺寸与生命周期**：小 / 中 / 大三档，以底部中心为锚点缩放；隐藏即释放窗口、输入监听与动画资源
+- **自动避让**：全屏应用、屏幕锁定/休眠、Secure Input、低电量与自带录屏期间自动暂停或隐藏，恢复后继续
+- **隐私与降级**：输入监听只读物理按键状态，不记录字符、不联网；没有「输入监控」权限时仍能显示和跟随鼠标
+- **入口**：菜单栏「桌面宠物 → 打开桌宠」、`⌃⌥P`，或「设置 → 按钮 → 添加内置操作」添加「打开桌面宠物」后从菜单栏快捷操作与手机面板触发
 
-<table>
-<tr>
-<td width="62%"><img src="Docs/images/readme/desktop-pet-gaze.png" alt="桌面宠物：瞳孔跟随光标左 / 右"></td>
-<td width="38%"><img src="Docs/images/readme/desktop-pet-keycaps.png" alt="桌面宠物：按键弹出真实字符键帽"></td>
-</tr>
-<tr>
-<td align="center"><sub>实机：光标在左下 / 右上时，虹膜 + 瞳孔同向偏移、头部偏转、躯干同时倾斜</sub></td>
-<td align="center"><sub>实机：打字时键帽从对应键位弹起约 34pt，印真实字符，猫的前臂同时向该列靠拢</sub></td>
-</tr>
-</table>
+已知限制：官方键位高亮坐标尚未按新键盘透视逐键重映射，按住字母键时蓝色高亮/猫爪落点可能与画面键帽位置有偏差；模型、键位图与背景来自 BongoCat 上游，按 Apache-2.0 随包保留许可证与来源说明，详见 `THIRD_PARTY_NOTICES.md`。
 
-使用方式：
-
-1. **打开**：菜单栏「桌面宠物 → 打开桌宠」，或按 `⌃⌥P`，也可在「设置 → 按钮 → 添加内置操作」中添加「打开桌面宠物」，之后从菜单栏「快捷操作」与手机面板触发
-2. **调尺寸**：小 / 中 / 大三档，以底部中心为锚点缩放，多屏时按宠物所在屏幕贴边
-3. **互动**：拖拽身体移动；右键菜单可暂停、锁定、点击穿透、调尺寸、重置位置；悬停头顶会害羞，长时间无输入会睡觉，按任意键唤醒
-4. **自动避让**：全屏应用、屏幕锁定/休眠、Secure Input、低电量与自带录屏期间自动暂停或隐藏；恢复后继续，且不覆盖手动暂停
-5. **隐私与降级**：输入监听只读 `keyCode`，不记录字符、不联网；没有「输入监控」权限时仍能显示、眨眼和跟随鼠标，设置页提供授权入口
-
-默认位置在主屏右下角 Dock 上方 24pt；位置按显示器分别保存，隐藏后释放 `PetRuntime` 与 `CGEventTap`。光栅渲染走 30fps 悬停定时器，静止时降到 1fps 级别的弹簧收敛。
-
-需求记录：[`add-desktop-pet-v6-full-body-rig`](openspec/changes/archive/2026-11-21-add-desktop-pet-v6-full-body-rig/proposal.md) · 分层与骨骼规格：[Docs/design/desktop-pet-v6-layer-spec.md](Docs/design/desktop-pet-v6-layer-spec.md) · 上一版：[v5](openspec/changes/archive/2026-11-21-add-desktop-pet-v5-living-rig/proposal.md) · [v4](openspec/changes/archive/2026-11-21-add-desktop-pet-v4-raster-rig/proposal.md)
+需求记录：[`adopt-bongocat-live2d-model`](openspec/changes/archive/2026-11-22-adopt-bongocat-live2d-model/proposal.md) · [`remove-pet-white-desktop`](openspec/changes/archive/2026-11-22-remove-pet-white-desktop/proposal.md) · [能力规格](openspec/specs/pet-live2d-bongocat/spec.md)
 
 ## 手机端使用
 
@@ -256,16 +240,25 @@ open /Applications/MacAppControlDeck.app
 
 点击按钮后的状态行会如实显示结果（`已切换到前台` / `已启动并切到前台` / 具体失败原因）。
 
+面板会按手机方向自动换布局，整页锁定在视口内，只保留横向翻页：
+
+- **竖屏**：应用按钮 **2 列**，按数量动态增加行；底部快捷操作 **4×2**
+- **横屏**：应用按钮 **4 列**，右侧快捷栏 **2×4 个正方形按钮**，栏宽由行高反推
+- **翻页与旋转**：应用页、快捷页各自横向 scroll-snap；底部页点可直接跳到对应页；旋转屏幕后保持当前页索引
+- **边界**：0 / 1 / 7 / 8 / 12 个快捷操作分别验证隐藏、占位与分页；320×568 到 1440×900 均无页面纵向/横向溢出
+
 <table>
 <tr>
 <td width="50%" align="center"><img src="Docs/images/readme/phone-pairing.png" width="300" alt="手机端首次配对"></td>
-<td width="50%" align="center"><img src="Docs/images/readme/phone-panel.png" width="300" alt="手机端已配对面板"></td>
+<td width="50%" align="center"><img src="Docs/images/readme/phone-panel-adaptive-portrait.png" width="300" alt="手机端竖屏面板"></td>
 </tr>
 <tr>
 <td align="center"><sub>首次打开：输入 Mac 端生成的 6 位配对码</sub></td>
-<td align="center"><sub>配对后：应用按钮 + 快捷操作，可直接添加到主屏幕</sub></td>
+<td align="center"><sub>竖屏：应用 2 列 + 底部快捷 4×2</sub></td>
 </tr>
 </table>
+
+<p align="center"><img src="Docs/images/readme/phone-panel-adaptive-landscape.png" width="620" alt="手机端横屏面板"><br><sub>横屏：应用 4 列 + 右侧 2×4 正方形快捷按钮（844×390 实际面板）</sub></p>
 
 ## 添加 / 管理按钮（Mac 端）
 
@@ -358,7 +351,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 84 项，含真实 TCP 服务器与真实应用激活的端到端用例
+swift test     # 111 项，含真实 TCP 服务器与真实应用激活的端到端用例（当前 109 通过，2 个桌宠窗口尺寸断言受本机屏幕影响）
 ```
 
 ## 已知限制
@@ -370,6 +363,8 @@ swift test     # 84 项，含真实 TCP 服务器与真实应用激活的端到�
 - Mac IP 变化后需重新扫码打开新地址（可能需重新配对）
 - Mac 休眠/锁屏/退出后不可用，手机会显示「Mac 未连接」（属设计行为）
 - 滚动截图是自动向下滚动 + 重叠拼接；如果选区包含固定侧栏/固定工具栏，长图里会重复出现这些固定区域，建议只框选可滚动内容
+- 手机面板只支持横向翻页，不做纵向滚动；横屏右栏按 4 行方形按钮计算宽度，极窄横屏（例如 480×320）会优先保证按钮为正方形并减少可见行数
+- BongoCat 键位高亮尚未逐键重映射到新键盘透视；按住字母键时蓝色高亮/猫爪落点可能偏离画面键帽
 - 上传（Google Drive / imgbb / S3）、翻译、Sparkle 自动更新、账号体系不移植；详细对照见 [Docs/architecture/MACSHOT_PORT.md](Docs/architecture/MACSHOT_PORT.md)
 
 ## 故障排查
@@ -385,7 +380,7 @@ swift test     # 84 项，含真实 TCP 服务器与真实应用激活的端到�
 | Android Chrome 一直转圈/提示无法连接 | 浏览器把 `http://` 强制升级成 HTTPS，而服务只支持明文 HTTP。完整输入 `http://IP:端口/panel/`，关闭 Chrome「始终使用安全连接」（或 `chrome://flags/#https-upgrades` 设为 Disabled），也可改用 Firefox |
 | 配对提示成功但仍停在配对页 | 旧版在「按钮数为 0」时会退回配对页；本版已修复为进入主界面并显示空状态，按提示在 Mac 端添加按钮即可（面板 5 秒自动刷新） |
 | 点击后只切菜单栏、不跳桌面 | ①检查调度中心开关（见上）；②检查辅助功能状态灯是否绿色。手动点 Dock 图标也不跳桌面即为开关问题 |
-| 辅助功能状态灯一直橙色 | 先执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`；若显示 ad-hoc/纯 cdhash，说明装错了 release 包，换回 `./Build/build.sh` 的固定签名包。若签名正常，删除系统设置里的旧条目，重新添加当前 App，再重启程序 |
+| 辅助功能状态灯一直橙色 | 先执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`；若显示 ad-hoc/纯 cdhash，说明装错了包（多为 v0.2.0 及更早的 ad-hoc release）；换回 v0.3.0+ 的固定签名包 `./Build/build.sh`。若签名正常，删除系统设置里的旧条目，重新添加当前 App，再重启程序 |
 | 已授权屏幕录制却仍提示授权 | 先确认当前 App 不是 ad-hoc：`./Build/verify-signing.sh`。固定签名包的 designated requirement 应包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`；若仍是纯 cdhash，重新执行 `./Build/build.sh` 并覆盖安装，再授权一次 |
 | F1 触发不了 Snipaste 等全局热键应用 | 已知限制：请改用「命令按钮」（应用选 Snipaste、参数 `snip`）。普通应用中 F1 可正常注入 |
 | F1 不打开区域截图 | ①Apple 键盘默认把 F1 当亮度键：开启「将 F1、F2 等键用作标准功能键」或按 `fn + F1`；②F1 被其他程序占用：本程序每 2 秒自动重试，重试期间用 `⌘⇧X` |
@@ -393,7 +388,7 @@ swift test     # 84 项，含真实 TCP 服务器与真实应用激活的端到�
 | 点击启动台/系统界面后显示"未确认" | 启动台等系统界面不会以常规应用注册进程，属正常；已打开即可用 |
 | 快捷键提示"当前处于安全输入状态" | 密码框/锁屏等安全输入场景会屏蔽按键注入，退出安全输入后重试 |
 | 桌面左/右切换无反应 | 检查「自动化」权限：系统设置 → 隐私与安全性 → 自动化 → 勾选 MacAppControlDeck → System Events；并确认系统键盘快捷键「向左/向右切换桌面」为默认的 ⌃←/⌃→ |
-| 重新构建后授权失效 | 执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`。若输出 ad-hoc/纯 cdhash，说明装了 release 的 ad-hoc 包：改用 `./Build/build.sh` 固定签名包并覆盖安装，再授权一次。正常固定签名包的 DR 包含 `certificate root = H"e835..."`，后续重建不需要重新授权 |
+| 重新构建后授权失效 | 执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`。若输出 ad-hoc/纯 cdhash，说明装的是旧版 ad-hoc release：改用 v0.3.0+ 的固定签名包并覆盖安装，再授权一次。正常固定签名包的 DR 包含 `certificate root = H"e835..."`，后续重建不需要重新授权 |
 
 运行日志：`~/Library/Application Support/MacAppControlDeck/logs/activation.log`（含每条激活策略的执行结果）。
 
@@ -409,7 +404,7 @@ Sources/MacAppControlDeck/
 │   ├── Capture/                 # 截图与录屏模块：Mac 本机使用，不接 HTTP
 │   ├── Sketch/                  # UI 草图模块：轻量代理 + 按需 runtime，关闭窗口释放
 │   ├── Calendar/                # 万年历模块：轻量代理 + 按需 runtime，关闭窗口释放
-│   └── Pet/                     # 桌面宠物模块：透明 NSPanel + v6 全身骨骼光栅渲染 + CGEventTap + 按需 runtime
+│   └── Pet/                     # 桌面宠物模块：透明 NSPanel + BongoCat standard Live2D + CGEventTap + 按需 runtime
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
 ├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
 ├── Server/                      # remote 模块：NWListener HTTP 服务、路由
@@ -439,6 +434,8 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-22 手机面板横竖屏自适应（竖屏 2 列 + 4×2、横屏 4 列 + 右侧 2×4 方形、页点跳页与旋转保持）：[实施记录](Docs/plans/2026-11-22-remote-panel-responsive.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-adaptive-remote-panel-layout/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-22 桌面宠物改用 BongoCat standard 透明键鼠场景（官方模型、53 键位、鼠标左右键、去白桌托板）：[OpenSpec 变更](openspec/changes/archive/2026-11-22-adopt-bongocat-live2d-model/proposal.md) · [去白桌](openspec/changes/archive/2026-11-22-remove-pet-white-desktop/proposal.md) · [能力规格](openspec/specs/pet-live2d-bongocat/spec.md)
 - 2026-11-22 固定代码签名与 TCC 授权（本机构建/发布默认使用 `MacAppControlDeck Self-Signed`，禁止静默 ad-hoc）：[Docs 记录](Docs/archive/2026-11-22-stable-code-signing/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-add-stable-code-signing/proposal.md) · [能力规格](openspec/specs/stable-code-signing/spec.md)
 
 - 2026-11-21 桌面宠物 v5「Living Rig」（去桌面、双眼共视 + 眨眼、局部落爪、尾巴/耳/呼吸、键帽从真实键位升起）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v5/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v5-living-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层规格](Docs/design/desktop-pet-v5-layer-spec.md)

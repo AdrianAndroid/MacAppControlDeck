@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手机面板布局预览</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #080a12;
+    --panel-bg: #0f1220;
+    --card: #1b2036;
+    --card-2: #202642;
+    --line: #2a3152;
+    --fg: #eef1ff;
+    --muted: #8d96c5;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --accent: #7c9cff;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(900px 600px at 15% 0%, #1a2450 0%, transparent 60%),
+      radial-gradient(800px 500px at 90% 100%, #251a3f 0%, transparent 60%),
+      var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    overflow: hidden;
+  }
+  .shell { height: 100dvh; display: flex; flex-direction: column; padding: 14px 18px 10px; gap: 10px; }
+  .topbar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; flex: 0 0 auto; }
+  .title { min-width: 260px; }
+  .eyebrow { font-size: 11px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+  .title h1 { margin: 3px 0 0; font-size: 22px; letter-spacing: -.02em; }
+  .viewbar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .viewbar button {
+    border: 1px solid var(--line); background: #141a2e; color: #c9d0ea;
+    padding: 8px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    transition: .18s ease;
+  }
+  .viewbar button:hover { border-color: #465184; color: #fff; }
+  .viewbar button.on { background: #2b3560; border-color: #5b6bb0; color: #fff; box-shadow: 0 0 0 1px rgba(124,156,255,.25) inset; }
+  .hint { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  #stage {
+    flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center;
+    gap: 34px; overflow: hidden; padding: 8px; position: relative;
+  }
+  .device-wrap { position: relative; flex: 0 0 auto; }
+  .device-scale { position: absolute; top: 0; left: 0; transform-origin: top left; }
+  .device {
+    width: calc(var(--w) + 18px); height: calc(var(--h) + 18px);
+    padding: 9px; border-radius: 46px; background: #05060a;
+    box-shadow:
+      0 0 0 1px #22283c,
+      0 26px 70px rgba(0,0,0,.55),
+      0 0 0 8px rgba(255,255,255,.025);
+  }
+  .screen {
+    position: relative; width: var(--w); height: var(--h); border-radius: 37px;
+    background: var(--panel-bg); overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset;
+  }
+  .statusbar {
+    position: absolute; z-index: 3; left: 0; right: 0; top: 0; height: 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 17px; font-size: 10px; font-weight: 600; color: #dfe3f5;
+    pointer-events: none;
+  }
+  .sb-icons { display: flex; align-items: center; gap: 4px; opacity: .9; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 9px; }
+  .sb-bars i { width: 2px; background: #dfe3f5; border-radius: 1px; }
+  .sb-bars i:nth-child(1){height:3px}.sb-bars i:nth-child(2){height:5px}.sb-bars i:nth-child(3){height:7px}.sb-bars i:nth-child(4){height:9px}
+  .sb-battery { width: 18px; height: 9px; border: 1px solid #dfe3f5; border-radius: 3px; position: relative; }
+  .sb-battery::after { content:""; position:absolute; inset:1.5px 4px 1.5px 1.5px; background:#dfe3f5; border-radius:1px; }
+  .panel { position: absolute; inset: 0; padding: 30px 12px 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel-bg); }
+  .panel-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; min-height: 30px; }
+  .panel-head h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+  .status { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; padding: 3px 8px; border-radius: 999px; background: #171d33; border: 1px solid #2a3152; color: #9fb0e8; white-space: nowrap; }
+  .status i { width: 5px; height: 5px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 7px rgba(74,222,128,.7); }
+  .panel-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--gap, 9px); overflow: hidden; }
+  .zone { display: flex; flex-direction: column; min-height: 0; }
+  .zone.apps { flex: 1 1 auto; }
+  .zone.shortcuts { flex: 0 0 auto; border-top: 1px solid var(--line); padding-top: 6px; }
+  .zone-title { flex: 0 0 auto; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 10px; letter-spacing: .06em; color: var(--muted); margin: 0 1px 5px; }
+  .zone-meta { font-size: 9px; letter-spacing: 0; color: #6d78a6; white-space: nowrap; }
+  .pages { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-x; overscroll-behavior-x: contain; }
+  .pages::-webkit-scrollbar { display: none; }
+  .zone.apps .pages { flex: 1 1 auto; min-height: 0; }
+  .zone.shortcuts .pages { flex: 0 0 auto; height: calc(var(--sc-rows) * var(--sc-h) + (var(--sc-rows) - 1) * var(--gap)); }
+  .page { flex: 0 0 100%; width: 100%; height: 100%; scroll-snap-align: start; display: grid; gap: var(--gap, 9px); padding: 1px; min-height: 0; }
+  .apps-pages .page { grid-template-columns: repeat(var(--app-cols), minmax(0, 1fr)); grid-template-rows: repeat(var(--app-rows), minmax(0, 1fr)); }
+  .sc-pages .page { grid-template-columns: repeat(var(--sc-cols), minmax(0, 1fr)); grid-template-rows: repeat(var(--sc-rows), minmax(0, 1fr)); }
+  .btn {
+    position: relative; min-width: 0; min-height: 0; overflow: hidden;
+    background: linear-gradient(180deg, #202641 0%, #1a1f35 100%);
+    border: 1px solid #30385f; border-radius: var(--radius, 15px);
+    color: var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; padding: 5px 4px; cursor: pointer; user-select: none;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+  }
+  .btn:hover { border-color: #465184; }
+  .btn:active { transform: scale(.97); background: #262e50; }
+  .btn.placeholder { background: transparent; border: 1px dashed #2c3457; opacity: .28; pointer-events: none; }
+  .app-btn .icon {
+    width: var(--icon, 40px); height: var(--icon, 40px); flex: 0 0 auto;
+    border-radius: calc(var(--icon, 40px) * .27);
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--icon, 40px) * .38); font-weight: 750; color: #fff;
+    box-shadow: 0 1px 0 rgba(255,255,255,.22) inset, 0 6px 14px rgba(0,0,0,.24);
+  }
+  .app-btn .label, .sc-btn .label { font-size: var(--label, 12px); line-height: 1.15; text-align: center; color: #eef1ff; word-break: break-all; max-width: 100%; }
+  .app-btn .state, .sc-btn .state { font-size: calc(var(--label, 12px) - 2px); line-height: 1.1; color: var(--muted); min-height: 9px; white-space: nowrap; }
+  .state.busy { color: var(--warn); } .state.done { color: var(--ok); } .state.fail { color: #f87171; }
+  .sc-btn .sym { font-size: calc(var(--label, 12px) * 1.55); font-weight: 750; letter-spacing: .02em; color: #dfe6ff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.1; }
+  .sc-btn { padding: 4px 3px; gap: 2px; }
+  .dots { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; gap: 5px; height: 14px; margin-top: 3px; }
+  .dots:empty { display: none; }
+  .dots i { width: 5px; height: 5px; border-radius: 50%; background: #3a4270; cursor: pointer; transition: .15s; }
+  .dots i.on { background: #9aa6d8; transform: scale(1.15); }
+  .device-label { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; color: #c6cee8; font-size: 12px; line-height: 1.35; }
+  .device-label span { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+  .legend { flex: 0 0 auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 11px; color: var(--muted); }
+  .legend b { color: #dbe2ff; font-weight: 600; }
+  .legend .chip { border: 1px solid #252c4a; background: #101528; padding: 4px 9px; border-radius: 999px; }
+  .panel[data-mode="landscape"] .panel-main { flex-direction: row; gap: var(--gap, 9px); }
+  .panel[data-mode="landscape"] .zone.apps { flex: 1 1 auto; }
+  .panel[data-mode="landscape"] .zone.shortcuts {
+    flex: 0 0 var(--rail-w, 140px); border-top: 0; border-left: 1px solid var(--line);
+    padding: 0 0 0 var(--gap, 9px);
+  }
+  .panel[data-mode="landscape"] .zone.shortcuts .pages { flex: 1 1 auto; height: auto; min-height: 0; }
+  .panel[data-mode="landscape"] .sc-btn {
+    width: 100%; height: auto; aspect-ratio: 1; align-self: center; justify-self: stretch;
+  }
+  .panel[data-mode="landscape"] .panel-head h2 { font-size: 14px; }
+  .panel[data-mode="landscape"] .panel-head { min-height: 26px; margin-bottom: 5px; }
+  .panel[data-mode="landscape"] .zone-title { margin-bottom: 3px; }
+  @media (max-width: 760px) {
+    .hint { display: none; }
+    .title h1 { font-size: 18px; }
+    .viewbar button { padding: 7px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="title">
+      <div class="eyebrow">MacAppControlDeck · 电脑控制</div>
+      <h1>手机面板布局预览</h1>
+    </div>
+    <nav class="viewbar" id="viewbar">
+      <button data-view="portrait">竖屏 390×844</button>
+      <button data-view="landscape">横屏 844×390</button>
+      <button data-view="smallPortrait">小竖屏 375×667</button>
+      <button data-view="smallLandscape">矮横屏 667×375</button>
+      <button data-view="compare" class="on">双机对比</button>
+    </nav>
+    <div class="hint">拖动页面向左/右翻页 · 仅原型演示</div>
+  </header>
+
+  <main id="stage"></main>
+
+  <footer class="legend">
+    <span class="chip"><b>竖屏</b> 应用 2 列 · 快捷 4×2</span>
+    <span class="chip"><b>横屏</b> 应用 4 列 · 快捷 2×4 方形</span>
+    <span class="chip"><b>快捷</b> 固定 8 个/页</span>
+    <span class="chip"><b>旋转</b> 保持当前页</span>
+    <span class="chip"><b>手势</b> 只保留横向翻页</span>
+  </footer>
+</div>
+
+<script>
+const PRESETS = {
+  portrait: {
+    key: 'portrait', mode: 'portrait', w: 390, h: 844, label: '竖屏 390×844',
+    note: '应用 2 列 · 快捷 4×2',
+    appCols: 2, appRows: 5, scCols: 4, scRows: 2,
+    gap: 9, scH: 76, icon: 43, labelSize: 12, radius: 16
+  },
+  landscape: {
+    key: 'landscape', mode: 'landscape', w: 844, h: 390, label: '横屏 844×390',
+    note: '应用 4 列 · 快捷 2×4 方形',
+    appCols: 4, appRows: 3, scCols: 2, scRows: 4,
+    railW: 140, gap: 8, scH: 66, icon: 38, labelSize: 11, radius: 13
+  },
+  smallPortrait: {
+    key: 'smallPortrait', mode: 'portrait', w: 375, h: 667, label: '小竖屏 375×667',
+    note: '应用 2 列 · 快捷 4×2',
+    appCols: 2, appRows: 4, scCols: 4, scRows: 2,
+    gap: 8, scH: 66, icon: 38, labelSize: 11, radius: 14
+  },
+  smallLandscape: {
+    key: 'smallLandscape', mode: 'landscape', w: 667, h: 375, label: '矮横屏 667×375',
+    note: '应用 4 列 · 快捷 2×4 方形 · 紧凑',
+    appCols: 4, appRows: 3, scCols: 2, scRows: 4,
+    railW: 122, gap: 6, scH: 58, icon: 34, labelSize: 10, radius: 12
+  }
+};
+
+const APPS = [
+  { name: 'Xcode', sym: '⌘', color: '#3b82f6' },
+  { name: '终端', sym: '>_', color: '#111827' },
+  { name: 'Figma', sym: 'F', color: '#a855f7' },
+  { name: '浏览器', sym: '◐', color: '#0ea5e9' },
+  { name: '备忘录', sym: '✎', color: '#f59e0b' },
+  { name: '音乐', sym: '♪', color: '#ec4899' },
+  { name: '草图', sym: '◇', color: '#22c55e' },
+  { name: '设置', sym: '⚙', color: '#64748b' },
+  { name: '日历', sym: '11', color: '#ef4444' },
+  { name: '邮件', sym: '✉', color: '#6366f1' },
+  { name: '文件', sym: '▤', color: '#14b8a6' },
+  { name: '相机', sym: '◎', color: '#f97316' },
+  { name: '地图', sym: '⌖', color: '#84cc16' },
+  { name: '控制台', sym: '▣', color: '#8b5cf6' }
+];
+
+const SHORTCUTS = [
+  { sym: '⌘C', name: '复制' },
+  { sym: '⌘V', name: '粘贴' },
+  { sym: '⌘Z', name: '撤销' },
+  { sym: '⌃→', name: '桌面右' },
+  { sym: '⌃←', name: '桌面左' },
+  { sym: 'F5', name: '刷新' },
+  { sym: '⇧A', name: '全选' },
+  { sym: '⌥K', name: '终端' },
+  { sym: '⌘S', name: '保存' },
+  { sym: '⌘F', name: '查找' },
+  { sym: 'F11', name: '全屏' },
+  { sym: '⌘W', name: '关闭' }
+];
+
+const requestedView = new URLSearchParams(location.search).get('view');
+const state = { view: (requestedView === 'compare' || PRESETS[requestedView]) ? requestedView : 'compare' };
+const stage = document.getElementById('stage');
+const viewbar = document.getElementById('viewbar');
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function appButton(app, index) {
+  const stateText = index === 0 ? '正在打开…' : '';
+  const cls = index === 0 ? 'busy' : '';
+  return `<div class="btn app-btn" data-kind="app" data-name="${esc(app.name)}">
+    <div class="icon" style="background:linear-gradient(145deg, ${app.color}, ${app.color}bb)">${esc(app.sym)}</div>
+    <div class="label">${esc(app.name)}</div>
+    <div class="state ${cls}">${stateText}</div>
+  </div>`;
+}
+
+function shortcutButton(item, index) {
+  const stateText = index === 2 ? '已发送' : '';
+  const cls = index === 2 ? 'done' : '';
+  return `<div class="btn sc-btn" data-kind="shortcut" data-name="${esc(item.name)}">
+    <div class="sym">${esc(item.sym)}</div>
+    <div class="label">${esc(item.name)}</div>
+    <div class="state ${cls}">${stateText}</div>
+  </div>`;
+}
+
+function placeholders(n) {
+  let html = '';
+  for (let i = 0; i < n; i++) html += '<div class="btn placeholder"></div>';
+  return html;
+}
+
+function buildZone(pagesEl, dotsEl, items, capacity, kind) {
+  const pages = [];
+  for (let i = 0; i < items.length; i += capacity) pages.push(items.slice(i, i + capacity));
+  pagesEl.innerHTML = '';
+  pages.forEach((list, pageIndex) => {
+    const page = document.createElement('div');
+    page.className = 'page';
+    let html = list.map((item, i) => kind === 'app' ? appButton(item, pageIndex * capacity + i) : shortcutButton(item, pageIndex * capacity + i)).join('');
+    html += placeholders(Math.max(0, capacity - list.length));
+    page.innerHTML = html;
+    pagesEl.appendChild(page);
+  });
+  dotsEl.innerHTML = '';
+  if (pages.length > 1) {
+    pages.forEach((_, i) => {
+      const dot = document.createElement('i');
+      if (i === 0) dot.className = 'on';
+      dot.addEventListener('click', () => {
+        pagesEl.scrollTo({ left: i * pagesEl.clientWidth, behavior: 'smooth' });
+      });
+      dotsEl.appendChild(dot);
+    });
+    const sync = () => {
+      const idx = Math.round(pagesEl.scrollLeft / Math.max(1, pagesEl.clientWidth));
+      [...dotsEl.children].forEach((d, i) => d.className = i === idx ? 'on' : '');
+    };
+    pagesEl.addEventListener('scroll', sync, { passive: true });
+    pagesEl.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        pagesEl.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+  }
+}
+
+function panelMarkup(p) {
+  return `<div class="panel" data-mode="${p.mode}" style="
+      --app-cols:${p.appCols}; --app-rows:${p.appRows};
+      --sc-cols:${p.scCols}; --sc-rows:${p.scRows};
+      --gap:${p.gap}px; --sc-h:${p.scH}px; --rail-w:${p.railW || 0}px;
+      --icon:${p.icon}px; --label:${p.labelSize}px; --radius:${p.radius}px;">
+    <div class="panel-head">
+      <h2>Mac 应用快捷控制台</h2>
+      <span class="status"><i></i>已连接</span>
+    </div>
+    <div class="panel-main">
+      <section class="zone apps">
+        <div class="zone-title"><span>应用</span><span class="zone-meta">${p.appCols} 列 · ${p.appRows} 行</span></div>
+        <div class="pages apps-pages"></div>
+        <div class="dots apps-dots"></div>
+      </section>
+      <section class="zone shortcuts">
+        <div class="zone-title"><span>快捷操作</span><span class="zone-meta">${p.scCols}×${p.scRows} · 8/页</span></div>
+        <div class="pages sc-pages"></div>
+        <div class="dots sc-dots"></div>
+      </section>
+    </div>
+  </div>`;
+}
+
+function deviceMarkup(p) {
+  const outerW = p.w + 18;
+  const outerH = p.h + 18;
+  return `<div class="device-wrap" data-w="${outerW}" data-h="${outerH}">
+    <div class="device-scale" style="--w:${outerW}px;--h:${outerH}px;">
+      <div class="device" style="--w:${p.w}px;--h:${p.h}px;">
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="sb-icons">
+              <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+              <span class="sb-battery"></span>
+            </span>
+          </div>
+          ${panelMarkup(p)}
+        </div>
+      </div>
+    </div>
+    <div class="device-label">${p.label}<span>${p.note}</span></div>
+  </div>`;
+}
+
+function hydrate() {
+  const panels = [...stage.querySelectorAll('.panel')];
+  const presets = state.view === 'compare' ? [PRESETS.portrait, PRESETS.landscape] : [PRESETS[state.view]];
+  panels.forEach((panel, i) => {
+    const p = presets[i];
+    if (!p) return;
+    buildZone(
+      panel.querySelector('.apps-pages'), panel.querySelector('.apps-dots'),
+      APPS, p.appCols * p.appRows, 'app'
+    );
+    buildZone(
+      panel.querySelector('.sc-pages'), panel.querySelector('.sc-dots'),
+      SHORTCUTS, p.scCols * p.scRows, 'shortcut'
+    );
+  });
+  wireClicks();
+}
+
+function wireClicks() {
+  stage.querySelectorAll('.btn:not(.placeholder)').forEach(el => {
+    el.addEventListener('click', () => {
+      const stateEl = el.querySelector('.state');
+      if (!stateEl) return;
+      const kind = el.dataset.kind;
+      stateEl.textContent = kind === 'app' ? '正在打开…' : '正在发送…';
+      stateEl.className = 'state busy';
+      setTimeout(() => {
+        stateEl.textContent = kind === 'app' ? '已启动' : '已发送';
+        stateEl.className = 'state done';
+        setTimeout(() => {
+          if (!el.dataset.keep) { stateEl.textContent = ''; stateEl.className = 'state'; }
+        }, 1400);
+      }, 700);
+    }, { passive: true });
+  });
+}
+
+function render() {
+  if (state.view === 'compare') {
+    stage.innerHTML = deviceMarkup(PRESETS.portrait) + deviceMarkup(PRESETS.landscape);
+  } else {
+    stage.innerHTML = deviceMarkup(PRESETS[state.view]);
+  }
+  hydrate();
+  requestAnimationFrame(fit);
+}
+
+function fit() {
+  const wraps = [...stage.querySelectorAll('.device-wrap')];
+  if (!wraps.length) return;
+  const gap = 34;
+  const availW = Math.max(100, stage.clientWidth - 36);
+  const availH = Math.max(100, stage.clientHeight - 26);
+  let totalW = gap * (wraps.length - 1);
+  let maxH = 0;
+  wraps.forEach(w => {
+    totalW += parseFloat(w.dataset.w);
+    maxH = Math.max(maxH, parseFloat(w.dataset.h) + 38);
+  });
+  const scale = Math.min(1, availW / totalW, availH / maxH);
+  wraps.forEach(w => {
+    const wpx = parseFloat(w.dataset.w);
+    const hpx = parseFloat(w.dataset.h);
+    w.style.width = (wpx * scale) + 'px';
+    w.style.height = ((hpx * scale) + 38) + 'px';
+    w.querySelector('.device-scale').style.transform = `scale(${scale})`;
+  });
+}
+
+viewbar.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  state.view = btn.dataset.view;
+  [...viewbar.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b === btn));
+  render();
+});
+
+window.addEventListener('resize', () => requestAnimationFrame(fit));
+[...viewbar.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.view === state.view));
+render();
+</script>
+</body>
+</html>
