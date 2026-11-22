@@ -109,7 +109,7 @@ final class PetV6Assets {
 }
 
 /// v6 渲染：一个「躯干坐标系」包住尾巴/手臂/颈头/耳/眼，所有局部动作都叠在躯干之上，
-/// 于是身子一动，头、手、尾会跟着一起动 —— 这正是 v5 缺的「整体协调」。
+/// 于是身子一动，头、手、尾会跟着一起动 —— 这正是旧版局部 rig 缺的「整体协调」。
 enum PetV6Renderer {
     static func draw(_ frame: PetRasterFrame, in context: inout GraphicsContext, size: CGSize) {
         guard let assets = PetV6Assets.shared, size.width > 0 else { return }

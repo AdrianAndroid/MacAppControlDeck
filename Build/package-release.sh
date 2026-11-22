@@ -11,6 +11,9 @@ case "$ARCH" in
   *) echo "用法: $0 arm64|x86_64"; exit 2 ;;
 esac
 
+echo "==> 清理 $ARCH 构建缓存（避免已删除资源残留在 SwiftPM bundle）"
+swift package clean --scratch-path "$SCRATCH" >/dev/null
+
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT/Build/Info.plist")
 BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ROOT/Build/Info.plist")
 OUT="$ROOT/BuildOutput/release/$ARCH"

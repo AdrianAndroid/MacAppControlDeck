@@ -110,7 +110,7 @@ final class PetV6RigTests: XCTestCase {
         var tilted = PetRasterFrame.idle
         tilted.torsoDeg = 3.4
         let moved = try render(tilted)
-        // 躯干一动，头/手臂/尾巴必须跟着走：这是 v5「只有局部在动」的反例判据
+        // 躯干一动，头/手臂/尾巴必须跟着走：这是旧版局部 rig 的反例判据
         for name in ["head", "armL", "armR", "tail1", "tail2"] {
             let d = try diff(idle, moved, layer: name)
             XCTAssertGreaterThan(d, 24, "\(name) 没有跟着躯干一起动")

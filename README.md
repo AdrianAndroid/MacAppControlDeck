@@ -1,6 +1,6 @@
 # MacAppControlDeck · Mac 应用快捷控制台
 
-当前版本：`0.3.0`（2026-11-22）
+当前版本：`0.3.1`（2026-11-22）
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
@@ -62,8 +62,8 @@
 
 | 芯片 | 资产 |
 | --- | --- |
-| Apple Silicon（M 系列） | `MacAppControlDeck-0.3.0-arm64.dmg` |
-| Intel | `MacAppControlDeck-0.3.0-x86_64.dmg` |
+| Apple Silicon（M 系列） | `MacAppControlDeck-0.3.1-arm64.dmg` |
+| Intel | `MacAppControlDeck-0.3.1-x86_64.dmg` |
 
 每个 Release 同时提供 ZIP、DMG 与 `SHA256SUMS.txt`；下载后可用 `shasum -a 256 -c SHA256SUMS.txt` 校验。
 
@@ -351,7 +351,7 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 111 项，含真实 TCP 服务器与真实应用激活的端到端用例（当前 109 通过，2 个桌宠窗口尺寸断言受本机屏幕影响）
+swift test     # 103 项，含真实 TCP 服务器与真实应用激活的端到端用例（当前 101 通过，2 个桌宠窗口尺寸断言受本机屏幕影响）
 ```
 
 ## 已知限制
@@ -434,9 +434,11 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-22 发布 v0.3.1 体积清理版（移除 35 MB v5 冗余资源，`.app` 62 MB → 27 MB、DMG 50.6 MB → 约 15 MB）：[发布说明](Docs/releases/v0.3.1.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-release-v0.3.1-v5-cleanup/proposal.md)
 - 2026-11-22 手机面板横竖屏自适应（竖屏 2 列 + 4×2、横屏 4 列 + 右侧 2×4 方形、页点跳页与旋转保持）：[实施记录](Docs/plans/2026-11-22-remote-panel-responsive.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-adaptive-remote-panel-layout/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-22 桌面宠物改用 BongoCat standard 透明键鼠场景（官方模型、53 键位、鼠标左右键、去白桌托板）：[OpenSpec 变更](openspec/changes/archive/2026-11-22-adopt-bongocat-live2d-model/proposal.md) · [去白桌](openspec/changes/archive/2026-11-22-remove-pet-white-desktop/proposal.md) · [能力规格](openspec/specs/pet-live2d-bongocat/spec.md)
 - 2026-11-22 固定代码签名与 TCC 授权（本机构建/发布默认使用 `MacAppControlDeck Self-Signed`，禁止静默 ad-hoc）：[Docs 记录](Docs/archive/2026-11-22-stable-code-signing/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-add-stable-code-signing/proposal.md) · [能力规格](openspec/specs/stable-code-signing/spec.md)
+- 2026-11-22 移除已弃用的 v5 桌宠图层运行时（删除 35 MB 冗余资源，光栅回退收敛为 `v6 → v4 → 矢量`）：[OpenSpec 变更](openspec/changes/archive/2026-11-22-remove-legacy-pet-v5-rig/proposal.md)
 
 - 2026-11-21 桌面宠物 v5「Living Rig」（去桌面、双眼共视 + 眨眼、局部落爪、尾巴/耳/呼吸、键帽从真实键位升起）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v5/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v5-living-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层规格](Docs/design/desktop-pet-v5-layer-spec.md)
 - 2026-11-21 桌面宠物 v6「Full-Body Rig」（17 层解剖分层 + 统一躯干坐标系、整条前臂跟列落键、键帽弹起 34pt、三张独立干净母版）：[Docs 记录](Docs/archive/2026-11-21-desktop-pet-v6/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-21-add-desktop-pet-v6-full-body-rig/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md) · [分层与骨骼规格](Docs/design/desktop-pet-v6-layer-spec.md)

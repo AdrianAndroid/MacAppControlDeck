@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// v4 光栅骨架的每帧状态（设计坐标单位：720×960，y 向下）。
+/// 光栅骨架的每帧状态（设计坐标单位：720×960，y 向下）。
 struct PetRasterFrame: Equatable {
     /// 瞳孔偏移，单位设计像素，整数化后用于抗抖。
     var eyeX: CGFloat = 0
@@ -11,7 +11,7 @@ struct PetRasterFrame: Equatable {
     var headPitch: CGFloat = 0
     var bob: CGFloat = 0
     var keycaps: [PetKeycap] = []
-    /// v5：眨眼（0 开 / 1 闭）、两爪下压进度、鼠标下压、尾摆角、耳抽动角、呼吸相位
+    /// 眨眼（0 开 / 1 闭）、两爪下压进度、鼠标下压、尾摆角、耳抽动角、呼吸相位
     var blink: CGFloat = 0
     var pawL: CGFloat = 0
     var pawR: CGFloat = 0
@@ -154,10 +154,6 @@ enum PetRasterRenderer {
     static func draw(_ frame: PetRasterFrame, in context: inout GraphicsContext, size: CGSize) {
         if PetV6Assets.shared != nil {
             PetV6Renderer.draw(frame, in: &context, size: size)
-            return
-        }
-        if PetV5Assets.shared != nil {
-            PetV5Renderer.draw(frame, in: &context, size: size)
             return
         }
         guard let assets = PetRasterAssets.shared, size.width > 0 else { return }

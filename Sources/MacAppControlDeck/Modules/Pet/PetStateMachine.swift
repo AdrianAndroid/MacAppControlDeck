@@ -285,7 +285,7 @@ final class PetStateMachine: ObservableObject {
         rasterPupilX.step(to: reduceMotion ? 0 : gazeX * 9.0, dt: dt, stiffness: 480, damping: 30)
         rasterPupilY.step(to: reduceMotion ? 0 : gazeY * 6.0, dt: dt, stiffness: 480, damping: 30)
         let blinkCycle = timestamp.truncatingRemainder(dividingBy: 4.2)
-        let v5Blink = blinkCycle < 0.11 ? CGFloat(sin(Double.pi * blinkCycle / 0.11)) : 0
+        let blinkPulse = blinkCycle < 0.11 ? CGFloat(sin(Double.pi * blinkCycle / 0.11)) : 0
         // 尾巴两段：基准慢摆 + 打字/惊讶时加力，第二段滞后 0.18s
         let tailBase = reduceMotion ? 0 : CGFloat(sin(timestamp * 1.36) * 5.2)
         let tailLag = reduceMotion ? 0 : CGFloat(sin((timestamp - 0.18) * 1.36) * 7.4)
@@ -305,7 +305,7 @@ final class PetStateMachine: ObservableObject {
             headPitch: rasterHeadPitch.value,
             bob: reduceMotion ? 0 : sin(timestamp * 1.35) * 1.6,
             keycaps: rasterCaps,
-            blink: reduceMotion ? 0 : v5Blink,
+            blink: reduceMotion ? 0 : blinkPulse,
             pawL: rasterPawL.value,
             pawR: rasterPawR.value,
             pawMouse: rasterPawMouse.value,
