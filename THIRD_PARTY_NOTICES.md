@@ -92,3 +92,16 @@ https://github.com/excalidraw/excalidraw-libraries ，均标注 **MIT License**�
 - 生效模块：`Sources/MacAppControlDeck/Modules/Calendar/`。
 - 不联网：所有计算在本地完成，不请求上游或第三方服务。
 - 法定节假日数据由上游按年维护；升级依赖后需回归 2027 年及以后节假日。
+
+## 桌宠 BongoCat standard 模型与键位素材
+
+- 上游：https://github.com/ayangweb/BongoCat
+- 固定版本：`47a73ed1765b13fdd674ec356d51b5b16a6b5a5b`
+- 许可证：Apache License 2.0，许可证原文随包放在
+  `MacAppControlDeck.app/Contents/Resources/Licenses/BongoCat-LICENSE.txt`。
+- 引入目录：`Sources/MacAppControlDeck/Modules/Pet/Resources/live2d/bongocat-standard/`，
+  包含 standard Live2D 模型、键位高亮图与官方背景原图。
+- 修改说明：本项目新增 `resources/background.clean.png`（由用户提供的概念图生成，
+  去掉白桌、猫和猫爪，保留完整圆角鼠标垫与键盘），并在 `app.js` 中改用它；
+  官方 `background.png`、模型和键位图保持原样。
+- 使用时保留上游版权与许可声明；不暗示上游对本项目的背书。

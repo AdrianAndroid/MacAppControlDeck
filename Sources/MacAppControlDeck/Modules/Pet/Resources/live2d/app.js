@@ -65,8 +65,8 @@ function layout() {
   const w = app.screen.width, h = app.screen.height;
   if (IS_BONGO && scene) {
     // Pixi 的 centeringTransform 已将模型映射到 612×354 画布。
-    // 所有层只共享这一份变换；窗口使用更高的 612:372，给完整键盘留出下边距。
-    const s = Math.min(w / 612, h / 354);
+    // 再整体收 6%，在四周留出安全边距，避免键盘底边、鼠标垫左端和猫身贴边裁切。
+    const s = Math.min(w / 612, h / 354) * 0.94;
     scene.scale.set(s);
     scene.position.set((w - 612 * s) / 2, (h - 354 * s) / 2);
     if (backgroundSprite) {
@@ -226,7 +226,7 @@ PIXI.live2d.Live2DModel
       bongoModelWidth = m.width;
       bongoModelHeight = m.height;
       scene = new PIXI.Container();
-      backgroundSprite = PIXI.Sprite.from(BONGO_ROOT + 'resources/background.png');
+      backgroundSprite = PIXI.Sprite.from(BONGO_ROOT + 'resources/background.clean.png');
       backgroundSprite.width = 612;
       backgroundSprite.height = 354;
       keyLayer = new PIXI.Container();
