@@ -131,16 +131,10 @@ actor ScanEngine {
         return CategoryResult(category: .trashBins, items: items, totalSize: items.totalSize)
     }
 
-    /// 大文件扫描根目录：设置页可配置（systemTool.cleaning.largeFileRoots），
-    /// 默认下载 / 文稿 / 桌面。只接受绝对路径。
+    /// 大文件扫描根目录：与 SystemToolScanRoots 共享同一份定义，
+    /// 保证「扫哪里」与「允许清哪里」永远一致，不出现扫出来却清不掉。
     private func largeFileRoots() -> [String] {
-        let configured = UserDefaults.standard.stringArray(forKey: "systemTool.cleaning.largeFileRoots") ?? []
-        let roots = configured
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && $0.hasPrefix("/") }
-        return roots.isEmpty
-            ? ["\(home)/Downloads", "\(home)/Documents", "\(home)/Desktop"]
-            : roots
+        SystemToolScanRoots.largeFileRoots(home: home)
     }
 
     private func scanLargeFiles() -> CategoryResult {

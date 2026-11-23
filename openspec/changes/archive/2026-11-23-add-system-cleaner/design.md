@@ -64,7 +64,10 @@
 1. **默认不删**：所有 `CleanableItem` / `DuplicateGroup` / 卸载残留项 `isSelected = false`；没有"全选后直接删"的隐式路径。
 2. **先看后删**：任何删除前必须有一个展示具体路径、大小、类别的确认步骤；确认文案区分"移入废纸篓"与"永久删除"。
 3. **废纸篓优先**：`SystemTrashService` 先 `FileManager.trashItem`，只有失败且用户明确勾选"永久删除"时才 `removeItem`；永久删除必须单独二次确认。
-4. **符号链接与系统路径保护**：删除前 `resolvingSymlinksInPath()`，校验解析后路径仍在允许范围；命中 `FileProtection` 保护规则则跳过并在结果里计入 `skippedPaths`，UI 显示跳过数量。
+4. **符号链接与系统路径保护**：删除前 `resolvingSymlinksInPath()`，校验**原始路径与解析后路径都**在允许范围；命中 `FileProtection` 保护规则则跳过并在结果里计入 `skippedPaths`，UI 显示跳过数量。
+   - **允许范围必须与扫描范围同源**（2026-11-24 复核修正）：`SystemToolScanRoots.swift` 是「`ScanEngine` 扫哪里」与「`SystemTrashService` 允许清哪里」的唯一定义，`ScanEngine.largeFileRoots()` 直接复用。初版把卸载残留的 `OrphanSafetyPolicy.allowedRoots`（仅缓存/日志）误用作通用清理白名单，导致大文件、开发缓存、Xcode 缓存、沙盒容器缓存等扫描结果在用户确认后被静默跳过、清理结果恒为 0 项；已由临时探针实证并修复。
+   - denylist 优先于 allowlist：`/System`、`/usr/bin`、`/etc`、`~/.ssh`、`~/.gnupg`、`~/Library/Keychains`、`~/Library/Preferences` 等系统关键与凭据路径一律拒绝，不因允许范围放宽而失效。逐项精确到子目录，避免误伤明确列入的开发缓存根（如 `~/.local/share/pnpm`）。
+   - 重复文件与应用卸载是独立链路，不经 `SystemTrashService.clean`：前者用 inode 身份 + SHA-256 复核 + keeper 保留，后者用 `removeResiduals` 的独立允许根，两者都直接移入废纸篓。
 5. **卸载残留分级**：`OrphanSafetyPolicy` 判定为高置信的直接列出；低置信的标"需人工核对"，不允许批量勾选删除。
 6. **强退保护**：`forceTerminate()` 只对 `isTerminationAllowed` 的进程启用；系统进程、root 进程、SIP 保护进程置灰并显示"系统进程不可退出"；`forceTerminate` 单独弹确认，写明"未保存内容会丢失"。
 7. **FDA 未完成标注**：`SystemPermissionGate` 检测无完全磁盘访问时，扫描照常进行，但结果页顶部常驻黄色提示"部分目录未授权，结果不完整"，并给"打开系统设置"按钮；不阻断扫描。

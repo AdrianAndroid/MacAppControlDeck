@@ -75,6 +75,88 @@ final class SystemToolTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: targetFile.path), "符号链接目标不得被删除")
     }
 
+    // MARK: - 扫描根与清理允许范围一致（回归：曾因白名单过窄导致扫描结果全部清不掉）
+
+    func testScanRootsCoverEveryScannedCategory() {
+        let home = NSHomeDirectory()
+        let representatives: [(String, String)] = [
+            ("largeFile", "\(home)/Downloads/big.dmg"),
+            ("largeFile", "\(home)/Documents/big.dmg"),
+            ("largeFile", "\(home)/Desktop/big.dmg"),
+            ("systemJunk", "/Library/Caches/deck-probe"),
+            ("systemJunk", "/tmp/deck-probe"),
+            ("userCache", "\(home)/Library/Caches/deck-probe"),
+            ("sandboxCache", "\(home)/Library/Containers/com.example/Data/Library/Caches/deck-probe"),
+            ("xcode", "\(home)/Library/Developer/Xcode/DerivedData/App-abc"),
+            ("node", "\(home)/.npm/_cacache/deck-probe"),
+            ("devCache", "\(home)/.gradle/caches/deck-probe"),
+            ("trash", "\(home)/.Trash/deck-probe"),
+        ]
+        for (label, path) in representatives {
+            XCTAssertTrue(
+                SystemToolScanRoots.isWithinCleanableRoots(path, home: home),
+                "\(label) 的扫描结果必须落在允许清理范围内: \(path)"
+            )
+        }
+    }
+
+    func testDeniedRootsStillRejectSensitivePaths() {
+        let home = NSHomeDirectory()
+        for path in ["/System/Library/deck-probe", "\(home)/.ssh/id_rsa",
+                     "\(home)/Library/Keychains/login.keychain-db", "/etc/hosts"] {
+            XCTAssertTrue(SystemToolScanRoots.isDenied(path, home: home),
+                          "敏感路径必须被拒绝: \(path)")
+        }
+    }
+
+    func testCustomLargeFileRootIsHonored() {
+        let suite = UserDefaults(suiteName: "deck-scanroots-\(UUID().uuidString)")!
+        suite.set(["/Volumes/External/Media"], forKey: SystemToolScanRoots.largeFileRootsKey)
+        let home = NSHomeDirectory()
+        XCTAssertEqual(
+            SystemToolScanRoots.largeFileRoots(home: home, defaults: suite),
+            ["/Volumes/External/Media"]
+        )
+        XCTAssertTrue(SystemToolScanRoots.isWithinCleanableRoots(
+            "/Volumes/External/Media/big.mov", home: home, defaults: suite
+        ))
+    }
+
+    /// 端到端：大文件页的扫描结果（下载目录，旧白名单不含）必须能真正移入废纸篓。
+    func testCleanActuallyTrashesLargeFileScanResult() async throws {
+        let home = NSHomeDirectory()
+        let probeDir = URL(fileURLWithPath: "\(home)/Downloads")
+            .appendingPathComponent("deck-clean-regression-\(UUID().uuidString)", isDirectory: true)
+        // 若 Downloads 被 iCloud / FileProvider 接管则跳过，避免测试污染真实云同步数据。
+        guard !ProviderPaths.isProviderOwned(probeDir.path) else {
+            throw XCTSkip("Downloads 由云同步接管，跳过真实清理用例")
+        }
+        try FileManager.default.createDirectory(at: probeDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: probeDir) }
+        let file = probeDir.appendingPathComponent("big.dmg")
+        try Data(String(repeating: "x", count: 2048).utf8).write(to: file)
+
+        let item = CleanableItem(name: "big.dmg", path: file.path, size: 2048,
+                                 category: .largeFiles, isSelected: true, lastModified: nil)
+        let service = SystemTrashService()
+        let result = await service.clean([item])
+        XCTAssertEqual(result.itemsCleaned, 1, "大文件扫描结果必须能移入废纸篓")
+        XCTAssertTrue(result.skippedPaths.isEmpty, "不得再被安全白名单误拦")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        // 清理移入废纸篓的探针文件与残留目录，不留下垃圾。
+        for path in result.trashedPaths { try? FileManager.default.removeItem(atPath: path) }
+    }
+
+    /// 放宽允许范围后，敏感路径仍必须在端到端清理中被跳过。
+    func testCleanStillSkipsDeniedSystemPath() async {
+        let item = CleanableItem(name: "hosts", path: "/etc/hosts", size: 1,
+                                 category: .systemJunk, isSelected: true, lastModified: nil)
+        let service = SystemTrashService()
+        let result = await service.clean([item])
+        XCTAssertEqual(result.itemsCleaned, 0, "系统关键路径绝不能被清理")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: "/etc/hosts"))
+    }
+
     // MARK: - DiskInfo 格式化
 
     func testDiskInfoFormatting() {

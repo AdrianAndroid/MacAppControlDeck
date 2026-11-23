@@ -69,9 +69,10 @@ actor SystemTrashService {
                 let url = URL(fileURLWithPath: item.path)
                 let permanent = permanentPaths.contains(item.path)
                 if permanent {
-                    // 永久删除：先再校验一次解析路径未变
+                    // 永久删除不可恢复，解析后路径必须仍在允许范围内且不在 denylist。
                     let resolved = url.resolvingSymlinksInPath().path
-                    guard resolved == (item.path as NSString).standardizingPath,
+                    guard SystemToolScanRoots.isWithinCleanableRoots(resolved, home: home),
+                          !SystemToolScanRoots.isDenied(resolved, home: home),
                           !hasUnexpectedSymlink(in: item.path) else {
                         result.errors.append("路径校验失败，已跳过：\(item.path)")
                         continue
@@ -158,23 +159,20 @@ actor SystemTrashService {
 
     // MARK: - Safety
 
-    /// 路径必须在允许的根范围内（用户主目录下的易失数据目录 + 系统缓存/日志 + 废纸篓），
-    /// 且不含组件级符号链接。拒绝家目录敏感点、云同步状态、应用残留白名单之外的一切。
+    /// 路径必须落在「扫描引擎实际会产出条目的根」内（SystemToolScanRoots 共享定义），
+    /// 且不在敏感路径 denylist；原始路径与符号链接解析后的路径都要校验，防 TOCTOU 逃逸。
+    /// 不再复用 OrphanSafetyPolicy.allowedRoots —— 那是卸载残留的白名单，范围过窄，
+    /// 会把大文件 / 开发缓存 / Xcode 缓存 / 沙盒缓存等扫描结果全部误拦。
     private func passesSafetyCheck(_ path: String) -> Bool {
         guard path.hasPrefix("/"), !path.utf8.contains(0) else { return false }
         let standardized = (path as NSString).standardizingPath
         let resolved = URL(fileURLWithPath: standardized).resolvingSymlinksInPath().path
-        guard resolved == standardized else { return false }
 
-        let allowedRoots = OrphanSafetyPolicy.allowedRoots + [
-            "\(home)/Library/Caches", "\(home)/Library/Logs", "\(home)/.Trash",
-        ]
-        let inAllowed = allowedRoots.contains { root in
-            let r = root.lowercased() + "/"
-            return standardized.lowercased().hasPrefix(r)
+        for candidate in [standardized, resolved] {
+            guard SystemToolScanRoots.isWithinCleanableRoots(candidate, home: home),
+                  !SystemToolScanRoots.isDenied(candidate, home: home) else { return false }
+            if ProviderPaths.isProviderOwned(candidate) { return false }
         }
-        guard inAllowed else { return false }
-        if ProviderPaths.isProviderOwned(standardized) { return false }
         if hasUnexpectedSymlink(in: standardized) { return false }
         return true
     }

@@ -104,3 +104,18 @@
 - [x] 11.9 修复：内嵌 `ProcessResourceMonitor` 的 objectWillChange 未转发，SwiftUI 不观察嵌套 ObservableObject，进程页恒停在「正在采集」空态 → 由 `SystemToolState` 订阅转发
 - [x] 11.10 修复：内存算法把 inactive 文件缓存页计入「已用」，MEM 恒显示 100% → 改用 active + wired + compressor 口径（真机显示 63%）
 - [x] 11.11 真机逐屏截图核对：6 个页签、设置页、菜单栏分栏状态项、扫描中三态、结果表格、确认弹窗、永久删除二次确认；验证全程只查看弹窗并取消，未执行任何删除
+
+## 12. 详细复核与清理范围缺陷修复（2026-11-24 补充）
+
+用户要求「再详细核查一遍」。逐文件复核源码、文档、测试、签名与真机运行状态，并用临时探针实证发现一个 P0 缺陷：第 4/5 节声称的清理能力在此之前实际不可用。
+
+- [x] 12.1 实证：探针分别调用 `SystemTrashService.clean` 清理「下载/文稿/桌面大文件」与「缓存目录」条目，结果前者 `itemsCleaned=0`、文件仍在，后者 `itemsCleaned=1`、已进废纸篓 → 确认大文件等扫描结果被安全校验静默跳过
+- [x] 12.2 根因：`passesSafetyCheck` 复用 `OrphanSafetyPolicy.allowedRoots`（卸载残留的缓存白名单），范围仅含 Caches/Logs/HTTPStorages 等，未覆盖大文件、开发缓存、Xcode 缓存、沙盒容器缓存、系统临时目录的扫描根
+- [x] 12.3 新增 `SystemToolScanRoots.swift`：把「扫描根」与「清理允许范围」收敛为同一份定义，`ScanEngine.largeFileRoots()` 复用它，杜绝两处清单漂移
+- [x] 12.4 重写 `passesSafetyCheck`：改用共享允许范围；原始路径与符号链接解析后路径都校验；新增系统关键路径与家目录敏感点目录 denylist（优先级高于允许范围）；保留 ProviderPaths / FileProtection / CleanupExclusions / 符号链接校验
+- [x] 12.5 永久删除分支同步改为「解析后路径仍在允许范围且不在 denylist」，不再要求解析前后字符串完全相等
+- [x] 12.6 补 5 个回归用例：各分类扫描根覆盖、denylist 生效、自定义大文件根生效、端到端大文件真正进废纸篓、系统关键路径仍跳过。`SystemToolTests` 9 个全绿，全量 151 个仅剩 1 个既有 `APIRouterTests` 陈旧断言失败（非本次引入）
+- [x] 12.7 主 spec 与归档 spec delta 同步新增「扫描范围与清理范围一致」场景，并在「用户确认后清理」补「不得被安全校验静默跳过」
+- [x] 12.8 复核其余链路：重复文件走 `DuplicateFinder.moveToTrash`（inode 身份 + SHA-256 复核 + keeper 保留 + 跳过符号链接/包/云占位，直接废纸篓），应用卸载走 `removeResiduals`（独立允许根 + 废纸篓），均不受本次改动影响
+- [x] 12.9 复核集成点：`BuiltinActions`、`DeckApp` 注册与 deep link、`SettingsView` tab、`MenuBarController.openSettings(tab:)` 全部接线正确；`Info.plist` 未新增 UsageDescription；签名/哈希/崩溃日志复核通过
+- [x] 12.10 release 构建 + 固定身份签名（DR certificate root）+ 哈希一致 + `rsync --delete` 覆盖 `/Applications` + 重启，TCC 授权不需重授
