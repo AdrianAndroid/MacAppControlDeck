@@ -11,6 +11,7 @@ enum SettingsTab: Hashable {
     case sketch
     case calendar
     case pet
+    case systemTool
     case screen
     case buttons
     case devices
@@ -51,6 +52,9 @@ struct SettingsView: View {
                 Section("桌面宠物") {
                     sidebarRow(.pet, "桌面宠物", "cat.fill")
                 }
+                Section("系统工具") {
+                    sidebarRow(.systemTool, "PureMac", "hammer.and.screwdriver.fill")
+                }
                 Section("关于") {
                     sidebarRow(.about, "关于", "info.circle")
                 }
@@ -86,6 +90,8 @@ struct SettingsView: View {
             CalendarSettingsView()
         case .pet:
             PetModule.shared.settingsView()
+        case .systemTool:
+            SystemToolModule.shared.settingsView()
         case .screen:
             ScreenSettingsView()
         case .buttons:
