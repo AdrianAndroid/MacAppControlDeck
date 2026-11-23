@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-23.6"
+    static let version = "2026-11-23.7"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -43,13 +43,22 @@ enum PanelHTML {
              display:flex; flex-direction:column;
              padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px);
              touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-      header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0 auto 8px; width:100%; max-width:1280px; flex:0 0 auto; }
-      h1 { font-size:clamp(14px,4.2vmin,17px); margin:0; font-weight:600; }
+      header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0 auto 8px; width:100%; max-width:1280px; flex:0 0 auto; min-width:0; }
+      h1 { font-size:clamp(14px,4.2vmin,17px); margin:0; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:0 1 auto; }
+      /* 竖屏顶部按钮不参与收缩，避免把状态徽标挤出屏幕。 */
+      #reload, #fullscreen, #status { flex:0 0 auto; }
       #status { font-size:clamp(11px,3.2vmin,12px); padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap;
                 cursor:pointer; -webkit-tap-highlight-color:transparent; }
-      #fullscreen { flex:0 0 auto; border:1px solid var(--line); border-radius:9px; background:var(--card);
+      #fullscreen, #reload { flex:0 0 auto; border:1px solid var(--line); border-radius:9px; background:var(--card);
                     color:var(--fg); font:inherit; font-size:13px; font-weight:600; line-height:1; padding:6px 9px; cursor:pointer; white-space:nowrap; }
-      #fullscreen:active { background:#232a4a; }
+      #fullscreen:active, #reload:active { background:#232a4a; }
+      #reload.refreshing { opacity:.55; }
+      /* 收起开关仅横屏左轨显示；悬浮把手仅收起态在左上角出现。 */
+      #railToggle, #railReveal { display:none; }
+      #railReveal { position:fixed; left:calc(env(safe-area-inset-left, 0px) + 10px); top:calc(env(safe-area-inset-top, 0px) + 10px);
+                    z-index:25; width:30px; height:30px; border-radius:50%; border:1px solid var(--line);
+                    background:rgba(27,32,54,.7); color:var(--muted); font-size:16px; line-height:1;
+                    align-items:center; justify-content:center; cursor:pointer; }
       #status:active { background:#232a4a; }
       #status.refreshing { opacity:.55; }
       #status.ok { color:var(--ok); border-color:#1f4d33; }
@@ -66,8 +75,9 @@ enum PanelHTML {
       .zone { display:flex; flex-direction:column; min-height:0; }
       #appsZone { flex:1 1 auto; min-height:0; overflow:hidden; }
       #shortcutsZone { flex:0 0 auto; border-top:1px solid var(--line); padding-top:calc(var(--gap) - 2px); }
-      .zone-title { flex:0 0 auto; display:flex; justify-content:space-between; align-items:baseline; gap:6px;
-                    font-size:clamp(10px,2.8vmin,11px); color:var(--muted); margin:0 0 4px; letter-spacing:.5px; }
+      /* 顶部标题行：左标题、右圆点+页码，横竖屏一致。 */
+      .zone-head { flex:0 0 auto; display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 4px; }
+      .zone-title { font-size:clamp(10px,2.8vmin,11px); color:var(--muted); margin:0; letter-spacing:.5px; }
       .pages { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none;
                -webkit-overflow-scrolling:touch; touch-action:pan-x; overscroll-behavior-x:contain; }
       #appsPages { flex:1 1 auto; min-height:0; }
@@ -77,11 +87,11 @@ enum PanelHTML {
               padding:1px; min-height:0; align-content:stretch; }
       #appsPages .page { grid-template-columns:repeat(var(--app-cols),minmax(0,1fr)); grid-template-rows:repeat(var(--app-rows),minmax(0,1fr)); }
       #shortcutPages .page { grid-template-columns:repeat(var(--sc-cols),minmax(0,1fr)); grid-template-rows:repeat(var(--sc-rows),minmax(0,1fr)); }
-      .dots { display:flex; justify-content:center; gap:6px; padding:4px 0 2px; }
+      .dots { display:flex; justify-content:flex-end; align-items:center; gap:6px; padding:0; min-width:0; }
       .dots:empty { display:none; }
       .dots i { width:6px; height:6px; border-radius:50%; background:#3a4270; }
       .dots i.on { background:var(--muted); }
-      .pcount { display:none; }
+      .pcount { display:inline; font-size:10px; color:var(--muted); margin-left:2px; font-variant-numeric:tabular-nums; white-space:nowrap; }
       .btn { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); min-height:0; color:var(--fg);
              display:flex; flex-direction:column; align-items:center; justify-content:center; gap:calc(var(--u) * .8);
              padding:clamp(4px,var(--u),8px) clamp(3px,calc(var(--u) * .8),6px); cursor:pointer; position:relative; overflow:hidden; }
@@ -127,13 +137,27 @@ enum PanelHTML {
           width:auto; max-width:none; height:100%;
           border-right:1px solid var(--line);
         }
-        h1 { font-size:clamp(10px, 1.4vw, 12px); line-height:1.45; letter-spacing:.02em; word-break:keep-all; }
+        /* 左轨窄，标题必须允许折行；覆盖基础的 nowrap，恢复「Mac / 应用快捷控制台」两行。 */
+        h1 { font-size:clamp(10px, 1.4vw, 12px); line-height:1.45; letter-spacing:.02em; word-break:keep-all; white-space:normal; }
+        /* 收起开关在左轨顶部；收起后整条左轨隐藏，只留左上角悬浮把手。 */
+        #railToggle { display:block; flex:0 0 auto; align-self:stretch; border:1px solid var(--line); border-radius:8px;
+                      background:var(--card); color:var(--muted); font:inherit; font-size:11px; line-height:1;
+                      padding:5px 4px; margin-bottom:8px; cursor:pointer; white-space:nowrap; }
+        #railToggle:active { background:#232a4a; }
+        body.rail-collapsed { grid-template-columns:0 minmax(0,1fr); }
+        body.rail-collapsed header { display:none; }
+        body.rail-collapsed #railReveal { display:flex; }
+        /* 收起态给左上角悬浮把手留出位置，避免压住应用区标题。 */
+        body.rail-collapsed #appsZone .zone-head { padding-left:34px; }
         #clock { display:block; margin-top:12px; white-space:normal; }
         #clock .clock-date, #clock .clock-weekday { display:block; font-size:10px; line-height:1.5; font-weight:500; color:var(--muted); text-shadow:none; white-space:nowrap; }
         #clock .clock-time { display:block; margin-top:2px; font-size:16px; line-height:1.2; font-weight:700; color:var(--clock); text-shadow:0 0 10px var(--clock-glow); }
-        #fullscreen { margin-top:auto; align-self:stretch; text-align:center; font-size:11px; padding:6px 4px; }
+        /* 底部三件套顺序：刷新 → 全屏 → 连接状态。刷新紧挨全屏上方。 */
+        #reload { margin-top:auto; align-self:stretch; text-align:center; font-size:11px; padding:6px 4px; }
+        #reload::after { content:" 刷新"; }
+        #fullscreen { margin-top:4px; align-self:stretch; text-align:center; font-size:11px; padding:6px 4px; }
         #fullscreen::after { content:" 全屏"; }
-        #status { align-self:stretch; text-align:center; font-size:11px; padding:5px 4px; }
+        #status { align-self:stretch; text-align:center; font-size:11px; padding:5px 4px; margin-top:4px; }
         #main {
           grid-column:2; grid-row:1;
           flex-direction:row;
@@ -144,27 +168,11 @@ enum PanelHTML {
         #pair.show { grid-column:2; grid-row:1; }
         #appsZone { flex:1 1 auto; }
         #shortcutsZone { flex:0 0 var(--rail-w, 160px); border-top:0; border-left:1px solid var(--line); padding:0 0 0 var(--gap); }
-        .zone {
-          display:grid;
-          grid-template-columns:26px minmax(0,1fr);
-          grid-template-rows:minmax(0,1fr) auto;
-          column-gap:calc(var(--gap) * .8);
-        }
-        .zone-title {
-          grid-column:1; grid-row:1 / span 2;
-          writing-mode:vertical-rl;
-          text-orientation:upright;
-          justify-self:center; align-self:start;
-          display:block; margin:0; padding-top:2px;
-          font-size:11px; letter-spacing:.28em; line-height:1.1;
-          white-space:nowrap;
-        }
-        .zone .pages { grid-column:2; grid-row:1; }
-        .zone .dots { grid-column:2; grid-row:2; }
+        /* 标题与圆点都在顶部标题行，按钮区独占下方，不再为竖排标题留 26px 列。 */
+        .zone-title { font-size:11px; letter-spacing:.18em; }
         #shortcutPages { flex:1 1 auto; height:auto; min-height:0; }
         #shortcutPages .page { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); }
         #shortcutPages .btn { width:auto; height:100%; max-width:100%; aspect-ratio:1; justify-self:center; align-self:center; }
-        .pcount { display:inline; font-size:10px; color:var(--muted); margin-left:7px; font-variant-numeric:tabular-nums; }
       }
       @media (max-height: 360px) {
         :root { --u:3px; --gap:5px; --sc-cell:52px; --icon:32px; --label:11px; }
@@ -181,18 +189,23 @@ enum PanelHTML {
     </style>
     </head>
     <body>
-    <header><h1>Mac 应用快捷控制台</h1><span id="clock"></span><button id="fullscreen" type="button" aria-label="进入全屏" title="进入全屏">⛶</button><span id="status" role="button" tabindex="0" title="点击强制刷新面板">检测中…</span></header>
+    <header>
+      <button id="railToggle" type="button" aria-label="收起标题栏" title="收起标题栏">‹ 收起</button>
+      <h1>Mac 应用快捷控制台</h1><span id="clock"></span>
+      <button id="reload" type="button" aria-label="强制刷新面板" title="强制刷新面板">⟳</button>
+      <button id="fullscreen" type="button" aria-label="进入全屏" title="进入全屏">⛶</button>
+      <span id="status" role="button" tabindex="0" title="点击强制刷新面板">检测中…</span>
+    </header>
+    <button id="railReveal" type="button" aria-label="展开标题栏" title="展开标题栏">›</button>
     <div id="toast"></div>
     <div id="main">
       <section class="zone" id="appsZone">
-        <div class="zone-title">应用</div>
+        <div class="zone-head"><div class="zone-title">应用</div><div class="dots" id="appsDots"></div></div>
         <div class="pages" id="appsPages"></div>
-        <div class="dots" id="appsDots"></div>
       </section>
       <section class="zone" id="shortcutsZone">
-        <div class="zone-title">快捷操作</div>
+        <div class="zone-head"><div class="zone-title">快捷操作</div><div class="dots" id="shortcutDots"></div></div>
         <div class="pages" id="shortcutPages"></div>
-        <div class="dots" id="shortcutDots"></div>
       </section>
     </div>
     <div id="pair">
@@ -208,6 +221,7 @@ enum PanelHTML {
       const appsPagesEl=$('#appsPages'), shortcutPagesEl=$('#shortcutPages');
       const appsDotsEl=$('#appsDots'), shortcutDotsEl=$('#shortcutDots');
       const mainEl=$('#main'), pairEl=$('#pair'), statusEl=$('#status'), toast=$('#toast');
+      const railToggleEl=$('#railToggle'), railRevealEl=$('#railReveal'), reloadEl=$('#reload');
       let token=localStorage.getItem('deck_token');
       const deviceName=localStorage.getItem('deck_device')||'iPhone';
       if (location.search.includes('debug=1')) {
@@ -315,6 +329,21 @@ enum PanelHTML {
       }
       statusEl.addEventListener('click',forceRefresh);
       statusEl.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); forceRefresh(); } });
+
+      /* 强制刷新按钮：复用与状态徽标相同的刷新逻辑。 */
+      reloadEl.addEventListener('click',forceRefresh);
+
+      /* 左轨收起/展开：状态写入 localStorage，刷新页面后保持。
+         仅横屏有效；竖屏下开关与把手都由 CSS 隐藏。 */
+      function setRailCollapsed(collapsed){
+        document.body.classList.toggle('rail-collapsed',collapsed);
+        try{ localStorage.setItem('deck.rail.collapsed',collapsed?'1':'0'); }catch(e){}
+        // 左轨宽度变化会改变可用高度/宽度，重排一次布局。
+        requestAnimationFrame(()=>{ if(typeof layoutNow==='function') layoutNow(); });
+      }
+      try{ if(localStorage.getItem('deck.rail.collapsed')==='1') setRailCollapsed(true); }catch(e){}
+      railToggleEl.addEventListener('click',()=>setRailCollapsed(true));
+      railRevealEl.addEventListener('click',()=>setRailCollapsed(false));
       function saveToken(t){ token=t; localStorage.setItem('deck_token',t); localStorage.setItem('deck_device',deviceName); }
       function escapeText(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
@@ -398,13 +427,13 @@ enum PanelHTML {
         shortcutsZone.style.display=renderedShortcuts.length?'':'none';
 
         if(landscape){
-          // 快捷栏宽度由 4 行方形按钮反推；再加 26px 竖排标题和间距。
+          // 快捷栏宽度由 4 行方形按钮反推；标题已横排到顶部，不再额外留竖排标题列宽。
           const gap0=px(getComputedStyle(mainEl).gap)||8;
           rootStyle.setProperty('--rail-w','160px');
           const pagesH=shortcutPagesEl.clientHeight||0;
           if(pagesH>0){
             const card=Math.max(52,(pagesH-gap0*(scRows-1))/scRows);
-            const railW=card*scCols+gap0*(scCols+1)+26+gap0;
+            const railW=card*scCols+gap0*(scCols+1)+gap0;
             rootStyle.setProperty('--rail-w',railW+'px');
           }
         }
