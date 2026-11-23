@@ -7,35 +7,37 @@ enum PetGeometry {
     static let baseSize = CGSize(width: 288, height: 384)
     /// 官方画布为 612×354；窗口采用 612:372，保留完整键盘所需的上下余量。
     static let bongoBaseSize = CGSize(width: 350, height: 350 * 372 / 612)
+    /// KeyCat 上游默认裁剪区为 360×368。
+    static let keyCatBaseSize = CGSize(width: 288, height: 288 * 368 / 360)
     static let windowPadding: CGFloat = 4
     static let screenMargin: CGFloat = 24
 
-    static func windowSize(for size: PetSize, bongoCat: Bool = false) -> CGSize {
-        let base = bongoCat ? bongoBaseSize : baseSize
+    static func windowSize(for size: PetSize, bongoCat: Bool = false, keyCat: Bool = false) -> CGSize {
+        let base = keyCat ? keyCatBaseSize : (bongoCat ? bongoBaseSize : baseSize)
         return CGSize(
             width: (base.width * size.scale).rounded() + windowPadding * 2,
             height: (base.height * size.scale).rounded() + windowPadding * 2
         )
     }
 
-    static func visualSize(for size: PetSize, bongoCat: Bool = false) -> CGSize {
-        let base = bongoCat ? bongoBaseSize : baseSize
+    static func visualSize(for size: PetSize, bongoCat: Bool = false, keyCat: Bool = false) -> CGSize {
+        let base = keyCat ? keyCatBaseSize : (bongoCat ? bongoBaseSize : baseSize)
         return CGSize(
             width: (base.width * size.scale).rounded(),
             height: (base.height * size.scale).rounded()
         )
     }
 
-    static func defaultAnchor(in visibleFrame: CGRect, size: PetSize, bongoCat: Bool = false) -> CGPoint {
-        let window = windowSize(for: size, bongoCat: bongoCat)
+    static func defaultAnchor(in visibleFrame: CGRect, size: PetSize, bongoCat: Bool = false, keyCat: Bool = false) -> CGPoint {
+        let window = windowSize(for: size, bongoCat: bongoCat, keyCat: keyCat)
         return CGPoint(
             x: visibleFrame.maxX - screenMargin - window.width / 2,
             y: visibleFrame.minY + screenMargin
         )
     }
 
-    static func frame(anchor: CGPoint, size: PetSize, bongoCat: Bool = false) -> CGRect {
-        let window = windowSize(for: size, bongoCat: bongoCat)
+    static func frame(anchor: CGPoint, size: PetSize, bongoCat: Bool = false, keyCat: Bool = false) -> CGRect {
+        let window = windowSize(for: size, bongoCat: bongoCat, keyCat: keyCat)
         return CGRect(
             x: anchor.x - window.width / 2,
             y: anchor.y,
@@ -64,12 +66,12 @@ enum PetGeometry {
         )
     }
 
-    static func frame(normalizedPosition: CGPoint, in visibleFrame: CGRect, size: PetSize, bongoCat: Bool = false) -> CGRect {
+    static func frame(normalizedPosition: CGPoint, in visibleFrame: CGRect, size: PetSize, bongoCat: Bool = false, keyCat: Bool = false) -> CGRect {
         let anchor = CGPoint(
             x: visibleFrame.minX + normalizedPosition.x * visibleFrame.width,
             y: visibleFrame.minY + normalizedPosition.y * visibleFrame.height
         )
-        return clamp(frame(anchor: anchor, size: size, bongoCat: bongoCat), to: visibleFrame)
+        return clamp(frame(anchor: anchor, size: size, bongoCat: bongoCat, keyCat: keyCat), to: visibleFrame)
     }
 
     static func hitPath(for skin: PetSkin, in bounds: CGRect) -> CGPath {

@@ -39,7 +39,7 @@ final class PetLive2DBridge {
     static var isAvailable: Bool { rootURL != nil }
 
     func prepare(in window: NSWindow) {
-        if window === hostWindow, webView.url != nil { return }
+        if window === hostWindow, webView.url != nil { startTimer(); return }
         hostWindow = window
         guard let root = Self.rootURL else { return }
         handler.root = root
@@ -331,6 +331,10 @@ struct PetLive2DArt: NSViewRepresentable {
             if let window = view.window { PetLive2DBridge.shared.prepare(in: window) }
         }
         return view
+    }
+
+    static func dismantleNSView(_ nsView: WKWebView, coordinator: ()) {
+        PetLive2DBridge.shared.stop()
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {

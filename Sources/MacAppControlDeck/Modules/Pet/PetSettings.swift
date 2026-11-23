@@ -1,12 +1,30 @@
 import Combine
 import Foundation
 
+enum PetKind: String, CaseIterable, Identifiable {
+    case bongoCat, keyCat
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .bongoCat: return "BongoCat"
+        case .keyCat: return "KeyCat"
+        }
+    }
+    var detail: String {
+        switch self {
+        case .bongoCat: return "白猫与键盘鼠标，响应键鼠和光标。"
+        case .keyCat: return "黑猫与键盘，响应输入与光标。"
+        }
+    }
+}
+
 /// 桌宠独立偏好，只使用 pet. 前缀。
 @MainActor
 final class PetSettings: ObservableObject {
     static let shared = PetSettings()
 
     private enum Key {
+        static let kind = "pet.kind"
         static let visible = "pet.visible"
         static let skin = "pet.skin"
         static let size = "pet.size"
@@ -29,6 +47,9 @@ final class PetSettings: ObservableObject {
 
     private let defaults: UserDefaults
 
+    @Published var kind: PetKind {
+        didSet { defaults.set(kind.rawValue, forKey: Key.kind) }
+    }
     @Published var visible: Bool {
         didSet { defaults.set(visible, forKey: Key.visible) }
     }
@@ -87,6 +108,7 @@ final class PetSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        kind = PetKind(rawValue: defaults.string(forKey: Key.kind) ?? "") ?? .bongoCat
         visible = defaults.object(forKey: Key.visible) as? Bool ?? false
         skinID = defaults.string(forKey: Key.skin) ?? PetSkinCatalog.defaultID
         size = PetSize(rawValue: defaults.string(forKey: Key.size) ?? "") ?? .medium
@@ -102,8 +124,8 @@ final class PetSettings: ObservableObject {
         allowFullScreen = defaults.bool(forKey: Key.allowFullScreen)
         hideDuringCapture = defaults.object(forKey: Key.hideDuringCapture) as? Bool ?? true
         firstRunDone = defaults.bool(forKey: Key.firstRunDone)
-        live2DMode = defaults.object(forKey: Key.live2d) as? Bool ?? (PetLive2DResources.locate() != nil)
-        live2dModel = defaults.string(forKey: Key.live2dModel) ?? "bongocat"
+        live2DMode = true
+        live2dModel = "bongocat"
         live2dTint = defaults.string(forKey: Key.live2dTint) ?? "ffffff"
         if !PetSkinCatalog.all.contains(where: { $0.id == skinID }) {
             skinID = PetSkinCatalog.defaultID

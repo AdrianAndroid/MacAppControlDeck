@@ -46,19 +46,6 @@ final class PetMenuHost: NSObject {
         sizeItem.submenu = sizeMenu
         menu.addItem(sizeItem)
 
-        let skinItem = NSMenuItem(title: "换肤", action: nil, keyEquivalent: "")
-        skinItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
-        let skinMenu = NSMenu(title: "换肤")
-        for skin in PetSkinCatalog.all {
-            let child = item(skin.name, symbol: skin.id == settings.skinID ? "checkmark" : "circle",
-                             id: "pet.skin.\(skin.id)")
-            child.state = skin.id == settings.skinID ? .on : .off
-            child.representedObject = "pet.skin.\(skin.id)"
-            skinMenu.addItem(child)
-        }
-        skinItem.submenu = skinMenu
-        menu.addItem(skinItem)
-
         menu.addItem(.separator())
         menu.addItem(item("回到默认位置", symbol: "arrow.uturn.backward", id: "pet.resetPosition"))
         menu.addItem(item("隐藏桌宠", symbol: "eye.slash", id: "pet.hide"))

@@ -12,7 +12,7 @@ final class PetModule: FeatureModule {
 
     var id: String { Self.id }
     var title: String { "桌面宠物" }
-    var summary: String { "键鼠联动的桌面猫狗；三档尺寸、五套皮肤、透明置顶，隐藏即释放。" }
+    var summary: String { "BongoCat 和 KeyCat 键鼠互动桌宠，透明置顶，隐藏即释放。" }
     var systemImage: String { "cat.fill" }
     var defaultEnabled: Bool { true }
 
@@ -20,9 +20,6 @@ final class PetModule: FeatureModule {
 
     func start() {
         let settings = PetSettings.shared
-        if settings.randomSkinOnLaunch, let random = PetSkinCatalog.all.randomElement() {
-            settings.chooseSkin(random.id)
-        }
         if settings.visible || !settings.firstRunDone {
             let runtime = ensureRuntime()
             runtime.start()
@@ -96,22 +93,6 @@ final class PetModule: FeatureModule {
         sizeItem.submenu = sizeMenu
         submenu.addItem(sizeItem)
 
-        // v4 光栅骨架是单套写实素材；素材存在时不展示无效的换肤入口。
-        let skinItem = NSMenuItem(title: "换肤", action: nil, keyEquivalent: "")
-        skinItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
-        let skinMenu = NSMenu(title: "换肤")
-        for skin in PetSkinCatalog.all {
-            let child = NSMenuItem(title: skin.name, action: #selector(changeSkin(_:)), keyEquivalent: "")
-            child.target = self
-            child.representedObject = skin.id
-            child.state = PetSettings.shared.skinID == skin.id ? .on : .off
-            skinMenu.addItem(child)
-        }
-        skinItem.submenu = skinMenu
-        if PetRasterAssets.shared == nil {
-            submenu.addItem(skinItem)
-        }
-
         submenu.addItem(.separator())
         submenu.addItem(item("重置位置", #selector(resetPosition), "arrow.uturn.backward", id: "pet.resetPosition"))
         submenu.addItem(item("桌面宠物设置…", #selector(openSettings), "gearshape", id: "pet.settings"))
@@ -181,15 +162,6 @@ final class PetModule: FeatureModule {
             runtime.setSize(size)
         } else {
             PetSettings.shared.size = size
-        }
-    }
-
-    @objc private func changeSkin(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        PetSettings.shared.chooseSkin(id)
-        if let runtime {
-            runtime.state.skin = PetSettings.shared.skin
-            runtime.state.keyboardTheme = PetSettings.shared.keyboardTheme
         }
     }
 

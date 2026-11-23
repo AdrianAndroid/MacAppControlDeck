@@ -31,7 +31,7 @@ final class PetPanelControllerTests: XCTestCase {
         guard let controller else { return XCTFail("missing controller") }
         controller.show()
         XCTAssertTrue(controller.isOpen)
-        XCTAssertEqual(controller.window.frame.size, PetGeometry.windowSize(for: .medium))
+        XCTAssertEqual(controller.window.frame.size, PetGeometry.windowSize(for: .medium, bongoCat: true))
     }
 
     func testResizeKeepsBottomCenterAndUpdatesWindowSize() {
@@ -41,7 +41,7 @@ final class PetPanelControllerTests: XCTestCase {
         controller.settings.size = .large
         controller.resize(to: .large, animated: false)
         let newFrame = controller.window.frame
-        XCTAssertEqual(newFrame.size, PetGeometry.windowSize(for: .large))
+        XCTAssertEqual(newFrame.size, PetGeometry.windowSize(for: .large, bongoCat: true))
         XCTAssertEqual(newFrame.minY, oldFrame.minY, accuracy: 2)
         let screen = NSScreen.screens.first { $0.frame.contains(CGPoint(x: oldFrame.midX, y: oldFrame.minY)) }
             ?? NSScreen.main

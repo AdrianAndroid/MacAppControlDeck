@@ -34,6 +34,15 @@ final class PetSettingsTests: XCTestCase {
         XCTAssertTrue(settings.hideDuringCapture)
     }
 
+    func testPetKindPersistsAndOldSettingsDefaultToBongo() {
+        defaults.set(false, forKey: "pet.live2d")
+        let settings = PetSettings(defaults: defaults)
+        XCTAssertEqual(settings.kind, .bongoCat)
+        XCTAssertTrue(settings.live2DMode)
+        settings.kind = .keyCat
+        XCTAssertEqual(PetSettings(defaults: defaults).kind, .keyCat)
+    }
+
     func testUnknownSkinFallsBackToDefault() {
         defaults.set("missing-skin", forKey: "pet.skin")
         let settings = PetSettings(defaults: defaults)

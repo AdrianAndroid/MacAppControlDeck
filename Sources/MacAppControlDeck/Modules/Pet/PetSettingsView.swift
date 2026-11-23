@@ -28,7 +28,9 @@ struct PetSettingsView: View {
     private var statusCard: some View {
         GroupBox {
             HStack(spacing: 16) {
-                PetLivePreview(settings: settings)
+                Image(systemName: settings.kind == .bongoCat ? "cat.fill" : "keyboard")
+                    .font(.system(size: 48))
+                    .frame(width: 100, height: 100)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Circle()
@@ -68,27 +70,17 @@ struct PetSettingsView: View {
     private var appearanceCard: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
-                Toggle("Live2D 骨骼渲染（官方猫模型，真网格变形）", isOn: $settings.live2DMode)
-                Text("皮肤")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                if settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel) {
-                    Text("当前使用 BongoCat 官方 standard 模型：鼠标＋键盘，真实按键与鼠标左右键驱动，光标带动视线和爪子。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    HStack(spacing: 10) {
-                        ForEach(PetSkinCatalog.all) { skin in
-                            Button {
-                                settings.chooseSkin(skin.id)
-                            } label: {
-                                PetSkinSwatch(skin: skin, selected: settings.skinID == skin.id)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        Spacer()
+                TabView(selection: $settings.kind) {
+                    ForEach(PetKind.allCases) { kind in
+                        Text(kind.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                            .tabItem { Text(kind.title) }
+                            .tag(kind)
                     }
                 }
+                .frame(height: 70)
 
                 Divider()
 
@@ -97,14 +89,14 @@ struct PetSettingsView: View {
                     Spacer()
                     Picker("", selection: $settings.size) {
                         ForEach(PetSize.allCases) { size in
-                            Text("\(size.label)（\(Int(PetGeometry.windowSize(for: size, bongoCat: settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)).width))px）").tag(size)
+                            Text("\(size.label)（\(Int(PetGeometry.windowSize(for: size, bongoCat: settings.kind == .bongoCat && settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel), keyCat: settings.kind == .keyCat).width))px）").tag(size)
                         }
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 330)
                 }
 
-                if PetRasterAssets.shared == nil {
+                if settings.kind == .bongoCat && !settings.live2DMode && PetRasterAssets.shared == nil {
                     HStack {
                         Text("键盘主题")
                         Spacer()
@@ -135,7 +127,9 @@ struct PetSettingsView: View {
                 Toggle("点击穿透（完全点不到，需从菜单栏恢复）", isOn: $settings.clickThrough)
                 Toggle("锁定位置（还能摸头，不能拖动）", isOn: $settings.locked)
                 Toggle("鼠标跟随（眼珠跟随光标）", isOn: $settings.followMouse)
-                Toggle("悬停摸头（停在头顶会害羞）", isOn: $settings.hoverPetting)
+                if settings.kind == .bongoCat {
+                    Toggle("悬停摸头（停在头顶会害羞）", isOn: $settings.hoverPetting)
+                }
                 HStack {
                     Text("空闲睡觉")
                     Spacer()
@@ -163,7 +157,6 @@ struct PetSettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("允许覆盖全屏应用", isOn: $settings.allowFullScreen)
                 Toggle("自己录屏时自动隐藏", isOn: $settings.hideDuringCapture)
-                Toggle("启动时随机换一套皮肤", isOn: $settings.randomSkinOnLaunch)
                 Text("锁屏、屏幕休眠、安全输入时自动暂停；恢复后不会覆盖你手动设置的暂停。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -191,7 +184,7 @@ struct PetSettingsView: View {
                         Button("打开系统设置") { deck.openInputMonitoringSettings() }
                     }
                 }
-                Text("只读取键码所在的左/中/右/功能区，不记录字符、不联网、不写键盘日志。没有权限时仍能显示、眨眼、跟随鼠标。")
+                Text("只读取物理键码用于桌宠动作，不记录输入内容、不联网、不写键盘日志。没有权限时仍能显示、眨眼、跟随鼠标。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if runtimeLoaded {

@@ -36,7 +36,7 @@
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`（默认关闭，可在设置 → 快捷键打开）；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
-- **桌面宠物（Mac 本机模块）**：BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
+- **桌面宠物（Mac 本机模块）**：设置中使用标签切换 BongoCat 白猫和 KeyCat 黑猫。BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「应用 4 列 + 右侧 2×4 正方形快捷栏」并在标题栏显示系统时间（年月日、时分秒、星期）；锁定视口，只保留横向翻页/页点，旋转保持当前页；明文局域网 HTTP
@@ -218,6 +218,8 @@ open /Applications/MacAppControlDeck.app
 
 ## 桌面宠物
 
+桌宠设置通过 BongoCat / KeyCat 标签切换桌宠，选择会保存。KeyCat 是响应键鼠的黑猫，支持光标跟随、按住头部摸头、拖动和轮廓穿透，沿用桌宠窗口与输入监控；上游未提供项目级许可证，仅声明个人及内部使用，公开分发前需取得授权。详情见 `THIRD_PARTY_NOTICES.md`。
+
 默认桌宠是 BongoCat **standard** 的透明键鼠场景：白猫趴在圆角鼠标垫与完整键盘前，**没有白桌托板、没有第二条桌线**，透明区域直接透出壁纸。窗口无边框、置顶且不抢焦点，按轮廓点击穿透。
 
 <img src="Docs/images/readme/desktop-pet-bongocat.png" alt="桌面宠物：BongoCat standard 透明键鼠场景">
@@ -233,7 +235,7 @@ open /Applications/MacAppControlDeck.app
 
 已知限制：官方键位高亮坐标尚未按新键盘透视逐键重映射，按住字母键时蓝色高亮/猫爪落点可能与画面键帽位置有偏差；模型、键位图与背景来自 BongoCat 上游，按 Apache-2.0 随包保留许可证与来源说明，详见 `THIRD_PARTY_NOTICES.md`。
 
-需求记录：[`adopt-bongocat-live2d-model`](openspec/changes/archive/2026-11-22-adopt-bongocat-live2d-model/proposal.md) · [`remove-pet-white-desktop`](openspec/changes/archive/2026-11-22-remove-pet-white-desktop/proposal.md) · [能力规格](openspec/specs/pet-live2d-bongocat/spec.md)
+需求记录：[`fix-keycat-pointer-direction`](openspec/changes/archive/2026-11-23-fix-keycat-pointer-direction/proposal.md) · [`integrate-keycat-desktop-pet`](openspec/changes/archive/2026-11-23-integrate-keycat-desktop-pet/proposal.md) · [`adopt-bongocat-live2d-model`](openspec/changes/archive/2026-11-22-adopt-bongocat-live2d-model/proposal.md) · [`remove-pet-white-desktop`](openspec/changes/archive/2026-11-22-remove-pet-white-desktop/proposal.md) · [能力规格](openspec/specs/pet-live2d-bongocat/spec.md)
 
 ## 手机端使用
 
@@ -396,7 +398,7 @@ swift test                              # 133 项；默认跳过 4 个真实激�
 DECK_RUN_ACTIVATION_E2E=1 swift test    # 需要回归打开应用时显式启用
 ```
 
-当前 2 个桌宠窗口尺寸断言受本机屏幕影响，其余通过。
+桌宠回归覆盖窗口尺寸、设置持久化、KeyCat 的 WebKit 渲染与输入，以及两套模型的窗口切换。
 
 「打开应用」的启动/激活流水线已稳定，日常回归不再重复手工验证；只有改动 `AppControl`、激活接口、按钮配置或权限/签名时才需要回归。详见 `AGENTS.md` 的 R3。
 

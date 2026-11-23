@@ -105,3 +105,11 @@ https://github.com/excalidraw/excalidraw-libraries ，均标注 **MIT License**�
   去掉白桌、猫和猫爪，保留完整圆角鼠标垫与键盘），并在 `app.js` 中改用它；
   官方 `background.png`、模型和键位图保持原样。
 - 使用时保留上游版权与许可声明；不暗示上游对本项目的背书。
+
+
+## KeyCat
+
+- 来源：https://github.com/ElloboDK/KeyCat，提交 `e62d0d3c19989bc9e24d4ad76952c2d88a11fe2e`。
+- 本项目使用其 `web/` 猫模型、场景与行为脚本及 macOS 物理键码映射，并接入本应用的窗口和输入桥接。
+- 上游未提供项目级许可证；其 README 声明项目仅供个人使用和内部交流，不用于商业分发。公开或商业分发前须向权利人取得明确授权。
+- KeyCat 所附 three.js 使用 MIT 许可证，原文保留于 `Modules/Pet/Resources/keycat/THREE_LICENSE`。

@@ -22,7 +22,8 @@ let package = Package(
                 .copy("Modules/Sketch/Resources/Sketch"),
                 .copy("Modules/Pet/Resources/v4"),
                 .copy("Modules/Pet/Resources/v6"),
-                .copy("Modules/Pet/Resources/live2d")
+                .copy("Modules/Pet/Resources/live2d"),
+                .copy("Modules/Pet/Resources/keycat")
             ]
         ),
         .executableTarget(

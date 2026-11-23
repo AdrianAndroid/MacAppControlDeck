@@ -16,6 +16,8 @@ final class PetPanelController {
     private var hoverTimer: Timer?
     private var hovering = false
     private var dragging = false
+    private var pettingKeyCat = false
+    private var displayedKind: PetKind
     private var dragStartMouse: CGPoint = .zero
     private var dragStartOrigin: CGPoint = .zero
     private var currentScreenID: String?
@@ -30,14 +32,18 @@ final class PetPanelController {
     var isOpen: Bool { panel.isVisible }
     var window: NSWindow { panel }
     private var usesBongoScene: Bool {
-        settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)
+        settings.kind == .bongoCat && settings.live2DMode && PetLive2DBridge.isBongoModel(settings.live2dModel)
     }
+
+    private var usesKeyCatScene: Bool { settings.kind == .keyCat }
 
     init(settings: PetSettings, state: PetStateMachine) {
         self.settings = settings
         self.state = state
+        displayedKind = settings.kind
         panel = PetPanel()
-        hostingView = NSHostingView(rootView: PetSceneView(state: state))
+        hostingView = NSHostingView(rootView: PetSceneView(state: state, settings: settings))
+        hostingView.sizingOptions = []
         panel.contentView = hostingView
         hostingView.autoresizingMask = [.width, .height]
         panel.contentView?.wantsLayer = true
@@ -49,7 +55,7 @@ final class PetPanelController {
     }
 
     func show() {
-        if panel.frame.size != PetGeometry.windowSize(for: settings.size, bongoCat: usesBongoScene) {
+        if panel.frame.size != PetGeometry.windowSize(for: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene) {
             restoreFrame()
         }
         panel.ignoresMouseEvents = settings.clickThrough
@@ -59,6 +65,8 @@ final class PetPanelController {
 
     func hide() {
         stopHoverTracking()
+        pettingKeyCat = false
+        KeyCatBridge.shared.resetInput()
         panel.orderOut(nil)
     }
 
@@ -71,7 +79,13 @@ final class PetPanelController {
     }
 
     func refresh() {
-        if panel.frame.size != PetGeometry.windowSize(for: settings.size, bongoCat: usesBongoScene) {
+        if displayedKind != settings.kind {
+            displayedKind = settings.kind
+            pettingKeyCat = false
+            dragging = false
+            resize(to: settings.size, animated: false, force: true)
+            updateCollectionBehavior()
+        } else if panel.frame.size != PetGeometry.windowSize(for: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene) {
             resize(to: settings.size, animated: true)
         } else {
             updateCollectionBehavior()
@@ -80,12 +94,12 @@ final class PetPanelController {
         panel.ignoresMouseEvents = settings.clickThrough || !hovering
     }
 
-    func resize(to size: PetSize, animated: Bool) {
-        guard size != settings.size || panel.frame.size != PetGeometry.windowSize(for: size, bongoCat: usesBongoScene) else { return }
+    func resize(to size: PetSize, animated: Bool, force: Bool = false) {
+        guard force || size != settings.size || panel.frame.size != PetGeometry.windowSize(for: size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene) else { return }
         let anchor = CGPoint(x: panel.frame.midX, y: panel.frame.minY)
         let screen = screen(containing: panel.frame)
         let target = PetGeometry.clamp(
-            PetGeometry.frame(anchor: anchor, size: size, bongoCat: usesBongoScene),
+            PetGeometry.frame(anchor: anchor, size: size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene),
             to: screen.visibleFrame
         )
         if animated {
@@ -104,8 +118,8 @@ final class PetPanelController {
     func resetPosition() {
         let screen = NSScreen.main ?? NSScreen.screens.first
         guard let screen else { return }
-        let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene)
-        let frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene)
+        let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
+        let frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
         panel.setFrame(frame, display: true)
         settings.savePosition(
             PetGeometry.normalizedPosition(of: frame, in: screen.visibleFrame),
@@ -123,7 +137,7 @@ final class PetPanelController {
             normalizedPosition: normalized,
             in: screen.visibleFrame,
             size: settings.size,
-            bongoCat: usesBongoScene
+            bongoCat: usesBongoScene, keyCat: usesKeyCatScene
         )
         panel.setFrame(newFrame, display: true)
         updateHitCache()
@@ -190,15 +204,6 @@ final class PetPanelController {
                 self.resize(to: size, animated: true)
             }
         }
-        for skin in PetSkinCatalog.all {
-            menuHost.actions["pet.skin.\(skin.id)"] = { [weak self] in
-                guard let self else { return }
-                self.settings.chooseSkin(skin.id)
-                self.state.skin = skin
-                self.state.keyboardTheme = skin.defaultKeyboardTheme
-                self.updateHitCache()
-            }
-        }
         menuHost.actions["pet.resetPosition"] = { [weak self] in self?.resetPosition() }
         menuHost.actions["pet.hide"] = { [weak self] in self?.onHide?() }
     }
@@ -213,11 +218,11 @@ final class PetPanelController {
                 normalizedPosition: saved,
                 in: screen.visibleFrame,
                 size: settings.size,
-                bongoCat: usesBongoScene
+                bongoCat: usesBongoScene, keyCat: usesKeyCatScene
             )
         } else {
-            let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene)
-            frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene)
+            let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
+            frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
         }
         panel.setFrame(frame, display: false)
         settings.savePosition(
@@ -256,7 +261,7 @@ final class PetPanelController {
     }
 
     private func updateHoverState() {
-        guard panel.isVisible, !dragging else { return }
+        guard panel.isVisible, !dragging, !pettingKeyCat else { return }
         if settings.clickThrough {
             panel.ignoresMouseEvents = true
             return
@@ -271,6 +276,11 @@ final class PetPanelController {
             state.handleGaze(normalizedX: gaze.x, normalizedY: gaze.y)
         }
         let local = hostingView.convert(panel.convertPoint(fromScreen: mouse), from: nil)
+        if usesKeyCatScene {
+            hovering = visualBounds.contains(local) && KeyCatBridge.shared.hit != .none
+            panel.ignoresMouseEvents = !hovering
+            return
+        }
         let visual = visualBounds
         guard let path = hitPath else {
             panel.ignoresMouseEvents = true
@@ -315,7 +325,7 @@ final class PetPanelController {
     private func updateHitCache() {
         cachedSkinID = state.skin.id
         cachedSize = state.size
-        cachedPath = usesBongoScene
+        cachedPath = (usesBongoScene || settings.kind == .keyCat)
             ? CGPath(rect: visualBounds, transform: nil)
             : PetGeometry.hitPath(for: state.skin, in: visualBounds)
     }
@@ -327,6 +337,23 @@ final class PetPanelController {
     private func handleMouseDown(_ point: NSPoint) {
         guard !settings.clickThrough else { return }
         let local = hostingView.convert(point, from: nil)
+        if usesKeyCatScene {
+            switch KeyCatBridge.shared.hit {
+            case .pet:
+                guard !settings.paused else { return }
+                pettingKeyCat = true
+                KeyCatBridge.shared.setPetting(true, screenPoint: panel.convertPoint(toScreen: point))
+                return
+            case .drag:
+                guard !settings.locked else { return }
+                dragging = true
+                dragStartMouse = panel.convertPoint(toScreen: point)
+                dragStartOrigin = panel.frame.origin
+                panel.ignoresMouseEvents = false
+                return
+            case .none: return
+            }
+        }
         let part = PetGeometry.part(at: local, skin: state.skin, in: visualBounds)
         guard part != .transparent else { return }
         state.handleMouseDown(part: part)
@@ -355,6 +382,11 @@ final class PetPanelController {
     }
 
     private func handleMouseUp(_ point: NSPoint) {
+        if pettingKeyCat {
+            pettingKeyCat = false
+            KeyCatBridge.shared.setPetting(false, screenPoint: panel.convertPoint(toScreen: point))
+            return
+        }
         guard dragging else { return }
         dragging = false
         state.setDragging(false)

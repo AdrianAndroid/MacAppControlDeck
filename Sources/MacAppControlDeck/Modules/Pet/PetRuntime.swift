@@ -17,6 +17,7 @@ final class PetRuntime {
     private var distributedObservers: [NSObjectProtocol] = []
     private var lifecycleTimer: Timer?
     private var hasStarted = false
+    private var appliedKind: PetKind?
     private var permissionGranted = CGPreflightListenEventAccess()
     private var secureInputActive = false
     private var screenLocked = false
@@ -107,6 +108,7 @@ final class PetRuntime {
     func shutdown() {
         input.stop()
         PetLive2DBridge.shared.resetInput()
+        KeyCatBridge.shared.stop()
         clock.stop()
         panel.shutdown()
         settings.visible = false
@@ -266,6 +268,11 @@ final class PetRuntime {
     }
 
     private func applySettings() {
+        if appliedKind != settings.kind {
+            PetLive2DBridge.shared.resetInput()
+            KeyCatBridge.shared.resetInput()
+            appliedKind = settings.kind
+        }
         state.apply(settings: settings)
         panel.refresh()
         updateVisibility()
@@ -293,12 +300,14 @@ final class PetRuntime {
         guard shouldRun else {
             input.stop()
             PetLive2DBridge.shared.resetInput()
+            KeyCatBridge.shared.resetInput()
             return
         }
         permissionGranted = CGPreflightListenEventAccess()
         guard permissionGranted else {
             input.stop()
             PetLive2DBridge.shared.resetInput()
+            KeyCatBridge.shared.resetInput()
             return
         }
         guard !input.isRunning else { return }
@@ -309,16 +318,22 @@ final class PetRuntime {
         }
         input.onTapDisabled = { [weak self] in
             MainActor.assumeIsolated {
-                PetLive2DBridge.shared.resetInput()
-                self?.clock.kick()
+                self?.handleInputTapDisabled()
             }
         }
         _ = input.start()
     }
 
+    func handleInputTapDisabled() {
+        PetLive2DBridge.shared.resetInput()
+        KeyCatBridge.shared.resetInput()
+        clock.kick()
+    }
+
     private func handleRawEvent(_ event: PetRawEvent) {
         guard settings.visible, !settings.paused else { return }
-        PetLive2DBridge.shared.handleInput(event)
+        if settings.kind == .keyCat { KeyCatBridge.shared.handleInput(event) }
+        else { PetLive2DBridge.shared.handleInput(event) }
         clock.kick()
         switch event {
         case .keyDown(let code, let isRepeat):
