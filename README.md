@@ -13,7 +13,7 @@
 </tr>
 <tr>
 <td align="center"><sub>Mac 菜单栏：应用、快捷操作、截图录屏、UI 草图、设置</sub></td>
-<td align="center"><sub>手机端：竖屏应用 2 列 + 底部快捷 4×2；横屏自动切右侧 2×4 方形快捷栏</sub></td>
+<td align="center"><sub>手机端：竖屏应用 2 列 + 底部快捷 4×2；横屏切「左轨 + 12 应用 + 8 快捷」控制台</sub></td>
 </tr>
 </table>
 
@@ -39,7 +39,7 @@
 - **桌面宠物（Mac 本机模块）**：设置中使用标签切换 BongoCat 白猫和 KeyCat 黑猫。BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
-- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「应用 4 列 + 右侧 2×4 正方形快捷栏」并在标题栏显示系统时间（年月日、时分秒、星期）；锁定视口，只保留横向翻页/页点，旋转保持当前页；明文局域网 HTTP
+- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「左侧竖轨（标题/日期/时间/全屏/连接）+ 竖排标题 + 应用 4×3（12 个/页）+ 快捷 2×4（8 个/页）」；锁定视口，只保留横向翻页/页点与 `1/N` 页码，旋转保持当前页；明文局域网 HTTP
 - **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历 | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘
 
 ## 开发规则
@@ -249,10 +249,11 @@ open /Applications/MacAppControlDeck.app
 面板会按手机方向自动换布局，整页锁定在视口内，只保留横向翻页：
 
 - **竖屏**：应用按钮 **2 列**，按数量动态增加行；底部快捷操作 **4×2**
-- **横屏**：应用按钮 **4 列**，右侧快捷栏 **2×4 个正方形按钮**，栏宽由行高反推
+- **横屏**：左侧竖轨放标题、日期、红色时间、全屏与连接状态；中间应用 **4 列 × 3 行（12 个/页）**，右侧快捷 **2 列 × 4 行（8 个/页）**；「应用」「快捷操作」标题竖排在各区左侧，窄横屏（<700px）自动降为应用 3×4
 - **翻页与旋转**：应用页、快捷页各自横向 scroll-snap；底部页点可直接跳到对应页；旋转屏幕后保持当前页索引
+- **浏览器全屏**：点击标题栏（横屏为左轨底部）的「⛶」尝试进入全屏，再点「退出」恢复；如果安卓 Alook 未开放网页全屏，请使用浏览器菜单的全屏模式，或将页面添加到主屏幕。快捷操作的图标和名称会根据卡片空间等比缩小。
 - **强制刷新**：点右上角「已连接」徽标即可强制刷新面板（带版本与时间戳重载，不受浏览器缓存影响）
-- **横屏时钟**：标题栏以鲜艳红显示手机本地时间 `2026年11月23日 星期一 10:33:21`，每秒刷新；竖屏不显示
+- **横屏时钟**：左侧竖轨以鲜艳红显示手机本地时间 `HH:mm:ss`（上方为 `YYYY/MM/DD` 与星期），每秒刷新；竖屏不显示
 - **边界**：0 / 1 / 7 / 8 / 12 个快捷操作分别验证隐藏、占位与分页；320×568 到 1440×900 均无页面纵向/横向溢出
 
 <table>
@@ -266,7 +267,7 @@ open /Applications/MacAppControlDeck.app
 </tr>
 </table>
 
-<p align="center"><img src="Docs/images/readme/phone-panel-adaptive-landscape.png" width="620" alt="手机端横屏面板"><br><sub>横屏：应用 4 列 + 右侧 2×4 正方形快捷按钮（844×390 实际面板）</sub></p>
+<p align="center"><img src="Docs/images/readme/phone-panel-adaptive-landscape.png" width="620" alt="手机端横屏面板"><br><sub>横屏：左轨 + 竖排标题 + 应用 4×3（12/页）+ 快捷 2×4（8/页）（844×390 实际面板）</sub></p>
 
 ## 手机副屏（时钟 + 月历 + 天气）
 
@@ -411,7 +412,7 @@ DECK_RUN_ACTIVATION_E2E=1 swift test    # 需要回归打开应用时显式启�
 - Mac IP 变化后需重新扫码打开新地址（可能需重新配对）
 - Mac 休眠/锁屏/退出后不可用，手机会显示「Mac 未连接」（属设计行为）
 - 滚动截图是自动向下滚动 + 重叠拼接；如果选区包含固定侧栏/固定工具栏，长图里会重复出现这些固定区域，建议只框选可滚动内容
-- 手机面板只支持横向翻页，不做纵向滚动；横屏右栏按 4 行方形按钮计算宽度，极窄横屏（例如 480×320）会优先保证按钮为正方形并减少可见行数
+- 手机面板只支持横向翻页，不做纵向滚动；横屏应用固定 12 个/页（窄横屏 3×4）、快捷固定 8 个/页；极窄横屏（≤640px，例如 480×320）左侧竖轨收窄到 70px、时间字号下调，优先保证应用与快捷按钮可用
 - 副屏时钟与月历以 Mac 时间为准；`/api/time` 不可达时退回手机本地时间，此时仍可能与 Mac 不一致
 - iOS 省电模式或锁屏会挂起页面，Wake Lock 不保证常亮
 - 副屏天气依赖和风账号与 Mac 出网；和风 v1 的 JSON 字段未在文档中给全，首次接入需要用「测试连接」校准解析
@@ -505,6 +506,8 @@ Docs/archive/                    # 历史归档
 - 2026-11-23 天气认证改为默认 API Key（JWT 保留为高级选项；API Key 与私钥都存 macOS 钥匙串）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-weather-apikey-auth/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 副屏天气（和风天气 Ed25519 JWT、实时 + 3 天预报、横屏 L2 / 竖屏 P1 布局、城市搜索与测试连接）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-screen-weather/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 手机副屏：`/screen/` 只读模拟时钟 + 月历，免配对、三档尺寸、屏幕常亮，Mac 端菜单/设置/内置操作均可取地址：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-secondary-screen-page/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 面板横屏改为左轨 + 竖排标题 + 12 应用 / 8 快捷（面板版本 `2026-11-23.6`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-panel-landscape-rail/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 手机控制台安卓横屏全屏入口与快捷按钮文字自适应：[OpenSpec 变更](openspec/changes/archive/2026-11-23-fix-android-panel-layout/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 点击「已连接」强制刷新面板（`/panel/?v=…&t=…` 重载，面板版本 `2026-11-23.3`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-panel-force-refresh/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 横屏时钟改为鲜艳红色（`#ff3b30`、加粗、柔光，面板版本 `2026-11-23.2`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-tint-panel-clock-red/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 重装、面板横屏时钟与傻瓜安装包（签名身份恢复为 `145AEA72…`、横屏时钟、双击安装脚本、`macappcontroldeck://` 深链接、聊天传输 ZIP）：[实施记录](Docs/archive/2026-11-23-friendly-install-and-panel-clock/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-signing-fingerprint-docs/proposal.md)

@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-23.3"
+    static let version = "2026-11-23.6"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -32,10 +32,12 @@ enum PanelHTML {
         --icon: clamp(32px, 10.5vmin, 44px);
         --label: clamp(11px, 3.1vmin, 13px);
         --radius: calc(var(--u) * 4);
-        --rail-w: 140px;
+        --left-rail: clamp(86px, 11vw, 108px);
+        --rail-w: 160px;
+        --sc-unit: 11px;
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body { height: 100%; }
+      html, body { height:100%; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
       body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--fg);
              position:fixed; inset:0; overflow:hidden; overscroll-behavior:none;
              display:flex; flex-direction:column;
@@ -45,6 +47,9 @@ enum PanelHTML {
       h1 { font-size:clamp(14px,4.2vmin,17px); margin:0; font-weight:600; }
       #status { font-size:clamp(11px,3.2vmin,12px); padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap;
                 cursor:pointer; -webkit-tap-highlight-color:transparent; }
+      #fullscreen { flex:0 0 auto; border:1px solid var(--line); border-radius:9px; background:var(--card);
+                    color:var(--fg); font:inherit; font-size:13px; font-weight:600; line-height:1; padding:6px 9px; cursor:pointer; white-space:nowrap; }
+      #fullscreen:active { background:#232a4a; }
       #status:active { background:#232a4a; }
       #status.refreshing { opacity:.55; }
       #status.ok { color:var(--ok); border-color:#1f4d33; }
@@ -76,6 +81,7 @@ enum PanelHTML {
       .dots:empty { display:none; }
       .dots i { width:6px; height:6px; border-radius:50%; background:#3a4270; }
       .dots i.on { background:var(--muted); }
+      .pcount { display:none; }
       .btn { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); min-height:0; color:var(--fg);
              display:flex; flex-direction:column; align-items:center; justify-content:center; gap:calc(var(--u) * .8);
              padding:clamp(4px,var(--u),8px) clamp(3px,calc(var(--u) * .8),6px); cursor:pointer; position:relative; overflow:hidden; }
@@ -87,6 +93,12 @@ enum PanelHTML {
       .btn .label { font-size:var(--label); line-height:1.15; text-align:center; color:var(--fg); word-break:break-all; }
       .btn .state { font-size:calc(var(--label) - 2px); color:var(--muted); min-height:calc(var(--label) - 1px); white-space:nowrap; }
       .btn.placeholder { background:transparent; border:1px dashed var(--line); opacity:.35; pointer-events:none; }
+      #shortcutPages .btn:not(.placeholder) { gap:calc(var(--sc-unit) * .22); padding:calc(var(--sc-unit) * .3); }
+      #shortcutPages .symbol { flex:none; font-size:calc(var(--sc-unit) * 1.45); line-height:1.05; letter-spacing:0; }
+      #shortcutPages .label { flex:none; width:100%; min-width:0; font-size:var(--sc-unit); line-height:1.12;
+                              overflow-wrap:anywhere; word-break:break-all; }
+      #shortcutPages .state { flex:none; min-height:0; max-width:100%; font-size:calc(var(--sc-unit) * .78); line-height:1.05; }
+      #shortcutPages .state:empty { display:none; }
       .btn .state.busy { color:var(--warn); } .btn .state.done { color:var(--ok); } .btn .state.fail { color:var(--err); }
       #pair { display:none; flex:1 1 auto; min-height:0; flex-direction:column; gap:12px; padding-top:8vh;
               overflow-y:auto; -webkit-overflow-scrolling:touch; }
@@ -100,23 +112,76 @@ enum PanelHTML {
       .empty b { color:var(--fg); font-weight:600; font-size:16px; }
       .empty span { font-size:12px; opacity:.85; line-height:1.9; }
       @media (orientation: landscape) {
-        body { padding-left:calc(env(safe-area-inset-left) + 16px); padding-right:calc(env(safe-area-inset-right) + 16px); }
-        #clock { display:inline; }
-        #main { flex-direction:row; }
+        /* 横屏：左侧竖轨（标题/时间/全屏/连接）| 应用 | 快捷操作。 */
+        body {
+          display:grid;
+          grid-template-columns: var(--left-rail) minmax(0,1fr);
+          grid-template-rows: 1fr;
+          padding-left:calc(env(safe-area-inset-left) + 10px);
+          padding-right:calc(env(safe-area-inset-right) + 12px);
+        }
+        header {
+          grid-column:1; grid-row:1;
+          flex-direction:column; align-items:flex-start; justify-content:flex-start;
+          margin:0; padding:2px 10px 4px 0;
+          width:auto; max-width:none; height:100%;
+          border-right:1px solid var(--line);
+        }
+        h1 { font-size:clamp(10px, 1.4vw, 12px); line-height:1.45; letter-spacing:.02em; word-break:keep-all; }
+        #clock { display:block; margin-top:12px; white-space:normal; }
+        #clock .clock-date, #clock .clock-weekday { display:block; font-size:10px; line-height:1.5; font-weight:500; color:var(--muted); text-shadow:none; white-space:nowrap; }
+        #clock .clock-time { display:block; margin-top:2px; font-size:16px; line-height:1.2; font-weight:700; color:var(--clock); text-shadow:0 0 10px var(--clock-glow); }
+        #fullscreen { margin-top:auto; align-self:stretch; text-align:center; font-size:11px; padding:6px 4px; }
+        #fullscreen::after { content:" 全屏"; }
+        #status { align-self:stretch; text-align:center; font-size:11px; padding:5px 4px; }
+        #main {
+          grid-column:2; grid-row:1;
+          flex-direction:row;
+          width:100%; max-width:none; margin:0;
+          padding:0 0 0 var(--gap);
+          padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 2px);
+        }
+        #pair.show { grid-column:2; grid-row:1; }
         #appsZone { flex:1 1 auto; }
-        #shortcutsZone { flex:0 0 var(--rail-w, 140px); border-top:0; border-left:1px solid var(--line); padding:0 0 0 var(--gap); }
+        #shortcutsZone { flex:0 0 var(--rail-w, 160px); border-top:0; border-left:1px solid var(--line); padding:0 0 0 var(--gap); }
+        .zone {
+          display:grid;
+          grid-template-columns:26px minmax(0,1fr);
+          grid-template-rows:minmax(0,1fr) auto;
+          column-gap:calc(var(--gap) * .8);
+        }
+        .zone-title {
+          grid-column:1; grid-row:1 / span 2;
+          writing-mode:vertical-rl;
+          text-orientation:upright;
+          justify-self:center; align-self:start;
+          display:block; margin:0; padding-top:2px;
+          font-size:11px; letter-spacing:.28em; line-height:1.1;
+          white-space:nowrap;
+        }
+        .zone .pages { grid-column:2; grid-row:1; }
+        .zone .dots { grid-column:2; grid-row:2; }
         #shortcutPages { flex:1 1 auto; height:auto; min-height:0; }
         #shortcutPages .page { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); }
         #shortcutPages .btn { width:auto; height:100%; max-width:100%; aspect-ratio:1; justify-self:center; align-self:center; }
-        .zone-title { margin-bottom:3px; }
+        .pcount { display:inline; font-size:10px; color:var(--muted); margin-left:7px; font-variant-numeric:tabular-nums; }
       }
       @media (max-height: 360px) {
         :root { --u:3px; --gap:5px; --sc-cell:52px; --icon:32px; --label:11px; }
       }
+      @media (orientation: landscape) and (max-width: 640px) {
+        /* 极窄横屏：左轨再收窄，把宽度让给应用区。 */
+        :root { --left-rail: 70px; }
+        h1 { font-size:10px; line-height:1.35; }
+        #clock { margin-top:8px; }
+        #clock .clock-date, #clock .clock-weekday { font-size:9px; line-height:1.35; }
+        #clock .clock-time { font-size:14px; }
+        #fullscreen, #status { font-size:10px; padding:5px 3px; }
+      }
     </style>
     </head>
     <body>
-    <header><h1>Mac 应用快捷控制台</h1><span id="clock"></span><span id="status" role="button" tabindex="0" title="点击强制刷新面板">检测中…</span></header>
+    <header><h1>Mac 应用快捷控制台</h1><span id="clock"></span><button id="fullscreen" type="button" aria-label="进入全屏" title="进入全屏">⛶</button><span id="status" role="button" tabindex="0" title="点击强制刷新面板">检测中…</span></header>
     <div id="toast"></div>
     <div id="main">
       <section class="zone" id="appsZone">
@@ -182,8 +247,12 @@ enum PanelHTML {
       const pad2 = n => n < 10 ? '0' + n : '' + n;
       function tickClock(){
         const d = new Date();
-        clockEl.textContent = d.getFullYear() + '年' + pad2(d.getMonth() + 1) + '月' + pad2(d.getDate()) + '日 '
-          + WEEKDAYS[d.getDay()] + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+        const date = d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate());
+        const weekday = WEEKDAYS[d.getDay()];
+        const time = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+        clockEl.innerHTML = '<span class="clock-date">' + date + '</span>' +
+          '<span class="clock-weekday">' + weekday + '</span>' +
+          '<span class="clock-time">' + time + '</span>';
       }
       tickClock();
       setInterval(tickClock, 1000);
@@ -202,6 +271,34 @@ enum PanelHTML {
 
       function toastMsg(t,ms=2600){ toast.textContent=t; toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>toast.classList.remove('show'),ms); }
       function setStatus(t,cls){ statusEl.textContent=t; statusEl.className=cls||''; }
+      const fullscreenBtn=$('#fullscreen');
+      function fullscreenElement(){ return document.fullscreenElement || document.webkitFullscreenElement; }
+      function updateFullscreen(){
+        const active=!!fullscreenElement();
+        fullscreenBtn.textContent=active?'退出':'⛶';
+        fullscreenBtn.title=active?'退出全屏':'进入全屏';
+        fullscreenBtn.setAttribute('aria-label',fullscreenBtn.title);
+        scheduleLayout(80);
+      }
+      fullscreenBtn.addEventListener('click',async()=>{
+        try {
+          if(fullscreenElement()) {
+            const exit=document.exitFullscreen || document.webkitExitFullscreen;
+            if(!exit) throw new Error('unsupported');
+            await exit.call(document);
+          } else {
+            const root=document.documentElement;
+            const enter=root.requestFullscreen || root.webkitRequestFullscreen;
+            if(!enter || document.fullscreenEnabled===false) throw new Error('unsupported');
+            await enter.call(root);
+          }
+          updateFullscreen();
+        } catch(e) {
+          toastMsg('浏览器未允许全屏，请在浏览器菜单开启全屏或添加到主屏幕', 4500);
+        }
+      });
+      document.addEventListener('fullscreenchange',updateFullscreen);
+      document.addEventListener('webkitfullscreenchange',updateFullscreen);
       let refreshing=false;
       async function forceRefresh(){
         if(refreshing) return;
@@ -289,23 +386,25 @@ enum PanelHTML {
       function layoutNow(){
         if(!token) return;
         const landscape=matchMedia('(orientation: landscape)').matches;
-        const appCols=landscape?4:2;
+        const narrow=innerWidth<700;
+        // 横屏固定每页 12 个应用；窄横屏 3×4，常规横屏 4×3。竖屏保持 2 列自适应。
+        const appCols=landscape?(narrow?3:4):2;
         const scCols=landscape?2:4;
         const scRows=landscape?4:2;
         const rootStyle=document.documentElement.style;
         rootStyle.setProperty('--app-cols',String(appCols));
         rootStyle.setProperty('--sc-cols',String(scCols));
         rootStyle.setProperty('--sc-rows',String(scRows));
-        shortcutsZone.style.display=renderedShortcuts.length?'flex':'none';
+        shortcutsZone.style.display=renderedShortcuts.length?'':'none';
 
         if(landscape){
-          // 右栏宽度由 4 行方形按钮反推，先给临时宽度让快捷区拿到真实高度
+          // 快捷栏宽度由 4 行方形按钮反推；再加 26px 竖排标题和间距。
           const gap0=px(getComputedStyle(mainEl).gap)||8;
-          rootStyle.setProperty('--rail-w','140px');
+          rootStyle.setProperty('--rail-w','160px');
           const pagesH=shortcutPagesEl.clientHeight||0;
           if(pagesH>0){
             const card=Math.max(52,(pagesH-gap0*(scRows-1))/scRows);
-            const railW=card*scCols+gap0*(scCols+1);
+            const railW=card*scCols+gap0*(scCols+1)+26+gap0;
             rootStyle.setProperty('--rail-w',railW+'px');
           }
         }
@@ -315,11 +414,12 @@ enum PanelHTML {
         const vmin=Math.min(innerWidth,innerHeight);
         const minH=Math.max(64,Math.min(88,vmin*0.20));
         const measured=h>0?clamp(Math.floor((h+gap)/(minH+gap)),2,landscape?4:6):(landscape?3:4);
-        rootStyle.setProperty('--app-rows',String(measured));
+        const appRows=landscape?Math.round(12/appCols):measured;
+        rootStyle.setProperty('--app-rows',String(appRows));
 
         const appPage=pageIndex(appsPagesEl);
         const scPage=pageIndex(shortcutPagesEl);
-        renderZone(appsPagesEl,appsDotsEl,renderedApps,appCols,measured,'app');
+        renderZone(appsPagesEl,appsDotsEl,renderedApps,appCols,appRows,'app');
         if(renderedShortcuts.length){
           renderZone(shortcutPagesEl,shortcutDotsEl,renderedShortcuts,scCols,scRows,'shortcut');
         } else {
@@ -327,6 +427,36 @@ enum PanelHTML {
         }
         restorePage(appsPagesEl,appPage);
         restorePage(shortcutPagesEl,scPage);
+        fitShortcutContent();
+      }
+
+      // 同一快捷区共用字号，按最拥挤卡片缩放，保持图标、名称和状态的比例。
+      function fitShortcutContent(){
+        const cards=[...shortcutPagesEl.querySelectorAll('.btn:not(.placeholder)')];
+        if(!cards.length || !cards[0].clientWidth || !cards[0].clientHeight) return;
+        const root=document.documentElement.style;
+        const size=Math.min(...cards.map(card=>Math.min(card.clientWidth,card.clientHeight)));
+        let lo=2, hi=Math.min(16, size*.23), best=lo;
+        function fits(unit){
+          root.setProperty('--sc-unit',unit+'px');
+          return cards.every(card=>{
+            const box=card.getBoundingClientRect(), style=getComputedStyle(card);
+            const top=box.top+px(style.borderTopWidth)+px(style.paddingTop);
+            const bottom=box.bottom-px(style.borderBottomWidth)-px(style.paddingBottom);
+            const left=box.left+px(style.borderLeftWidth)+px(style.paddingLeft);
+            const right=box.right-px(style.borderRightWidth)-px(style.paddingRight);
+            return [...card.children].filter(child=>getComputedStyle(child).display!=='none').every(child=>{
+              const rect=child.getBoundingClientRect();
+              return rect.top>=top-.5 && rect.bottom<=bottom+.5 && rect.left>=left-.5 && rect.right<=right+.5
+                && child.scrollWidth<=child.clientWidth+1 && child.scrollHeight<=child.clientHeight+1;
+            });
+          });
+        }
+        for(let i=0;i<9;i++){
+          const mid=(lo+hi)/2;
+          if(fits(mid)){ best=mid; lo=mid; } else { hi=mid; }
+        }
+        root.setProperty('--sc-unit',best.toFixed(2)+'px');
       }
 
       function renderZone(pagesEl,dotsEl,items,cols,rows,kind){
@@ -347,17 +477,25 @@ enum PanelHTML {
           pagesEl.appendChild(page);
         });
         if(pages.length>1){
+          const pcount=document.createElement('span');
+          pcount.className='pcount';
+          pcount.textContent='1/'+pages.length;
+          const sync=idx=>{
+            dots.forEach((d,i)=>d.className=i===idx?'on':'');
+            pcount.textContent=(idx+1)+'/'+pages.length;
+          };
           const dots=[...Array(pages.length)].map((_,i)=>{
             const d=document.createElement('i');
             if(i===0)d.className='on';
             d.style.cursor='pointer';
             d.addEventListener('click',()=>{
               pagesEl.scrollTo({left:i*pagesEl.clientWidth,behavior:'smooth'});
-              dots.forEach((x,j)=>x.className=j===i?'on':'');
+              sync(i);
             });
             dotsEl.appendChild(d); return d;
           });
-          pagesEl.onscroll=()=>{ const idx=Math.round(pagesEl.scrollLeft/pagesEl.clientWidth); dots.forEach((d,i)=>d.className=i===idx?'on':''); };
+          dotsEl.appendChild(pcount);
+          pagesEl.onscroll=()=>{ const idx=Math.round(pagesEl.scrollLeft/pagesEl.clientWidth); sync(idx); };
         } else {
           pagesEl.onscroll=null;
         }
@@ -378,7 +516,7 @@ enum PanelHTML {
         return el;
       }
 
-      function setState(el,text,cls){ const s=el.querySelector('.state'); s.textContent=text; s.className='state '+(cls||''); }
+      function setState(el,text,cls){ const s=el.querySelector('.state'); s.textContent=text; s.className='state '+(cls||''); if(el.classList.contains('shortcut')) fitShortcutContent(); }
 
       function queueOf(button, el){
         let q = queues.get(button.id);
@@ -430,8 +568,8 @@ enum PanelHTML {
           if (q.items.length) setState(q.el, baseText + queueLabel(q), 'busy');
         }
         q.running = false;
-        setTimeout(()=>{ const st=q.el&&q.el.querySelector('.state'); if(st && !q.running && !q.items.length && !st.classList.contains('busy')) st.textContent=''; }, 900);
-        setTimeout(()=>{ const st=q.el&&q.el.querySelector('.state'); if(st && !q.running && !q.items.length && !st.classList.contains('fail')) st.textContent=''; }, 2600);
+        setTimeout(()=>{ const st=q.el&&q.el.querySelector('.state'); if(st && !q.running && !q.items.length && !st.classList.contains('busy')) { st.textContent=''; fitShortcutContent(); } }, 900);
+        setTimeout(()=>{ const st=q.el&&q.el.querySelector('.state'); if(st && !q.running && !q.items.length && !st.classList.contains('fail')) { st.textContent=''; fitShortcutContent(); } }, 2600);
       }
 
       function anyRunning(){ return [...queues.values()].some(q=>q.running || q.items.length); }
@@ -461,6 +599,7 @@ enum PanelHTML {
       window.addEventListener('resize',()=>scheduleLayout(80));
       window.addEventListener('orientationchange',()=>scheduleLayout(200));
       if(window.visualViewport) window.visualViewport.addEventListener('resize',()=>scheduleLayout(120));
+      if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>scheduleLayout(0));
 
       document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkPanelVersion(); checkHealth().then(ok=>{ if(ok||token) loadButtons(); }); } });
       setInterval(()=>{ checkHealth().then(ok=>{ if(ok&&token&&!anyRunning()) loadButtons(); }); },2000);

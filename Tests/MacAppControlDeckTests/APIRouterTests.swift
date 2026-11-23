@@ -143,7 +143,12 @@ final class APIRouterTests: XCTestCase {
         }
         let response = await router.handle(makeRequest("GET", location))
         XCTAssertEqual(response.status, 200)
-        XCTAssertTrue(String(data: response.body, encoding: .utf8)!.contains("Mac 应用快捷控制台"))
+        let html = String(data: response.body, encoding: .utf8)!
+        XCTAssertTrue(html.contains("Mac 应用快捷控制台"))
+        XCTAssertTrue(html.contains("grid-template-columns: var(--left-rail)"), "横屏需要左侧竖轨")
+        XCTAssertTrue(html.contains("writing-mode:vertical-rl"), "应用/快捷标题竖排")
+        XCTAssertTrue(html.contains("12/appCols"), "横屏每页固定 12 个应用")
+        XCTAssertTrue(html.contains("pcount"), "分页需要页码")
     }
 
     func test_screenServedWithoutToken() async {
