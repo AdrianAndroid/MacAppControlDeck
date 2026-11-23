@@ -16,6 +16,8 @@ import Foundation
 actor ScanEngine {
     private let fileManager = FileManager.default
     private let home: String
+    /// 用户在设置页维护的排除路径（含子路径），每次扫描开始时读取一次。
+    private var excludedPaths: Set<String> = []
 
     init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
         home = homeDirectory.resolvingSymlinksInPath().path
@@ -41,6 +43,7 @@ actor ScanEngine {
         onPath: (@Sendable (String) -> Void)? = nil
     ) async -> CategoryResult {
         self.onPath = onPath
+        self.excludedPaths = Set(CleanupExclusions.paths().map { normalizePath($0) })
         defer { self.onPath = nil }
         switch category {
         case .systemJunk: return scanSystemJunk()
@@ -128,6 +131,18 @@ actor ScanEngine {
         return CategoryResult(category: .trashBins, items: items, totalSize: items.totalSize)
     }
 
+    /// 大文件扫描根目录：设置页可配置（systemTool.cleaning.largeFileRoots），
+    /// 默认下载 / 文稿 / 桌面。只接受绝对路径。
+    private func largeFileRoots() -> [String] {
+        let configured = UserDefaults.standard.stringArray(forKey: "systemTool.cleaning.largeFileRoots") ?? []
+        let roots = configured
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0.hasPrefix("/") }
+        return roots.isEmpty
+            ? ["\(home)/Downloads", "\(home)/Documents", "\(home)/Desktop"]
+            : roots
+    }
+
     private func scanLargeFiles() -> CategoryResult {
         let defaults = UserDefaults.standard
         let thresholdMB = defaults.object(forKey: "systemTool.cleaning.largeFileThreshold") as? Int ?? 100
@@ -135,7 +150,8 @@ actor ScanEngine {
         let minSize = Int64(max(1, thresholdMB)) * 1024 * 1024
         let oldCutoff = Calendar.current.date(byAdding: .month, value: -max(1, oldMonths), to: Date())
             ?? Date.distantPast
-        let excludedFolders = (defaults.stringArray(forKey: "systemTool.cleaning.largeFileExcludedFolders") ?? [])
+        let excludedFolders = ((defaults.stringArray(forKey: "systemTool.cleaning.largeFileExcludedFolders") ?? [])
+            + CleanupExclusions.paths())
             .map(normalizePath).filter { !$0.isEmpty }
         let skipHidden = defaults.object(forKey: "systemTool.cleaning.skipHiddenFiles") as? Bool ?? true
 
@@ -143,7 +159,7 @@ actor ScanEngine {
         if skipHidden { options.insert(.skipsHiddenFiles) }
 
         var items: [CleanableItem] = []
-        for basePath in ["\(home)/Downloads", "\(home)/Documents", "\(home)/Desktop"] {
+        for basePath in largeFileRoots() {
             guard let enumerator = fileManager.enumerator(
                 at: URL(fileURLWithPath: basePath),
                 includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey],
@@ -245,7 +261,10 @@ actor ScanEngine {
                 if Task.isCancelled { break }
                 let fullPath = (path as NSString).appendingPathComponent(item)
                 report(fullPath)
-                if excludedPaths.contains(normalizePath(fullPath)) { continue }
+                let standardized = normalizePath(fullPath)
+                if excludedPaths.contains(standardized)
+                    || self.excludedPaths.contains(standardized)
+                    || self.excludedPaths.contains(where: { standardized.hasPrefix($0 + "/") }) { continue }
 
                 var isDir: ObjCBool = false
                 guard fileManager.fileExists(atPath: fullPath, isDirectory: &isDir) else { continue }
@@ -282,6 +301,9 @@ actor ScanEngine {
         isSelected: Bool = true, minimumSize: Int64 = 1024
     ) -> CleanableItem? {
         report(path)
+        let standardized = normalizePath(path)
+        if excludedPaths.contains(standardized)
+            || excludedPaths.contains(where: { standardized.hasPrefix($0 + "/") }) { return nil }
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory),
               fileManager.isReadableFile(atPath: path) else { return nil }

@@ -88,3 +88,19 @@
 - [x] 10.3 `button-panel-config` spec 同步 `systemTool.open` 入口
 - [x] 10.4 归档到 `openspec/changes/archive/2026-11-23-add-system-cleaner/`，任务全部勾选
 - [x] 10.5 提交说明引用 change-id `add-system-cleaner`，写明新增用户可见入口 `systemTool.open`
+
+## 11. UI 精修复核（2026-11-23 补充）
+
+用户复核后指出初版 UI 潦草，按定稿 ASCII 图逐屏重做，并用系统截图在真机逐页核对。
+
+- [x] 11.1 重写 `SystemToolViews.swift` / `SystemToolViews2.swift` / `SystemToolSettingsView.swift`，新增 `SystemToolComponents.swift` 统一视觉组件（FDA 横幅、空态、卡片、列头表格、文件行、清理结果条、确认弹窗）
+- [x] 11.2 删除误写进状态栏的设计备注（「温度/网速不做」）与所有假按钮；状态栏实现空闲 / 扫描 / 清理三态，取消、停止、全不选、清理选中全部接线
+- [x] 11.3 概览页卡片联动真实扫描结果、动态卷名；垃圾清理页中文分类筛选、列头表格、修改时间列、跳过说明、清理结果统计
+- [x] 11.4 应用卸载页两级残留分组（高置信可批量勾选 / 需人工核对逐项勾选）、系统路径不可勾选、卸载前确认弹窗，应用包与残留统一走安全校验
+- [x] 11.5 大文件页阈值 / 时间 / 目录选择器，重复文件页扫描根 / 进度 / 跳过原因，进程页 CPU 列与系统进程按钮置灰
+- [x] 11.6 确认弹窗列出路径与大小，永久删除单独二次确认；设置页补默认扫描目录、重复文件扫描根、排除路径添加入口
+- [x] 11.7 排除路径在扫描阶段生效（`ScanEngine` 接线）；大文件扫描根目录可配置并传入引擎
+- [x] 11.8 修复安全规则：移植引擎 `scanDirectory` 默认 `isSelected = true`，导致扫描完 772 项（35.65 GB）全部选中、清理按钮直接可用 → 状态层统一清零，恢复「默认零选中」
+- [x] 11.9 修复：内嵌 `ProcessResourceMonitor` 的 objectWillChange 未转发，SwiftUI 不观察嵌套 ObservableObject，进程页恒停在「正在采集」空态 → 由 `SystemToolState` 订阅转发
+- [x] 11.10 修复：内存算法把 inactive 文件缓存页计入「已用」，MEM 恒显示 100% → 改用 active + wired + compressor 口径（真机显示 63%）
+- [x] 11.11 真机逐屏截图核对：6 个页签、设置页、菜单栏分栏状态项、扫描中三态、结果表格、确认弹窗、永久删除二次确认；验证全程只查看弹窗并取消，未执行任何删除

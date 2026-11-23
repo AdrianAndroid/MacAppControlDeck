@@ -1,88 +1,240 @@
 import SwiftUI
+import AppKit
 
 struct SystemToolSettingsView: View {
     @AppStorage("systemTool.menubar.showCPU") private var showCPU = true
     @AppStorage("systemTool.menubar.showMEM") private var showMEM = true
     @AppStorage("systemTool.cleaning.largeFileThreshold") private var thresholdMB = 100
     @AppStorage("systemTool.cleaning.oldFileMonths") private var oldMonths = 12
+
     @State private var excludedPaths: [String] = CleanupExclusions.paths()
+    @State private var largeRoots: [String] = UserDefaults.standard
+        .stringArray(forKey: "systemTool.cleaning.largeFileRoots") ?? []
+    @State private var duplicateRoot: String = UserDefaults.standard
+        .string(forKey: "systemTool.cleaning.duplicateScanRoot") ?? NSHomeDirectory()
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                GroupBox("状态栏展示信息设置") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("勾选要在菜单栏显示的项目，改动即时生效、无需重启。")
+            VStack(alignment: .leading, spacing: 16) {
+                // ① 状态栏展示信息
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("勾选要在菜单栏显示的项目；改动即时生效，无需重启。")
                             .font(.caption).foregroundStyle(.secondary)
                         HStack(spacing: 16) {
-                            StatusInfoCard(title: "CPU 占用", sample: "29%", label: "CPU", checked: $showCPU)
-                            StatusInfoCard(title: "内存占用", sample: "45%", label: "MEM", checked: $showMEM)
+                            StatusInfoCard(title: "CPU 占用", sample: "29%", label: "CPU",
+                                           tint: .blue, checked: $showCPU)
+                            StatusInfoCard(title: "内存占用", sample: "45%", label: "MEM",
+                                           tint: .purple, checked: $showMEM)
                         }
-                        Text("这里的勾选只控制各自状态项；总开关在「设置 → 模块 → PureMac」。")
-                            .font(.caption2).foregroundStyle(.tertiary)
+                        HStack(alignment: .top, spacing: 5) {
+                            Image(systemName: "info.circle").font(.caption2)
+                            Text("这两项只控制各自的状态项，不是总开关。总开关是「设置 → 模块 → PureMac」的模块启用开关；模块关闭时两个状态项一并消失，勾选状态会保留，重新启用后按勾选恢复。")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        Text("卡片中的百分比为形态示意，实际数值由菜单栏实时采样显示。")
+                            .font(.caption2).foregroundStyle(.quaternary)
                     }
-                    .padding(8)
+                    .padding(10)
+                } label: {
+                    Label("状态栏展示信息设置", systemImage: "menubar.rectangle")
+                        .font(.headline)
                 }
 
-                GroupBox("扫描设置") {
+                // ② 扫描设置
+                GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("大文件阈值")
+                        SettingRow(label: "大文件阈值", hint: "超过该大小的文件进入结果") {
                             Picker("", selection: $thresholdMB) {
                                 Text("> 50 MB").tag(50)
                                 Text("> 100 MB").tag(100)
                                 Text("> 500 MB").tag(500)
                                 Text("> 1 GB").tag(1024)
-                            }.frame(width: 140)
+                            }
+                            .labelsHidden().frame(width: 150)
                         }
-                        HStack {
-                            Text("文件时间")
+
+                        SettingRow(label: "文件时间", hint: "超过该时长的较大文件也纳入") {
                             Picker("", selection: $oldMonths) {
                                 Text("> 6 个月").tag(6)
                                 Text("> 1 年").tag(12)
                                 Text("> 2 年").tag(24)
-                            }.frame(width: 140)
+                            }
+                            .labelsHidden().frame(width: 150)
                         }
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("排除路径").font(.subheadline)
-                            ForEach(excludedPaths, id: \.self) { path in
-                                HStack {
-                                    Text(path).font(.caption).lineLimit(1).truncationMode(.middle)
-                                    Spacer()
-                                    Button("移除") {
-                                        var next = excludedPaths
-                                        next.removeAll { $0 == path }
-                                        UserDefaults.standard.set(next, forKey: "systemTool.cleaning.excludedPaths")
-                                        excludedPaths = next
-                                    }.buttonStyle(.borderless)
+
+                        SettingRow(label: "默认扫描目录", hint: "大文件扫描的根目录；留空则用下载 / 文稿 / 桌面") {
+                            HStack(spacing: 6) {
+                                Text(largeRootLabel)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .lineLimit(1).truncationMode(.middle)
+                                    .frame(maxWidth: 220, alignment: .leading)
+                                Button("选择…") { chooseLargeRoot() }.controlSize(.small)
+                                if !largeRoots.isEmpty {
+                                    Button("恢复默认") {
+                                        largeRoots = []
+                                        UserDefaults.standard.removeObject(forKey: "systemTool.cleaning.largeFileRoots")
+                                    }
+                                    .controlSize(.small)
                                 }
                             }
+                        }
+
+                        SettingRow(label: "重复文件扫描根", hint: "按内容哈希查找重复文件时的起点") {
+                            HStack(spacing: 6) {
+                                Text((duplicateRoot as NSString).abbreviatingWithTildeInPath)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .lineLimit(1).truncationMode(.middle)
+                                    .frame(maxWidth: 220, alignment: .leading)
+                                Button("选择…") { chooseDuplicateRoot() }.controlSize(.small)
+                            }
+                        }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                Text("排除路径").font(.subheadline).fontWeight(.semibold)
+                                Text("扫描与清理都会跳过这些路径及其子路径")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Button {
+                                    addExclusion()
+                                } label: {
+                                    Label("添加路径", systemImage: "plus")
+                                }
+                                .controlSize(.small)
+                            }
                             if excludedPaths.isEmpty {
-                                Text("暂无排除路径").font(.caption).foregroundStyle(.secondary)
+                                Text("暂无排除路径")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .padding(.vertical, 4)
+                            } else {
+                                VStack(spacing: 0) {
+                                    ForEach(excludedPaths, id: \.self) { path in
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "folder.badge.minus")
+                                                .foregroundStyle(.secondary)
+                                            Text(path)
+                                                .font(.caption).lineLimit(1).truncationMode(.middle)
+                                            Spacer(minLength: 6)
+                                            Button("移除") { removeExclusion(path) }
+                                                .buttonStyle(.borderless)
+                                                .font(.caption)
+                                        }
+                                        .padding(.horizontal, 8).padding(.vertical, 5)
+                                        Divider()
+                                    }
+                                }
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
                             }
                         }
                     }
-                    .padding(8)
+                    .padding(10)
+                } label: {
+                    Label("扫描设置", systemImage: "magnifyingglass")
+                        .font(.headline)
                 }
 
-                GroupBox("模块说明") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("清理引擎移植自 PureMac (MIT, momenbasel)，许可证声明见 THIRD_PARTY_NOTICES.md。")
-                            .font(.caption)
-                        Text("清理默认移入废纸篓；系统进程不可退出；未获得完全磁盘访问时结果可能不完整。")
+                // ③ 模块说明
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "hammer.and.screwdriver.fill")
+                                .foregroundStyle(Color.accentColor)
+                            Text("PureMac").font(.callout).fontWeight(.semibold)
+                            Spacer()
+                            if let url = URL(string: "https://github.com/momenbasel/PureMac") {
+                                Link("上游仓库", destination: url).font(.caption)
+                            }
+                        }
+                        Text("清理引擎精选移植自 PureMac（MIT License，Copyright © 2026 PureMac Contributors）；"
+                             + "扫描、清理、哈希、进程与应用发现的底层文件保留上游版权头，完整许可见 THIRD_PARTY_NOTICES.md。")
                             .font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Divider()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("默认零选中 · 先看后删 · 删除前逐项确认", systemImage: "checkmark.shield")
+                            Label("优先移入废纸篓；永久删除需单独二次确认", systemImage: "trash")
+                            Label("系统 / root / 受保护进程的退出按钮不可用", systemImage: "lock.shield")
+                            Label("未获得完全磁盘访问时结果标注为不完整，不阻断扫描", systemImage: "exclamationmark.triangle")
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     }
-                    .padding(8)
+                    .padding(10)
+                } label: {
+                    Label("模块说明", systemImage: "info.circle")
+                        .font(.headline)
                 }
             }
             .padding()
         }
+        .onAppear(perform: reloadFromDefaults)
         .onChange(of: showCPU) { _, _ in notifyStatusChange() }
         .onChange(of: showMEM) { _, _ in notifyStatusChange() }
     }
 
+    private var largeRootLabel: String {
+        guard let first = largeRoots.first, !first.isEmpty else {
+            return "下载 / 文稿 / 桌面（默认）"
+        }
+        return (first as NSString).abbreviatingWithTildeInPath
+    }
+
+    private func reloadFromDefaults() {
+        excludedPaths = CleanupExclusions.paths()
+        largeRoots = UserDefaults.standard.stringArray(forKey: "systemTool.cleaning.largeFileRoots") ?? []
+        duplicateRoot = UserDefaults.standard.string(forKey: "systemTool.cleaning.duplicateScanRoot") ?? NSHomeDirectory()
+    }
+
     private func notifyStatusChange() {
         NotificationCenter.default.post(name: .systemToolStatusPreferenceChanged, object: nil)
+    }
+
+    private func chooseLargeRoot() {
+        guard let url = chooseDirectory(prompt: "选择", message: "选择大文件扫描目录") else { return }
+        largeRoots = [url.path]
+        UserDefaults.standard.set(largeRoots, forKey: "systemTool.cleaning.largeFileRoots")
+    }
+
+    private func chooseDuplicateRoot() {
+        guard let url = chooseDirectory(prompt: "选择", message: "选择重复文件扫描根目录") else { return }
+        duplicateRoot = url.path
+        UserDefaults.standard.set(url.path, forKey: "systemTool.cleaning.duplicateScanRoot")
+    }
+
+    private func addExclusion() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = "添加"
+        panel.message = "选择要排除的文件或目录"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        CleanupExclusions.add(url.path)
+        excludedPaths = CleanupExclusions.paths()
+    }
+
+    private func removeExclusion(_ path: String) {
+        var next = excludedPaths
+        next.removeAll { $0 == path }
+        UserDefaults.standard.set(next, forKey: CleanupExclusions.defaultsKey)
+        excludedPaths = next
+    }
+
+    private func chooseDirectory(prompt: String, message: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = prompt
+        panel.message = message
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
     }
 }
 
@@ -90,24 +242,33 @@ private struct StatusInfoCard: View {
     let title: String
     let sample: String
     let label: String
+    let tint: Color
     @Binding var checked: Bool
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 5) {
             HStack {
                 Spacer()
                 Image(systemName: checked ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(checked ? Color.accentColor : Color.secondary)
-                    .onTapGesture { checked.toggle() }
+                    .foregroundStyle(checked ? tint : Color.secondary)
             }
-            Text(sample).font(.title2).fontWeight(.medium)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(sample)
+                .font(.system(size: 22, weight: .medium, design: .rounded))
+                .monospacedDigit()
+            Text(label)
+                .font(.caption2).fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            Divider().padding(.vertical, 2)
             Text(title).font(.caption2)
         }
-        .frame(width: 120, height: 110)
+        .frame(width: 126, height: 122)
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(checked ? tint.opacity(0.55) : Color(nsColor: .separatorColor),
+                        lineWidth: checked ? 1.2 : 0.5)
+        )
         .contentShape(Rectangle())
         .onTapGesture { checked.toggle() }
     }

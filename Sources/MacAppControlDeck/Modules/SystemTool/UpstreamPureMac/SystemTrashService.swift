@@ -95,18 +95,65 @@ actor SystemTrashService {
     }
 
     /// 卸载应用后清理残留目录：同样废纸篓优先。
+    /// 残留可能位于 ~/Documents 等用户目录（"需人工核对"组），这些是用户逐项勾选确认过的，
+    /// 因此不走 clean() 那条只约束自动扫描缓存项的 allowedRoots，
+    /// 但仍限定在「用户主目录 / /Library 范围内 + 非高风险目录 + 非符号链接 + 非保护路径」。
     func removeResiduals(_ paths: [String]) async -> TrashResult {
-        let items = paths.compactMap { path -> CleanableItem? in
-            var isDir: ObjCBool = false
-            guard fileManager.fileExists(atPath: path, isDirectory: &isDir),
-                  passesSafetyCheck(path),
-                  !FileProtection.isProtectedFromDeletion(path: path) else { return nil }
-            return CleanableItem(
-                name: (path as NSString).lastPathComponent, path: path,
-                size: 0, category: .userCache, isSelected: true, lastModified: nil
-            )
+        var result = TrashResult()
+        let exclusions = CleanupExclusions.paths()
+        for path in paths {
+            if Task.isCancelled { break }
+            if CleanupExclusions.excludes(path, paths: exclusions) {
+                result.skippedPaths.insert(path)
+                continue
+            }
+            let standardized = (path as NSString).standardizingPath
+            guard isAllowedResidualRoot(standardized) else {
+                result.skippedPaths.insert(path)
+                continue
+            }
+            let resolved = URL(fileURLWithPath: standardized).resolvingSymlinksInPath().path
+            guard resolved == standardized, !hasUnexpectedSymlink(in: standardized) else {
+                result.skippedPaths.insert(path)
+                continue
+            }
+            guard !FileProtection.isProtectedFromDeletion(path: standardized) else {
+                result.protectedPaths.insert(path)
+                continue
+            }
+            guard fileManager.fileExists(atPath: standardized) else {
+                result.skippedPaths.insert(path)
+                continue
+            }
+            do {
+                var resulting: NSURL?
+                try fileManager.trashItem(at: URL(fileURLWithPath: standardized), resultingItemURL: &resulting)
+                if let trashed = resulting?.path { result.trashedPaths.insert(trashed) }
+                result.cleanedPaths.insert(path)
+                result.itemsCleaned += 1
+            } catch {
+                result.errors.append("\(path): \(error.localizedDescription)")
+                Logger.shared.log("Residual trash failed \(path): \(error.localizedDescription)", level: .error)
+            }
         }
-        return await clean(items)
+        return result
+    }
+
+    /// 残留只允许落在用户主目录或 /Library 下，并排除与应用残留无关的高风险点目录。
+    private func isAllowedResidualRoot(_ path: String) -> Bool {
+        let lower = path.lowercased()
+        let homeLower = home.lowercased()
+        guard lower.hasPrefix(homeLower + "/") || lower.hasPrefix("/library/") else { return false }
+        let risky = [
+            "\(homeLower)/library/keychains", "\(homeLower)/library/cookies",
+            "\(homeLower)/library/credentials", "\(homeLower)/library/containers/com.apple",
+            "\(homeLower)/library/application support/com.apple",
+            "\(homeLower)/library/preferences/com.apple",
+            "\(homeLower)/.ssh", "\(homeLower)/.gnupg", "\(homeLower)/.aws",
+            "\(homeLower)/.config", "\(homeLower)/.local/share",
+            "/library/keychains", "/library/security",
+        ]
+        return !risky.contains { lower.hasPrefix($0) }
     }
 
     // MARK: - Safety

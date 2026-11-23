@@ -78,9 +78,13 @@ final class SystemSampler: ObservableObject {
             }
         }
         guard result == KERN_SUCCESS else { return }
-        let used = UInt64(mstat.active_count + mstat.inactive_count + mstat.wire_count + mstat.compressor_page_count)
+        // macOS 会把空闲内存用作文件缓存（inactive），若把它计入「已用」，占用率会恒接近 100%。
+        // 采用活动监视器口径：active + wired + compressor 为实际占用，inactive 视为可回收。
+        let usedPages = UInt64(mstat.active_count)
+            + UInt64(mstat.wire_count)
+            + UInt64(mstat.compressor_page_count)
         let total = ProcessInfo.processInfo.physicalMemory
-        memoryUsedBytes = used * UInt64(pageSize)
+        memoryUsedBytes = usedPages * UInt64(pageSize)
         memoryTotalBytes = total
         if total > 0 {
             memoryUsage = min(1, max(0, Double(memoryUsedBytes) / Double(total)))
