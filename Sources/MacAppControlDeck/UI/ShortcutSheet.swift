@@ -65,8 +65,15 @@ struct ShortcutSheet: View {
         .overlay {
             if recording { recordingOverlay }
         }
-        .onAppear { loadInitial() }
-        .onDisappear { stopMonitor() }
+        .onAppear {
+            // 录制期间暂停全局快捷键，避免 F1 等被系统级热键吞掉。
+            GlobalHotKeys.shared.suspend()
+            loadInitial()
+        }
+        .onDisappear {
+            stopMonitor()
+            GlobalHotKeys.shared.resume()
+        }
     }
 
     private var presetsColumn: some View {

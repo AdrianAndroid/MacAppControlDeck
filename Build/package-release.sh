@@ -57,17 +57,26 @@ if [[ "$ACTUAL" != "$ARCH" ]]; then
 fi
 echo "主程序架构: $ACTUAL"
 
-echo "==> 生成 ZIP"
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+echo "==> 组装安装包目录（App + 安装脚本 + 说明）"
+BUNDLE_DIR="$OUT/$APP_NAME-$VERSION-$ARCH"
+rm -rf "$BUNDLE_DIR"
+mkdir -p "$BUNDLE_DIR"
+cp -R "$APP" "$BUNDLE_DIR/"
+cp "$ROOT/Build/install-friendly.command" "$BUNDLE_DIR/安装 MacAppControlDeck.command"
+cp "$ROOT/Build/install-readme.txt" "$BUNDLE_DIR/安装说明.txt"
+chmod +x "$BUNDLE_DIR/安装 MacAppControlDeck.command"
+
+echo "==> 生成 ZIP（聊天软件传输用，解压后双击安装脚本）"
+ditto -c -k --sequesterRsrc --keepParent "$BUNDLE_DIR" "$ZIP"
 
 echo "==> 生成 DMG"
 mkdir -p "$DMG_SRC"
-cp -R "$APP" "$DMG_SRC/"
+cp -R "$BUNDLE_DIR/"* "$DMG_SRC/"
 ln -s /Applications "$DMG_SRC/Applications"
 rm -f "$DMG"
 hdiutil create -quiet -volname "$APP_NAME $VERSION $ARCH" \
   -srcfolder "$DMG_SRC" -ov -format UDZO "$DMG"
-rm -rf "$DMG_SRC"
+rm -rf "$DMG_SRC" "$BUNDLE_DIR"
 
 echo "==> 生成校验和"
 (cd "$OUT" && shasum -a 256 "$(basename "$ZIP")" "$(basename "$DMG")" > SHA256SUMS.txt)

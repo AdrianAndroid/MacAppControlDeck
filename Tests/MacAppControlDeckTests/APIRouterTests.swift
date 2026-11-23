@@ -145,4 +145,86 @@ final class APIRouterTests: XCTestCase {
         XCTAssertEqual(response.status, 200)
         XCTAssertTrue(String(data: response.body, encoding: .utf8)!.contains("Mac 应用快捷控制台"))
     }
+
+    func test_screenServedWithoutToken() async {
+        let router = makeRouter()
+        let entry = await router.handle(makeRequest("GET", "/screen/"))
+        XCTAssertEqual(entry.status, 302, "副屏入口应带版本参数跳转，避免缓存旧页面")
+        guard let location = entry.headers["Location"] else {
+            return XCTFail("缺少 Location 跳转地址")
+        }
+        XCTAssertTrue(location.hasPrefix("/screen/?v="))
+
+        let response = await router.handle(makeRequest("GET", location))
+        XCTAssertEqual(response.status, 200)
+        XCTAssertEqual(response.headers["Cache-Control"], "no-store, must-revalidate")
+        let html = String(data: response.body, encoding: .utf8) ?? ""
+        XCTAssertTrue(html.contains("副屏 · 时钟与月历"))
+        XCTAssertFalse(html.contains("deck_token"), "只读副屏不能携带配对凭证")
+        XCTAssertFalse(html.contains("/api/activate"), "副屏不应触发控制动作")
+        XCTAssertFalse(html.contains("Authorization"))
+        XCTAssertTrue(html.contains("/api/weather"), "副屏需要拉取只读天气")
+        XCTAssertTrue(html.contains("/api/time"), "副屏需要与 Mac 时间对齐")
+        XCTAssertTrue(html.contains("id=\"refresh\""), "副屏需要手动刷新入口")
+        XCTAssertTrue(html.contains("/api/screen/events"), "副屏需要事件长轮询")
+        XCTAssertTrue(html.contains("grid-template-columns: repeat(3, minmax(0, 1fr))"), "横屏三栏严格等宽")
+        XCTAssertTrue(html.contains("class=\"col clock-col\""), "时钟列")
+        XCTAssertTrue(html.contains("class=\"col cal-col\""), "月历列")
+        XCTAssertTrue(html.contains("class=\"col wx-col\""), "天气列")
+        XCTAssertTrue(html.contains("WEATHER FORECAST"), "天气栏需要预报表头")
+        XCTAssertTrue(html.contains("data.daily.slice(0, 5)"), "预报展示 5 天")
+        XCTAssertTrue(html.contains("wx-day .i"), "预报行需要天气图标")
+        XCTAssertTrue(html.contains("wx-hours"), "副屏需要小时预报条")
+        XCTAssertTrue(html.contains("hours.slice(0, 4)"), "小时条展示现在 + 4 小时")
+    }
+
+    func test_screenEventRouteReturnsRevision() async {
+        let router = makeRouter()
+        await ScreenEventHub.shared.publish()
+        let response = await router.handle(makeRequest("GET", "/api/screen/events?since=0"))
+        XCTAssertEqual(response.status, 200)
+        XCTAssertEqual(response.headers["Cache-Control"], "no-store, must-revalidate")
+        struct Event: Decodable { let revision: Int }
+        let event = try? JSONDecoder().decode(Event.self, from: response.body)
+        XCTAssertNotNil(event)
+        XCTAssertGreaterThanOrEqual(event?.revision ?? 0, 1)
+    }
+
+    func test_timeRouteReturnsMacClock() async {
+        let before = Date().timeIntervalSince1970
+        let router = makeRouter()
+        let response = await router.handle(makeRequest("GET", "/api/time"))
+        XCTAssertEqual(response.status, 200)
+        XCTAssertEqual(response.headers["Cache-Control"], "no-store, must-revalidate")
+
+        struct Clock: Decodable {
+            let epoch: Double
+            let offsetMinutes: Int
+            let year: Int
+            let month: Int
+            let day: Int
+            let hour: Int
+            let minute: Int
+            let second: Int
+            let timeZone: String
+            let iso: String
+            let screenVersion: String
+        }
+        let clock = try? JSONDecoder().decode(Clock.self, from: response.body)
+        let value = try? XCTUnwrap(clock)
+        let after = Date().timeIntervalSince1970
+        XCTAssertNotNil(value)
+        guard let clock = value else { return }
+        XCTAssertGreaterThanOrEqual(clock.epoch, before - 1)
+        XCTAssertLessThanOrEqual(clock.epoch, after + 1)
+        XCTAssertTrue((1...12).contains(clock.month))
+        XCTAssertTrue((1...31).contains(clock.day))
+        XCTAssertTrue(clock.iso.contains("T"))
+        XCTAssertFalse(clock.timeZone.isEmpty)
+        XCTAssertFalse(clock.screenVersion.isEmpty)
+
+        let body = String(data: response.body, encoding: .utf8) ?? ""
+        XCTAssertFalse(body.contains("latitude"))
+        XCTAssertFalse(body.contains("deck_token"))
+    }
 }

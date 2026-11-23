@@ -63,7 +63,7 @@
 ### 唯一固定身份
 
 - 名称：`MacAppControlDeck Self-Signed`
-- SHA-1：`E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`
+- SHA-1：`145AEA72352C419CCCD76D6536BC70E14B2E134F`（以钥匙串中当前证书为准；证书被重建/重信任后指纹会变化，需同步更新本节与规格）
 - Bundle ID：`com.zhaojian.MacAppControlDeck`
 - 自签名身份不加 hardened runtime；Apple Development 身份才使用 `--options runtime`
 
@@ -72,7 +72,7 @@
 1. 本机构建统一执行 `./Build/build.sh`，禁止手工 `codesign --sign -` 或手工 ad-hoc 重签后再安装。
 2. `Build/build.sh` 和 `Build/package-release.sh` 必须通过 `Build/signing.sh` 的 `deck_sign_app` 签名，不得各自维护一套签名分支。
 3. 签名后必须校验 designated requirement：
-   - 稳定：`identifier "com.zhaojian.MacAppControlDeck" and certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`
+   - 稳定：`identifier "com.zhaojian.MacAppControlDeck" and certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`
    - 不稳定：只有 `cdhash H"..."`
 4. 证书缺失时必须失败并提示 `./Build/setup-signing.sh`，禁止静默降级为 ad-hoc。
 5. 本机日常使用的 `/Applications/MacAppControlDeck.app` 不得安装 ad-hoc 包；release 包只有显式 `DECK_ALLOW_ADHOC=1` 才允许 ad-hoc，并必须在说明中写明该包会重置 TCC 授权。
@@ -98,3 +98,30 @@
 - 发布脚本继续固定 ad-hoc，导致每次升级都重新授权 → 不合格。
 - 构建日志没有输出实际签名身份，也没有检查 DR → 不合格。
 - 签名失败后自动退回 ad-hoc 并继续构建 → 不合格。
+
+## R3. 回归测试不再重复验证「打开应用」
+
+「打开应用」的启动、激活与跨桌面流水线已经稳定。日常回归和提测**不再要求**验证该功能，避免每次改动都重复点按钮、跑真实应用。
+
+### 默认跳过
+
+- 不手动点击应用按钮，不验证启动、切前台、跨桌面切换
+- 不因为新增 UI、面板、天气等无关功能而重复跑这类手工用例
+- 自动化测试里的激活用例可以保留，但默认跳过；需要时用 `DECK_RUN_ACTIVATION_E2E=1 swift test` 显式启用
+
+### 仍需验证的例外
+
+1. 改动涉及 `Control/AppControl.swift`、`Control/QuickActionRunner.swift`、`DeckState.perform`、`/api/activate` 或按钮执行队列
+2. 改动涉及辅助功能、自动化、签名身份或 Bundle ID
+3. 改动涉及应用按钮的数据结构、排序或删除
+4. 用户明确要求验证
+
+### 提交说明
+
+- 未验证「打开应用」时不需要写「未测试」
+- 属于上述例外时，必须在提交说明里写清验证结果
+
+### 反例
+
+- 改了 `AppControl` 却以「打开应用已稳定」为由不测 → 不合格。
+- 每次加一个天气字段都重跑打开应用的手工用例 → 浪费时间。

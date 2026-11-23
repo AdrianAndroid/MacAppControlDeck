@@ -30,15 +30,17 @@
 - **按钮管理**：Mac 端搜索添加应用（按 Bundle ID 绑定）、重命名、排序、删除（有确认）
 - **配对与撤销**：6 位一次性配对码（2 分钟、错 3 次作废），已配对设备可随时撤销
 - **菜单栏常驻**：应用只占菜单栏，不占 Dock；下拉菜单直接点应用 / 快捷操作 / 命令
+- **全局快捷键可管且默认关闭**：设置 →「快捷键」首次安装时全部为关闭状态，需要哪个就打开哪个；可一键停用全部，也能单独关闭、录制改键或恢复默认组合；被其他应用占用时如实显示状态并自动重试。可选入口：截图 `F1` / `⌘⇧X`，草图 `⌃⌥D`，桌宠 `⌃⌥P`
 - **截图与录屏（Mac 本机模块）**：全屏 / 区域 / 窗口 / 滚动截图，截图延时、快速保存、快速 OCR；标注编辑器（矩形、椭圆、直线、箭头、画笔、荧光笔、文字、序号、马赛克、模糊、聚光灯、测量、裁剪）；OCR、钉图、最近截图历史；PNG/JPEG/HEIC/WebP/AVIF 输出
 - **录屏（Mac 本机模块）**：区域 / 全屏 / 窗口 MP4（H.264 + 系统音频，真实帧时序），15/30/60/120 fps；区域 GIF（5/10/15 fps）；3-2-1 倒计时；顶部录制 HUD 与录制边框；磁盘不足/休眠自动停止
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
-- **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
+- **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`（默认关闭，可在设置 → 快捷键打开）；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
 - **桌面宠物（Mac 本机模块）**：BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
-- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「应用 4 列 + 右侧 2×4 正方形快捷栏」；锁定视口，只保留横向翻页/页点，旋转保持当前页；明文局域网 HTTP
+- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「应用 4 列 + 右侧 2×4 正方形快捷栏」并在标题栏显示系统时间（年月日、时分秒、星期）；锁定视口，只保留横向翻页/页点，旋转保持当前页；明文局域网 HTTP
+- **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历 | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘
 
 ## 开发规则
 
@@ -66,6 +68,8 @@
 | Intel | `MacAppControlDeck-0.3.1-x86_64.dmg` |
 
 每个 Release 同时提供 ZIP、DMG 与 `SHA256SUMS.txt`；下载后可用 `shasum -a 256 -c SHA256SUMS.txt` 校验。
+
+**给不熟悉命令行的朋友**：ZIP 解压后是一个文件夹，DMG 里也带这两个文件——除了 App，还有 `安装 MacAppControlDeck.command` 与 `安装说明.txt`；只能通过聊天软件传文件时，发 ZIP 最省事。双击脚本即可自动完成「复制到应用程序 → 解除下载隔离 → 启动 → 打开设置 - 桌面宠物」，任何一步出问题都会弹窗说明并指向 `/tmp/deck-install.log`；脚本被系统拦下时右键 → 打开即可。
 
 终端执行 `uname -m` 可确认芯片（`arm64` / `x86_64`）。发布包未公证，首次打开需右键「打开」或在「隐私与安全性」中允许。本机执行 `package-release.sh` 时默认使用固定自签名身份；只有在没有该证书的机器上显式设置 `DECK_ALLOW_ADHOC=1` 才会生成 ad-hoc 包，而 ad-hoc 包每次重建都会重置系统授权，不建议安装到日常使用的 `/Applications`。
 
@@ -95,7 +99,7 @@ open /Applications/MacAppControlDeck.app
 ./Build/package-release.sh x86_64
 ```
 
-> **固定签名规则**：本机构建与本地发布包默认使用固定身份 `MacAppControlDeck Self-Signed`（SHA-1 `E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`），其 designated requirement 必须包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`。如果签名身份缺失，`build.sh` 会直接失败，不会静默退回 ad-hoc。辅助功能、输入监控、屏幕录制和自动化授权都绑定这个身份，因此重新构建后不需要反复授权；不要把 ad-hoc release 包装到本机日常环境。
+> **固定签名规则**：本机构建与本地发布包默认使用固定身份 `MacAppControlDeck Self-Signed`（当前证书 SHA-1 `145AEA72352C419CCCD76D6536BC70E14B2E134F`；证书重建后指纹会变化，见 `openspec/specs/stable-code-signing/spec.md`），其 designated requirement 必须包含 `certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`。如果签名身份缺失，`build.sh` 会直接失败，不会静默退回 ad-hoc。辅助功能、输入监控、屏幕录制和自动化授权都绑定这个身份，因此重新构建后不需要反复授权；不要把 ad-hoc release 包装到本机日常环境。
 
 运行后：菜单栏出现滑块图标，Dock 也有图标。App 自动在本机局域网 IP 上监听（默认端口 47615，被占用自动 +1），窗口首屏显示面板地址（形如 `http://192.168.x.x:47615/panel/`），可点击复制。
 
@@ -128,7 +132,7 @@ open /Applications/MacAppControlDeck.app
    - 「截图与录屏」子菜单：全屏 / 区域 / 窗口 / 滚动截图；快速保存、快速 OCR；录制 MP4 / GIF；截图延时；最近截图；输出到 `~/Pictures/MacAppControlDeck` 与 `~/Movies/MacAppControlDeck`
    - 「UI 草图」子菜单：打开画板（`⌃⌥D`）/ 新建 / 复制当前草图（`⌘⇧C`）/ 保存 PNG 与源文件（`⌘S`）/ 最近草图 / 保存目录
    - 「万年历」子菜单：今日公历、农历、宜忌、节假日倒计时；「打开万年历…」进入独立日历窗口
-   - 「桌面宠物」子菜单：打开/隐藏、暂停互动、点击穿透、三档尺寸、重置位置与设置页；全局快捷键 `⌃⌥P`
+   - 「桌面宠物」子菜单：打开/隐藏、暂停互动、点击穿透、三档尺寸、重置位置与设置页；全局快捷键 `⌃⌥P`（默认关闭）
    - 「配对手机…」生成 6 位配对码并打开设置
    - 「设置…」进入首选项（⌘,），「退出」结束服务（⌘Q）
 3. 关闭设置窗口不会退出服务；菜单栏图标常驻，服务继续监听端口
@@ -139,7 +143,7 @@ open /Applications/MacAppControlDeck.app
 
 ## 截图、录屏与视频剪辑
 
-截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。全局快捷键 **`F1`** 或 `⌘⇧X` 可直接打开区域截图。
+截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。全局快捷键 **`F1`** 或 `⌘⇧X` 默认**关闭**；到 设置 → 快捷键 打开后，可直接唤起区域截图。
 
 <table>
 <tr>
@@ -158,7 +162,7 @@ open /Applications/MacAppControlDeck.app
 
 使用方式：
 
-1. **截图**：按 `F1` 或 `⌘⇧X` 直接进入区域截图；也可菜单栏 → 截图与录屏 → 全屏 / 区域 / 窗口 / 滚动截图。`快速保存（区域）` 直接写文件，`快速 OCR（区域）` 直接识别文字
+1. **截图**：先在 设置 → 快捷键 打开 `F1` / `⌘⇧X`，之后按快捷键直接进入区域截图；也可菜单栏 → 截图与录屏 → 全屏 / 区域 / 窗口 / 滚动截图。`快速保存（区域）` 直接写文件，`快速 OCR（区域）` 直接识别文字
 2. **标注**：截图后进入标注编辑器，可加矩形、椭圆、箭头、画笔、文字、序号、马赛克、模糊、聚光灯、测量与裁剪，再复制或保存
 3. **钉图**：编辑器里钉到屏幕，或菜单栏「钉剪贴板内容」，用于对照抄写、比对设计稿
 4. **录屏**：录制屏幕（区域 / 全屏）/ 窗口，可选系统声音与麦克风、鼠标指针、15–120 fps；录制时有顶部 HUD 与边框，可随时停止
@@ -166,11 +170,11 @@ open /Applications/MacAppControlDeck.app
 
 默认输出：截图到 `~/Pictures/MacAppControlDeck`，录屏到 `~/Movies/MacAppControlDeck`；均可在设置页修改。
 
-> `F1` 是全局快捷键，其他应用在前台也能触发。若 Apple 键盘把 F1 用作亮度调节，请在「系统设置 → 键盘」开启「将 F1、F2 等键用作标准功能键」，或按 `fn + F1`。
+> `F1` 默认不占用。启用后它是全局快捷键，其他应用在前台也能触发。若 Apple 键盘把 F1 用作亮度调节，请在「系统设置 → 键盘」开启「将 F1、F2 等键用作标准功能键」，或按 `fn + F1`。若和其他软件冲突，可在 **设置 → 快捷键** 关闭或改键。
 
 ## UI 草图
 
-完全离线的 Excalidraw 画板，用来快速画 UI 线框/流程，再把图片或 JSON 直接粘给 AI。全局快捷键 `⌃⌥D` 打开画板。
+完全离线的 Excalidraw 画板，用来快速画 UI 线框/流程，再把图片或 JSON 直接粘给 AI。全局快捷键 `⌃⌥D`（默认关闭，可在设置 → 快捷键打开）打开画板。
 
 默认 `resident=false`：启动不加载画板，第一次打开才创建 `SketchRuntime`（窗口、WebView、Store 与画布索引），关闭窗口后整体释放。设置 → UI 草图可开启「常驻内存」，此时关闭窗口只保留轻量控制器与 Store，WebView 仍然销毁；关闭开关且窗口已关闭时立即释放。菜单、快捷键、内置操作与设置页按钮全部走 `SketchModule` 代理。
 
@@ -225,7 +229,7 @@ open /Applications/MacAppControlDeck.app
 - **尺寸与生命周期**：小 / 中 / 大三档，以底部中心为锚点缩放；隐藏即释放窗口、输入监听与动画资源
 - **自动避让**：全屏应用、屏幕锁定/休眠、Secure Input、低电量与自带录屏期间自动暂停或隐藏，恢复后继续
 - **隐私与降级**：输入监听只读物理按键状态，不记录字符、不联网；没有「输入监控」权限时仍能显示和跟随鼠标
-- **入口**：菜单栏「桌面宠物 → 打开桌宠」、`⌃⌥P`，或「设置 → 按钮 → 添加内置操作」添加「打开桌面宠物」后从菜单栏快捷操作与手机面板触发
+- **入口**：菜单栏「桌面宠物 → 打开桌宠」、`⌃⌥P`（默认关闭），或「设置 → 按钮 → 添加内置操作」添加「打开桌面宠物」后从菜单栏快捷操作与手机面板触发
 
 已知限制：官方键位高亮坐标尚未按新键盘透视逐键重映射，按住字母键时蓝色高亮/猫爪落点可能与画面键帽位置有偏差；模型、键位图与背景来自 BongoCat 上游，按 Apache-2.0 随包保留许可证与来源说明，详见 `THIRD_PARTY_NOTICES.md`。
 
@@ -245,6 +249,8 @@ open /Applications/MacAppControlDeck.app
 - **竖屏**：应用按钮 **2 列**，按数量动态增加行；底部快捷操作 **4×2**
 - **横屏**：应用按钮 **4 列**，右侧快捷栏 **2×4 个正方形按钮**，栏宽由行高反推
 - **翻页与旋转**：应用页、快捷页各自横向 scroll-snap；底部页点可直接跳到对应页；旋转屏幕后保持当前页索引
+- **强制刷新**：点右上角「已连接」徽标即可强制刷新面板（带版本与时间戳重载，不受浏览器缓存影响）
+- **横屏时钟**：标题栏以鲜艳红显示手机本地时间 `2026年11月23日 星期一 10:33:21`，每秒刷新；竖屏不显示
 - **边界**：0 / 1 / 7 / 8 / 12 个快捷操作分别验证隐藏、占位与分页；320×568 到 1440×900 均无页面纵向/横向溢出
 
 <table>
@@ -259,6 +265,36 @@ open /Applications/MacAppControlDeck.app
 </table>
 
 <p align="center"><img src="Docs/images/readme/phone-panel-adaptive-landscape.png" width="620" alt="手机端横屏面板"><br><sub>横屏：应用 4 列 + 右侧 2×4 正方形快捷按钮（844×390 实际面板）</sub></p>
+
+## 手机副屏（时钟 + 月历 + 天气）
+
+把另一台闲置手机/平板当桌面副屏：打开独立地址 `/screen/` 即显示模拟时钟、当月月历与天气。时钟与月历以 **Mac 的日期和时区** 为准，不受手机日期影响；页面**只读、免配对**，不会显示也不会触发任何按钮；天气也由 Mac 端代理，手机拿不到凭据与坐标。
+
+<img src="Docs/images/readme/screen-clock-calendar.png" alt="手机副屏：模拟时钟 + 月历">
+
+- **地址**：Mac 菜单栏「电脑控制」→「复制副屏地址」（形如 `http://192.168.1.8:47615/screen/`），或设置 → 副屏
+- **布局**：横屏为严格等宽的三栏「时钟 | 月历 | 天气」，三栏共用「小标题 + 分隔线」头部节奏；月历独占整列高度，5 行不挤压；天气栏自上而下是「当前 → 现在+4 小时 → 5 天」；竖屏为「时钟 → 天气（含小时条与 5 天预报）→ 月历」；未配置天气时回到「时钟 + 月历」两栏；整页不滚动
+- **天气内容**：右对齐城市、湿度与降水概率、单色大图标 + 48px 温度、体感；下方两行紧凑小时条显示「现在 + 4 小时」（时间 / 图标+温度，按 Mac 时区）；再下方「WEATHER FORECAST」四列表格展示 5 天；底部显示更新时间和「和风天气」署名；点按屏幕可唤出「↻」强制刷新
+- **三档尺寸**：点按屏幕唤出控制条，选「小 / 中 / 大」，选择会记住；5 秒后控制条自动隐藏
+- **保持常亮**：浏览器支持 Wake Lock 时自动申请，并在回到前台后重新申请；不支持时如实显示「不可用」
+- **月份浏览**：`‹ ›` 查看前后月份，点月份名回到当月；浏览他月 60 秒无操作会自动回到当月
+- **内置操作**：从「按钮管理 → 添加内置操作」添加「打开副屏」后，可从菜单栏快捷操作与手机面板快捷操作触发（在 Mac 浏览器打开）
+
+<p align="center"><img src="Docs/images/readme/screen-clock-calendar-portrait.png" width="300" alt="手机副屏竖屏"><br><sub>竖屏：时钟 → 天气（含 5 天预报）→ 月历（500×800 视口）</sub></p>
+
+### 配置天气（和风天气）
+
+默认用 **API Key**，只需两项：
+
+1. 注册/登录[和风天气控制台](https://console.qweather.com/)，在「设置」里找到 **专属 API Host**（形如 `xxxx.qweatherapi.com`，不要填文档示例），在项目管理里创建一个 **API Key**
+2. 打开「设置 → 副屏」，认证方式保持 **API Key**，填好 API Host，粘贴 Key 并点「保存」
+3. 在「选择城市」里搜索，或点 **「使用当前位置」** 让 Mac 定位自动填城市（首次会请求定位权限；失败可手动搜索）
+4. 保存凭据或选好城市后会自动测试并打开天气开关；也可手动点「测试连接」。副屏会立即刷新，无需等轮询
+5. 副屏页面每 30 秒轮询；Mac 端缓存 5 分钟，断网时显示上次结果并标记「已过期」
+
+需要长期稳定或更高额度时可切到 **JWT（Ed25519）**：生成密钥对 → 复制公钥 → 控制台「项目管理 → 添加凭据 → JWT」上传 → 填写开发者 ID（`iss`）、项目 ID（`sub`）、凭据 ID（`kid`）。和风从 2027-01-01 起会限制 API Key 的每日请求量，副屏每天约 288 次请求，个人使用通常足够。
+
+> 和风新版接口必须使用账号专属 Host。API Key 与私钥保存在本机 `weather-secrets.json`（仅当前用户可读，0600），不使用钥匙串、不进日志、不下发手机。从旧版本升级后需要重新粘贴一次 API Key。免费额度与控制台条款以和风账号为准。
 
 ## 添加 / 管理按钮（Mac 端）
 
@@ -316,6 +352,10 @@ open /Applications/MacAppControlDeck.app
 </tr>
 </table>
 
+「电脑控制 → 副屏」页集中管理副屏地址与天气：天气开关、和风 API Host、认证方式（API Key 默认 / JWT 可选）、API Key、JWT 的 `iss` / `sub` / `kid` 与公钥、城市搜索、测试连接。API Key 与私钥存本机 0600 凭据文件。
+
+「快捷键」页管理系统级快捷键：顶部一个总开关，下面每个入口一行，可单独开关、点「修改」录制新组合、点「全部恢复默认」还原组合并关闭。首次安装与恢复默认后所有快捷键都是关闭的，不会抢任何按键。被其他软件占用的组合会显示「被其他应用占用」并每 2 秒重试；录制期间其他快捷键临时暂停，避免吞掉要录的按键。配置保存在 `hotkeys.json`，重建或重装后保留。
+
 ## 激活策略（简述）
 
 点击按钮后的执行顺序：
@@ -335,14 +375,15 @@ open /Applications/MacAppControlDeck.app
 - 所有接口要求配对换发的随机 token（配对码 2 分钟有效、错 3 次作废）
 - 通信为**明文 HTTP**：同网段设备理论上可嗅探到 token/配对码，请仅在可信家庭局域网使用；HTTPS 为后续评估项
 - 程序不修改系统设置、不默认开机自启；电脑遥控使用可选的辅助功能授权，截图/录屏使用屏幕录制授权（仅在使用 capture 模块时申请），两者互不影响
-- 数据存放在 `~/Library/Application Support/MacAppControlDeck/`（`buttons.json` / `devices.json` / `icons/`），程序重启后保留
+- 数据存放在 `~/Library/Application Support/MacAppControlDeck/`（`buttons.json` / `devices.json` / `hotkeys.json` / `icons/`），程序重启后保留
 
 ## 快捷操作与命令按钮
 
-「快捷操作」分组支持两类按钮：
+「快捷操作」分组支持两类按钮，另有「内置操作」可直接添加：
 
 - **按键组合**：预设（桌面左/右、⌘C、⌘V、⌘A、⌘Z、回车、Esc、F1–F12）或自定义录制/拼凑。适用于普通应用（编辑、IDE 等）。
 - **命令按钮**：执行某个应用内置的命令行（例如 Snipaste 的 `snip`），参数只在 Mac 端配置，手机端仍只发送按钮 ID。
+- **内置操作**：在「设置 → 按钮 → 添加内置操作」中添加，包括「打开设置」「打开快捷键设置」「截图」「打开 UI 草图」「打开万年历」「打开副屏」「打开桌面宠物」。
 
 > **已知限制**：Snipaste 等注册系统级热键的应用会忽略注入的按键（F1 对其无效，已实测输入监控授权也不能解决），因此这类应用请用**命令按钮**方式触发（例：应用选 Snipaste、参数 `snip`）。
 
@@ -351,8 +392,13 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test     # 103 项，含真实 TCP 服务器与真实应用激活的端到端用例（当前 101 通过，2 个桌宠窗口尺寸断言受本机屏幕影响）
+swift test                              # 133 项；默认跳过 4 个真实激活用例（不会再打开计算器）
+DECK_RUN_ACTIVATION_E2E=1 swift test    # 需要回归打开应用时显式启用
 ```
+
+当前 2 个桌宠窗口尺寸断言受本机屏幕影响，其余通过。
+
+「打开应用」的启动/激活流水线已稳定，日常回归不再重复手工验证；只有改动 `AppControl`、激活接口、按钮配置或权限/签名时才需要回归。详见 `AGENTS.md` 的 R3。
 
 ## 已知限制
 
@@ -364,6 +410,11 @@ swift test     # 103 项，含真实 TCP 服务器与真实应用激活的端到
 - Mac 休眠/锁屏/退出后不可用，手机会显示「Mac 未连接」（属设计行为）
 - 滚动截图是自动向下滚动 + 重叠拼接；如果选区包含固定侧栏/固定工具栏，长图里会重复出现这些固定区域，建议只框选可滚动内容
 - 手机面板只支持横向翻页，不做纵向滚动；横屏右栏按 4 行方形按钮计算宽度，极窄横屏（例如 480×320）会优先保证按钮为正方形并减少可见行数
+- 副屏时钟与月历以 Mac 时间为准；`/api/time` 不可达时退回手机本地时间，此时仍可能与 Mac 不一致
+- iOS 省电模式或锁屏会挂起页面，Wake Lock 不保证常亮
+- 副屏天气依赖和风账号与 Mac 出网；和风 v1 的 JSON 字段未在文档中给全，首次接入需要用「测试连接」校准解析
+- 「使用当前位置」依赖 macOS 定位权限与 Wi-Fi；没有定位权限或定位失败时仍可手动搜索城市
+- 天气是 10 分钟级缓存，不是秒级实时；和风控制台删除凭据或公钥后，需要重新生成密钥对并上传
 - BongoCat 键位高亮尚未逐键重映射到新键盘透视；按住字母键时蓝色高亮/猫爪落点可能偏离画面键帽
 - 上传（Google Drive / imgbb / S3）、翻译、Sparkle 自动更新、账号体系不移植；详细对照见 [Docs/architecture/MACSHOT_PORT.md](Docs/architecture/MACSHOT_PORT.md)
 
@@ -381,10 +432,10 @@ swift test     # 103 项，含真实 TCP 服务器与真实应用激活的端到
 | 配对提示成功但仍停在配对页 | 旧版在「按钮数为 0」时会退回配对页；本版已修复为进入主界面并显示空状态，按提示在 Mac 端添加按钮即可（面板 5 秒自动刷新） |
 | 点击后只切菜单栏、不跳桌面 | ①检查调度中心开关（见上）；②检查辅助功能状态灯是否绿色。手动点 Dock 图标也不跳桌面即为开关问题 |
 | 辅助功能状态灯一直橙色 | 先执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`；若显示 ad-hoc/纯 cdhash，说明装错了包（多为 v0.2.0 及更早的 ad-hoc release）；换回 v0.3.0+ 的固定签名包 `./Build/build.sh`。若签名正常，删除系统设置里的旧条目，重新添加当前 App，再重启程序 |
-| 已授权屏幕录制却仍提示授权 | 先确认当前 App 不是 ad-hoc：`./Build/verify-signing.sh`。固定签名包的 designated requirement 应包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`；若仍是纯 cdhash，重新执行 `./Build/build.sh` 并覆盖安装，再授权一次 |
+| 已授权屏幕录制却仍提示授权 | 先确认当前 App 不是 ad-hoc：`./Build/verify-signing.sh`。固定签名包的 designated requirement 应包含 `certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`；若仍是纯 cdhash，重新执行 `./Build/build.sh` 并覆盖安装，再授权一次 |
 | F1 触发不了 Snipaste 等全局热键应用 | 已知限制：请改用「命令按钮」（应用选 Snipaste、参数 `snip`）。普通应用中 F1 可正常注入 |
-| F1 不打开区域截图 | ①Apple 键盘默认把 F1 当亮度键：开启「将 F1、F2 等键用作标准功能键」或按 `fn + F1`；②F1 被其他程序占用：本程序每 2 秒自动重试，重试期间用 `⌘⇧X` |
-| 手机端 F1 按钮没有发到目标应用 | 已知限制：应用运行期间 Deck 的全局 F1 优先，会打开区域截图。需要向目标应用发送 F1 时，先退出 Deck 或改用命令按钮 |
+| F1 不打开区域截图 | ①先在 设置 → 快捷键 打开 F1（默认全部关闭）；②Apple 键盘把 F1 当亮度键：开启「将 F1、F2 等键用作标准功能键」或按 `fn + F1`；③F1 被其他程序占用：设置 → 快捷键 会显示「被其他应用占用」并每 2 秒重试，也可改键，期间用 `⌘⇧X` |
+| 手机端 F1 按钮没有发到目标应用 | 已知限制：若开启了 Deck 的全局 F1，应用运行期间它会优先打开区域截图。需要向目标应用发送 F1 时，先关闭 Deck 的全局 F1 或改用命令按钮 |
 | 点击启动台/系统界面后显示"未确认" | 启动台等系统界面不会以常规应用注册进程，属正常；已打开即可用 |
 | 快捷键提示"当前处于安全输入状态" | 密码框/锁屏等安全输入场景会屏蔽按键注入，退出安全输入后重试 |
 | 桌面左/右切换无反应 | 检查「自动化」权限：系统设置 → 隐私与安全性 → 自动化 → 勾选 MacAppControlDeck → System Events；并确认系统键盘快捷键「向左/向右切换桌面」为默认的 ⌃←/⌃→ |
@@ -434,6 +485,31 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-23 副屏新增未来 4 小时预报（和风 hourly 接口、5 分钟缓存、两行紧凑条；矮屏/竖屏压缩保证月历不溢出）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-hourly-weather-strip/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 副屏改 MagicMirror 风格三栏（严格 1:1:1、统一小标题/分隔线，天气栏城市+湿度降水+大图标温度+体感+5 天四列表格，竖屏顺序调整）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-screen-weather-ui/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 全局快捷键改为默认关闭（首次安装/恢复默认全部不占用按键，旧配置一次性迁移为关闭；按需在 设置 → 快捷键 打开）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-default-disable-global-hotkeys/proposal.md) · [能力规格](openspec/specs/global-hotkeys/spec.md)
+- 2026-11-23 全局快捷键可开关/改键/重置（设置 → 快捷键，总开关 + 单项开关 + 录制 + 恢复默认，冲突可视，`hotkeys.json` 持久化）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-configurable-global-hotkeys/proposal.md) · [能力规格](openspec/specs/global-hotkeys/spec.md)
+- 2026-11-23 横屏副屏改为三栏（时钟 | 月历 | 天气），月历不再被挤扁，3 天预报补上天气文字；竖屏开天气时时钟收窄到 40%：[OpenSpec 变更](openspec/changes/archive/2026-11-23-fix-screen-landscape-layout/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 修正和风 v1 日预报字段（`days` / `daytime.condition.code` / `temperatureMax.value`，3 天图标不再全是云）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-fix-weather-daily-v1-fields/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 测试连接后副屏即时刷新（`/api/screen/events` 长轮询，设置变更主动通知页面）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-screen-event-push/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 副屏设置后更快生效（页面轮询 30 秒、时间同步 60 秒、保存/选城市自动测试并开天气）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-speed-up-screen-refresh/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 天气凭据迁移到本地 0600 文件（不再使用钥匙串，彻底去掉登录密码弹窗；升级后需重贴一次 Key）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-move-weather-secrets-to-file/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 减少天气凭据的钥匙串弹窗（进程内缓存、只读当前认证方式，提示「始终允许」）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-cache-weather-keychain-reads/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 新增「打开设置」内置快捷操作（`settings.open`，升级后自动补一次，也可从按钮管理添加；菜单栏与手机面板可触发）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-open-settings-quick-action/proposal.md) · [能力规格](openspec/specs/remote-key-actions/spec.md)
+- 2026-11-23 副屏实时刷新修正（`/api/time` 带版本自检、控制条「↻」手动刷新、天气改为 5 分钟并回前台立即刷新）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-fix-screen-live-updates/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 副屏天气支持「使用当前位置」（macOS 定位 → 和风反查城市，失败回退搜索）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-screen-weather-location/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 简化副屏天气配置（三步卡片、示例 Host 拦截、DNS 错误翻译、测试成功自动开天气）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-simplify-screen-weather-setup/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 副屏时钟与月历对齐 Mac（`/api/time` + Mac 墙钟，手机日期/时区不再影响「今天」，失败回退手机时间）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-align-screen-clock-to-mac-time/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 天气认证改为默认 API Key（JWT 保留为高级选项；API Key 与私钥都存 macOS 钥匙串）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-weather-apikey-auth/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 副屏天气（和风天气 Ed25519 JWT、实时 + 3 天预报、横屏 L2 / 竖屏 P1 布局、城市搜索与测试连接）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-screen-weather/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 手机副屏：`/screen/` 只读模拟时钟 + 月历，免配对、三档尺寸、屏幕常亮，Mac 端菜单/设置/内置操作均可取地址：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-secondary-screen-page/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 点击「已连接」强制刷新面板（`/panel/?v=…&t=…` 重载，面板版本 `2026-11-23.3`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-panel-force-refresh/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 横屏时钟改为鲜艳红色（`#ff3b30`、加粗、柔光，面板版本 `2026-11-23.2`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-tint-panel-clock-red/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-23 重装、面板横屏时钟与傻瓜安装包（签名身份恢复为 `145AEA72…`、横屏时钟、双击安装脚本、`macappcontroldeck://` 深链接、聊天传输 ZIP）：[实施记录](Docs/archive/2026-11-23-friendly-install-and-panel-clock/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-signing-fingerprint-docs/proposal.md)
+- 2026-11-23 聊天软件传输用安装包（ZIP 内含 App + 安装脚本 + 说明，解压双击即可装）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-chat-transfer-bundle/proposal.md) · [能力规格](openspec/specs/release-installer/spec.md)
+- 2026-11-23 设置页深链接与安装后直达桌宠设置（`macappcontroldeck://settings/pet`，未预期失败也弹窗）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-pet-settings-deeplink/proposal.md) · [能力规格](openspec/specs/settings-deeplink/spec.md)
+- 2026-11-23 发布包内置双击安装脚本（自动安装/解除隔离/启动，失败弹窗说明）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-friendly-installer/proposal.md) · [能力规格](openspec/specs/release-installer/spec.md)
+- 2026-11-23 手机面板横屏系统时钟（横屏标题栏显示年月日时分秒与星期，竖屏隐藏）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-panel-landscape-clock/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-22 发布 v0.3.1 体积清理版（移除 35 MB v5 冗余资源，`.app` 62 MB → 27 MB、DMG 50.6 MB → 约 15 MB）：[发布说明](Docs/releases/v0.3.1.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-release-v0.3.1-v5-cleanup/proposal.md)
 - 2026-11-22 手机面板横竖屏自适应（竖屏 2 列 + 4×2、横屏 4 列 + 右侧 2×4 方形、页点跳页与旋转保持）：[实施记录](Docs/plans/2026-11-22-remote-panel-responsive.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-22-adaptive-remote-panel-layout/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-22 桌面宠物改用 BongoCat standard 透明键鼠场景（官方模型、53 键位、鼠标左右键、去白桌托板）：[OpenSpec 变更](openspec/changes/archive/2026-11-22-adopt-bongocat-live2d-model/proposal.md) · [去白桌](openspec/changes/archive/2026-11-22-remove-pet-white-desktop/proposal.md) · [能力规格](openspec/specs/pet-live2d-bongocat/spec.md)

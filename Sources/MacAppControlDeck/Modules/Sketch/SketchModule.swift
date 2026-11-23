@@ -47,13 +47,14 @@ final class SketchModule: FeatureModule {
         let submenu = NSMenu(title: "UI 草图")
         parent.submenu = submenu
 
+        let sketchHotKey = GlobalHotKeys.shared.menuShortcut(for: "sketch.open")
         submenu.addItem(menuItem(
             "打开画板",
             #selector(openBoard),
             "pencil.and.outline",
             id: "sketch.open",
-            key: "d",
-            modifiers: [.control, .option]
+            key: sketchHotKey?.keyEquivalent ?? "",
+            modifiers: sketchHotKey?.modifiers ?? []
         ))
         submenu.addItem(menuItem(
             "新建画布",

@@ -99,6 +99,15 @@ final class APIRouter {
             return resp
         }
 
+        // 副屏入口同样带版本参数；页面只读、免配对，缓存必须立即失效
+        if request.method == "GET",
+           request.path == "/screen" || request.path == "/screen/" || request.path == "/screen/index.html" {
+            var resp = HTTPResponse(status: 302, contentType: "text/plain; charset=utf-8", body: Data())
+            resp.headers["Location"] = "/screen/?v=\(ScreenHTML.version)"
+            resp.headers["Cache-Control"] = "no-store, must-revalidate"
+            return resp
+        }
+
         if let host = request.header("Host"), !HostPolicy.isAllowed(host) {
             return .error("bad-host", message: "拒绝的请求来源", status: 403)
         }
@@ -110,6 +119,51 @@ final class APIRouter {
         case ("GET", "/api/health"):
             struct Health: Codable { let ok: Bool; let app: String; let version: String }
             return .json(Health(ok: true, app: "MacAppControlDeck", version: "0.1.0"))
+        case ("GET", "/api/screen/events"):
+            let since = Int(Self.queryValue(request.path, "since") ?? "") ?? 0
+            let revision = await ScreenEventHub.shared.wait(for: since, timeout: 15)
+            struct ScreenEvent: Codable { let revision: Int }
+            var response = HTTPResponse.json(ScreenEvent(revision: revision))
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            return response
+        case ("GET", "/api/time"):
+            // 副屏时钟与月历以 Mac 时间为准，避免手机日期/时区不一致。
+            let now = Date()
+            let calendar = Calendar.current
+            let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: now)
+            let zone = TimeZone.current
+            struct Clock: Codable {
+                let epoch: Double
+                let offsetMinutes: Int
+                let year: Int
+                let month: Int
+                let day: Int
+                let hour: Int
+                let minute: Int
+                let second: Int
+                let timeZone: String
+                let iso: String
+                let screenVersion: String
+            }
+            var response = HTTPResponse.json(Clock(epoch: now.timeIntervalSince1970,
+                                                   offsetMinutes: zone.secondsFromGMT(for: now) / 60,
+                                                   year: comps.year ?? 0,
+                                                   month: comps.month ?? 0,
+                                                   day: comps.day ?? 0,
+                                                   hour: comps.hour ?? 0,
+                                                   minute: comps.minute ?? 0,
+                                                   second: comps.second ?? 0,
+                                                   timeZone: zone.identifier,
+                                                   iso: Self.clockFormatter.string(from: now),
+                                                   screenVersion: ScreenHTML.version))
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            return response
+        case ("GET", "/api/weather"):
+            // 只读天气：不返回坐标、API Host、凭据或 JWT。
+            let config = await MainActor.run { WeatherSettings.shared.config }
+            var response = HTTPResponse.json(await WeatherService.shared.snapshot(for: config))
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            return response
         case ("POST", "/api/pair"):
             return await handlePair(request)
         case ("GET", "/api/buttons"):
@@ -273,12 +327,30 @@ final class APIRouter {
         }
     }
 
+    private static func queryValue(_ path: String, _ name: String) -> String? {
+        guard let components = URLComponents(string: "http://localhost" + path) else { return nil }
+        return components.queryItems?.first(where: { $0.name == name })?.value
+    }
+
+    private static let clockFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = .current
+        return formatter
+    }()
+
     private func handleStatic(path: String) -> HTTPResponse {
         let route = path == "/" ? "/panel/" : path
 
         if route == "/panel" || route == "/panel/" {
             var response = HTTPResponse.html(PanelHTML.content)
             // 面板改版后 Safari 必须立即拿到新版本（避免旧缓存导致布局问题复现）
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            response.rawHeaders["Cache-Control"] = "no-store, must-revalidate"
+            return response
+        }
+        if route == "/screen" || route == "/screen/" {
+            var response = HTTPResponse.html(ScreenHTML.content)
             response.headers["Cache-Control"] = "no-store, must-revalidate"
             response.rawHeaders["Cache-Control"] = "no-store, must-revalidate"
             return response

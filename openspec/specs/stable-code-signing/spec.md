@@ -8,13 +8,13 @@
 
 ### Requirement: 本机构建使用固定签名身份
 
-本机开发与本机发布构建 SHALL 使用固定签名身份 `MacAppControlDeck Self-Signed`（SHA-1 `E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`），不得在身份缺失时静默降级为 ad-hoc。
+本机开发与本机发布构建 SHALL 使用固定签名身份 `MacAppControlDeck Self-Signed`，不得在身份缺失时静默降级为 ad-hoc。当前证书 SHA-1 指纹记录于此（`145AEA72352C419CCCD76D6536BC70E14B2E134F`）；证书被重建或重新信任后指纹会变化，此时 MUST 同步更新本规格与 `Build/signing.sh`，并知悉 TCC 授权需要按新身份重新授予一次。
 
 #### Scenario: 正常构建
 
 - **WHEN** 开发者执行 `./Build/build.sh`
 - **THEN** 构建日志显示 `==> 签名身份：MacAppControlDeck Self-Signed`
-- **AND** `codesign -d --requirements -` 的 designated requirement 包含 `identifier "com.zhaojian.MacAppControlDeck"` 和 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`
+- **AND** `codesign -d --requirements -` 的 designated requirement 包含 `identifier "com.zhaojian.MacAppControlDeck"` 和 `certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`
 - **AND** 不包含仅以 `cdhash` 作为 DR 的签名
 
 #### Scenario: 证书缺失
@@ -75,3 +75,19 @@
 - **WHEN** 使用固定签名身份重新构建并覆盖安装
 - **THEN** 上述权限不需要重新授予
 - **AND** 若系统设置中存在旧签名条目，只删除旧条目并重新添加当前 App，不使用 `tccutil reset` 批量清空
+
+### Requirement: 接收方临时签名兜底边界
+
+安装脚本 SHALL 仅在接收方机器、且 quarantine 清除后 `codesign --verify` 仍失败时，对已复制的 App 使用本机临时签名（ad-hoc）修复；构建机与发布流程 MUST NOT 因该兜底而降级为 ad-hoc 签名。
+
+#### Scenario: 接收方签名损坏
+
+- **WHEN** 接收方机器上 App 签名校验失败（传输损坏或旧包）
+- **THEN** 脚本对 `/Applications/MacAppControlDeck.app` 及其 `KeySender` 执行 `codesign --force --sign -` 修复并再次清除 quarantine
+- **AND** 修复只发生在接收方机器，不写回发布包
+
+#### Scenario: 构建机仍禁止降级
+
+- **WHEN** 在构建机上执行 `./Build/build.sh` 或 `./Build/package-release.sh`
+- **THEN** 仍然只使用固定身份 `MacAppControlDeck Self-Signed`，找不到证书直接失败
+- **AND** 现有 designated requirement 校验保持不变

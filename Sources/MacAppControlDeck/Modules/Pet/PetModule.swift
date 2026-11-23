@@ -64,8 +64,10 @@ final class PetModule: FeatureModule {
         let submenu = NSMenu(title: "桌面宠物")
         parent.submenu = submenu
 
+        let petHotKey = GlobalHotKeys.shared.menuShortcut(for: "pet.toggle")
         submenu.addItem(item("打开桌宠", #selector(openFromMenu), "cat.fill", id: "pet.open",
-                             key: "p", modifiers: [.control, .option]))
+                             key: petHotKey?.keyEquivalent ?? "",
+                             modifiers: petHotKey?.modifiers ?? []))
         if let runtime, runtime.isOpen {
             submenu.addItem(item("隐藏桌宠", #selector(hideFromMenu), "eye.slash", id: "pet.hide"))
         }

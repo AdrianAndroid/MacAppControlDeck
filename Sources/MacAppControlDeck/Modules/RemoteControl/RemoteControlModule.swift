@@ -40,6 +40,20 @@ final class RemoteControlModule: FeatureModule {
                                    image: "doc.on.doc", id: "remote.copyPanel"))
         submenu.addItem(.separator())
 
+        let screen = NSMenuItem(title: "副屏：\(state.screenAddressText)", action: nil, keyEquivalent: "")
+        screen.image = NSImage(systemSymbolName: "rectangle.on.rectangle", accessibilityDescription: nil)
+        screen.identifier = NSUserInterfaceItemIdentifier("remote.screenAddress")
+        screen.isEnabled = false
+        submenu.addItem(screen)
+
+        submenu.addItem(actionItem("在浏览器打开副屏", #selector(openScreen),
+                                   image: "safari", id: "remote.openScreen"))
+        submenu.addItem(actionItem("复制副屏地址", #selector(copyScreen),
+                                   image: "doc.on.doc", id: "remote.copyScreen"))
+        submenu.addItem(actionItem("副屏设置…", #selector(openScreenSettings),
+                                   image: "gearshape", id: "remote.screenSettings"))
+        submenu.addItem(.separator())
+
         if state.buttons.isEmpty {
             submenu.addItem(actionItem("还没有按钮，去设置里添加…", #selector(openButtonSettings),
                                        image: "plus", id: "remote.emptyButtons"))
@@ -103,6 +117,11 @@ final class RemoteControlModule: FeatureModule {
 
     @objc private func openPanel() { DeckState.shared.openPanelInBrowser() }
     @objc private func copyPanel() { DeckState.shared.copyPanelURL() }
+    @objc private func openScreen() { DeckState.shared.openScreenInBrowser() }
+    @objc private func copyScreen() { DeckState.shared.copyScreenURL() }
+    @objc private func openScreenSettings() {
+        MenuBarController.shared.openSettings(tab: .screen)
+    }
     @objc private func openButtonSettings() {
         MenuBarController.shared.openSettings(tab: .buttons)
     }

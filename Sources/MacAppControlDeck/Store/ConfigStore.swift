@@ -74,6 +74,34 @@ final class ConfigStore {
             UserDefaults.standard.set(true, forKey: calendarKey)
         }
 
+        let settingsKey = "config.builtin.settings.seeded.v1"
+        if !UserDefaults.standard.bool(forKey: settingsKey) {
+            if !buttons.contains(where: { $0.builtinAction == "settings.open" }) {
+                let quickMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
+                buttons.append(ButtonConfig(id: "builtin.settings.open",
+                                            kind: .builtin,
+                                            name: "打开设置",
+                                            sortOrder: quickMax + 1,
+                                            builtinAction: "settings.open"))
+                changed = true
+            }
+            UserDefaults.standard.set(true, forKey: settingsKey)
+        }
+
+        let hotkeysKey = "config.builtin.hotkeys.seeded.v1"
+        if !UserDefaults.standard.bool(forKey: hotkeysKey) {
+            if !buttons.contains(where: { $0.builtinAction == "hotkeys.open" }) {
+                let quickMax = buttons.filter { Self.kindRank($0.kind) == 1 }.map { $0.sortOrder }.max() ?? -1
+                buttons.append(ButtonConfig(id: "builtin.hotkeys.open",
+                                            kind: .builtin,
+                                            name: "快捷键设置",
+                                            sortOrder: quickMax + 1,
+                                            builtinAction: "hotkeys.open"))
+                changed = true
+            }
+            UserDefaults.standard.set(true, forKey: hotkeysKey)
+        }
+
         UserDefaults.standard.set(true, forKey: seededKey)
         if changed { saveButtons() }
     }

@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-22.2"
+    static let version = "2026-11-23.3"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -21,6 +21,7 @@ enum PanelHTML {
         color-scheme: dark;
         --bg:#0f1220; --card:#1b2036; --line:#2a3152; --fg:#eef1ff; --muted:#8d96c5;
         --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+        --clock:#ff3b30; --clock-glow:rgba(255,59,48,.55);
         --u: clamp(3.2px, 1vmin, 4.8px);
         --gap: calc(var(--u) * 2.5);
         --app-cols: 2;
@@ -42,9 +43,14 @@ enum PanelHTML {
              touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
       header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0 auto 8px; width:100%; max-width:1280px; flex:0 0 auto; }
       h1 { font-size:clamp(14px,4.2vmin,17px); margin:0; font-weight:600; }
-      #status { font-size:clamp(11px,3.2vmin,12px); padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+      #status { font-size:clamp(11px,3.2vmin,12px); padding:4px 10px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--muted); white-space:nowrap;
+                cursor:pointer; -webkit-tap-highlight-color:transparent; }
+      #status:active { background:#232a4a; }
+      #status.refreshing { opacity:.55; }
       #status.ok { color:var(--ok); border-color:#1f4d33; }
       #status.err { color:var(--err); border-color:#5c2733; }
+      #clock { display:none; font-size:clamp(12px,2.7vmin,14px); font-weight:700; color:var(--clock); white-space:nowrap;
+               font-variant-numeric:tabular-nums; letter-spacing:.3px; text-shadow:0 0 10px var(--clock-glow); }
       #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 20px);
                background:#262c4c; color:var(--fg); padding:10px 16px; border-radius:12px; font-size:14px; max-width:90vw;
                opacity:0; transition:opacity .25s; pointer-events:none; z-index:20; box-shadow:0 6px 24px rgba(0,0,0,.4); }
@@ -95,6 +101,7 @@ enum PanelHTML {
       .empty span { font-size:12px; opacity:.85; line-height:1.9; }
       @media (orientation: landscape) {
         body { padding-left:calc(env(safe-area-inset-left) + 16px); padding-right:calc(env(safe-area-inset-right) + 16px); }
+        #clock { display:inline; }
         #main { flex-direction:row; }
         #appsZone { flex:1 1 auto; }
         #shortcutsZone { flex:0 0 var(--rail-w, 140px); border-top:0; border-left:1px solid var(--line); padding:0 0 0 var(--gap); }
@@ -109,7 +116,7 @@ enum PanelHTML {
     </style>
     </head>
     <body>
-    <header><h1>Mac 应用快捷控制台</h1><span id="status">检测中…</span></header>
+    <header><h1>Mac 应用快捷控制台</h1><span id="clock"></span><span id="status" role="button" tabindex="0" title="点击强制刷新面板">检测中…</span></header>
     <div id="toast"></div>
     <div id="main">
       <section class="zone" id="appsZone">
@@ -170,6 +177,16 @@ enum PanelHTML {
 
       const queues = new Map();   // id -> { items: [], running: false, el }
       const TIMEOUT = { shortcut: 2500, command: 4000, app: 20000 };
+      const clockEl = $('#clock');
+      const WEEKDAYS = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+      const pad2 = n => n < 10 ? '0' + n : '' + n;
+      function tickClock(){
+        const d = new Date();
+        clockEl.textContent = d.getFullYear() + '年' + pad2(d.getMonth() + 1) + '月' + pad2(d.getDate()) + '日 '
+          + WEEKDAYS[d.getDay()] + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+      }
+      tickClock();
+      setInterval(tickClock, 1000);
       // 禁用双击缩放/双击选中（iOS Safari 与桌面浏览器行为一致）
       document.addEventListener('dblclick', e => e.preventDefault());
       document.addEventListener('gesturestart', e => e.preventDefault());
@@ -185,6 +202,22 @@ enum PanelHTML {
 
       function toastMsg(t,ms=2600){ toast.textContent=t; toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>toast.classList.remove('show'),ms); }
       function setStatus(t,cls){ statusEl.textContent=t; statusEl.className=cls||''; }
+      let refreshing=false;
+      async function forceRefresh(){
+        if(refreshing) return;
+        refreshing=true;
+        statusEl.classList.add('refreshing');
+        statusEl.textContent='刷新中…';
+        let version='';
+        try{
+          const res=await fetch('/api/panel-version',{cache:'no-store'});
+          if(res.ok){ const data=await res.json(); version=(data&&data.version)||''; }
+        }catch(e){}
+        const url='/panel/?v='+encodeURIComponent(version||'0')+'&t='+Date.now();
+        location.replace(url);
+      }
+      statusEl.addEventListener('click',forceRefresh);
+      statusEl.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); forceRefresh(); } });
       function saveToken(t){ token=t; localStorage.setItem('deck_token',t); localStorage.setItem('deck_device',deviceName); }
       function escapeText(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 

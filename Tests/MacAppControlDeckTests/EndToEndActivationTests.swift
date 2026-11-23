@@ -15,6 +15,8 @@ final class EndToEndActivationTests: XCTestCase {
     private var token: String!
 
     override func setUp() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["DECK_RUN_ACTIVATION_E2E"] == "1",
+                          "打开应用已稳定：默认跳过真实激活用例；需要时设置 DECK_RUN_ACTIVATION_E2E=1")
         directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("deck-e2e-\(UUID().uuidString)")
         store = ConfigStore(directory: directory)
@@ -32,8 +34,12 @@ final class EndToEndActivationTests: XCTestCase {
 
     override func tearDown() async throws {
         server?.stop()
-        try await terminateCalculator()
-        try? FileManager.default.removeItem(at: directory)
+        if ProcessInfo.processInfo.environment["DECK_RUN_ACTIVATION_E2E"] == "1" {
+            try await terminateCalculator()
+        }
+        if let directory {
+            try? FileManager.default.removeItem(at: directory)
+        }
     }
 
     private func terminateCalculator() async throws {

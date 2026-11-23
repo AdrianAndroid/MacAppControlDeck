@@ -63,4 +63,10 @@ enum LANAddress {
         guard let ip = localIPv4() else { return nil }
         return URL(string: "http://\(ip):\(port)/panel/")
     }
+
+    /// 副屏地址：与面板同主机端口，只读页面，免配对。
+    static func screenURL(port: UInt16) -> URL? {
+        guard let ip = localIPv4() else { return nil }
+        return URL(string: "http://\(ip):\(port)/screen/")
+    }
 }

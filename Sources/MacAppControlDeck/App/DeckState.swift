@@ -9,6 +9,7 @@ final class DeckState: ObservableObject {
     static let shared = DeckState()
     @Published var serverStatus = ServerStatus(running: false, port: 0, errorText: nil)
     @Published var panelURL: URL?
+    @Published var screenURL: URL?
     @Published var pairingCode: String?
     @Published var pairingExpiryText: String = ""
     @Published var buttons: [ButtonConfig] = []
@@ -38,6 +39,7 @@ final class DeckState: ObservableObject {
         guard !serverStatus.running else { return }
         serverStatus = server.start()
         panelURL = LANAddress.panelURL(port: server.port)
+        screenURL = LANAddress.screenURL(port: server.port)
         refreshAll()
         pollAccessibility()
     }
@@ -243,6 +245,25 @@ final class DeckState: ObservableObject {
 
     func openPanelInBrowser() {
         guard let url = panelURL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// 副屏是只读页面：地址可以直接给另一台手机/平板，不需要配对。
+    var screenAddressText: String {
+        if let url = screenURL, let host = url.host {
+            let port = url.port ?? Int(serverStatus.port)
+            return "\(host):\(port)/screen/"
+        }
+        return serverStatus.running ? "端口 \(serverStatus.port)/screen/" : "服务未运行"
+    }
+
+    func copyScreenURL() {
+        guard let text = screenURL?.absoluteString else { return }
+        UIPasteboardLike.copy(text)
+    }
+
+    func openScreenInBrowser() {
+        guard let url = screenURL else { return }
         NSWorkspace.shared.open(url)
     }
 

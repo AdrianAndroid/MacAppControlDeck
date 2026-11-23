@@ -5,11 +5,13 @@ import ServiceManagement
 enum SettingsTab: Hashable {
     case general
     case menu
+    case hotkeys
     case modules
     case capture
     case sketch
     case calendar
     case pet
+    case screen
     case buttons
     case devices
     case remoteService
@@ -26,12 +28,14 @@ struct SettingsView: View {
                 Section("应用") {
                     sidebarRow(.general, "通用", "gearshape")
                     sidebarRow(.menu, "菜单", "list.bullet.rectangle")
+                    sidebarRow(.hotkeys, "快捷键", "keyboard")
                 }
                 Section("模块") {
                     sidebarRow(.modules, "模块", "square.stack.3d.up")
                 }
                 Section("电脑控制") {
                     sidebarRow(.remoteService, "服务", "network")
+                    sidebarRow(.screen, "副屏", "rectangle.on.rectangle")
                     sidebarRow(.buttons, "按钮", "square.grid.2x2")
                     sidebarRow(.devices, "设备", "iphone")
                 }
@@ -70,6 +74,8 @@ struct SettingsView: View {
             GeneralSettingsView()
         case .menu:
             MenuSettingsView()
+        case .hotkeys:
+            HotKeySettingsView()
         case .modules:
             ModulesSettingsView(onOpenCaptureSettings: { selection = .capture })
         case .capture:
@@ -80,6 +86,8 @@ struct SettingsView: View {
             CalendarSettingsView()
         case .pet:
             PetModule.shared.settingsView()
+        case .screen:
+            ScreenSettingsView()
         case .buttons:
             ButtonsSettingsView()
         case .devices:
@@ -304,6 +312,15 @@ struct RemoteServiceSettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 serviceCard
+                HStack {
+                    Text("副屏地址与天气凭据在「副屏」页配置。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("打开副屏设置…") {
+                        MenuBarController.shared.openSettings(tab: .screen)
+                    }
+                }
                 permissionsCard
                 pairingCard
                 Text("明文 HTTP 可能被同网段设备嗅探，仅建议在可信网络使用。")
