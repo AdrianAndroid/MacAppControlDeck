@@ -53,7 +53,7 @@ struct SettingsView: View {
                     sidebarRow(.pet, "桌面宠物", "cat.fill")
                 }
                 Section("系统工具") {
-                    sidebarRow(.systemTool, "PureMac", "hammer.and.screwdriver.fill")
+                    sidebarRow(.systemTool, "PureMac", "trash.fill")
                 }
                 Section("关于") {
                     sidebarRow(.about, "关于", "info.circle")

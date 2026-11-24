@@ -141,7 +141,7 @@ struct SystemToolSettingsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 8) {
-                            Image(systemName: "hammer.and.screwdriver.fill")
+                            Image(systemName: "trash.fill")
                                 .foregroundStyle(Color.accentColor)
                             Text("PureMac").font(.callout).fontWeight(.semibold)
                             Spacer()

@@ -489,6 +489,8 @@ struct DuplicateTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if !state.hasFullDiskAccess { FDABanner().padding(.horizontal, 12).padding(.top, 10) }
+
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("扫描根目录").font(.caption).fontWeight(.semibold)

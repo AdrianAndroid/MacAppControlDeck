@@ -169,14 +169,15 @@ struct SystemToolStatusBar: View {
 
             Spacer(minLength: 8)
 
-            if state.activeTab == .uninstall {
+            switch state.activeTab {
+            case .uninstall:
                 let count = state.checkedHigh.count + state.checkedReview.count
                 Text("已选 \(count) 项残留")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("卸载应用…") { onUninstall() }
                     .controlSize(.small)
                     .disabled(state.selectedApp == nil || state.phase != .idle)
-            } else {
+            case .junk, .large, .duplicate:
                 Text("已选 \(state.selectedItems.count) 项 · \(systemToolByteText(state.selectedSize))")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("全不选") { state.clearSelection() }
@@ -186,6 +187,10 @@ struct SystemToolStatusBar: View {
                     .controlSize(.small)
                     .buttonStyle(.borderedProminent)
                     .disabled(!state.canCleanSelection)
+            case .overview, .processes:
+                // 概览与进程页没有可清理条目：状态栏只保留左侧状态文字，
+                // 不显示恒为禁用的「全不选 / 清理选中」（设计图 ⑫ 三态只作用于清理页）。
+                EmptyView()
             }
         }
         .padding(.horizontal, 12)

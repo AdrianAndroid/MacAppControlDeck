@@ -119,3 +119,16 @@
 - [x] 12.8 复核其余链路：重复文件走 `DuplicateFinder.moveToTrash`（inode 身份 + SHA-256 复核 + keeper 保留 + 跳过符号链接/包/云占位，直接废纸篓），应用卸载走 `removeResiduals`（独立允许根 + 废纸篓），均不受本次改动影响
 - [x] 12.9 复核集成点：`BuiltinActions`、`DeckApp` 注册与 deep link、`SettingsView` tab、`MenuBarController.openSettings(tab:)` 全部接线正确；`Info.plist` 未新增 UsageDescription；签名/哈希/崩溃日志复核通过
 - [x] 12.10 release 构建 + 固定身份签名（DR certificate root）+ 哈希一致 + `rsync --delete` 覆盖 `/Applications` + 重启，TCC 授权不需重授
+
+## 13. UI 专项详细复核（2026-11-24 补充）
+
+用户要求「再详细核查一遍 UI」。从会话记录恢复定稿 12 张 ASCII 图作为基线，逐文件读完全部 UI 源码，并用系统 `screencapture` + `cliclick` 真机逐屏打开核对（未用 Chrome）。
+
+- [x] 13.1 逐屏真机核对：菜单栏两个分栏状态项、A17 下拉菜单与 PureMac 子菜单（两项均可点击，target 正常）、主窗口 6 页签、概览 / 垃圾清理 / 应用卸载 / 大文件 / 重复文件 / 进程、扫描中空态与进度（14%→85%）、扫描结果表格（共 978 项 / 已选 0 项）、清理确认弹窗、永久删除二次确认、设置页 PureMac 与「设置 → 模块」总闸
+- [x] 13.2 验证默认零选中、勾选后计数实时变化（已选 1 项 · 4 KB）、确认弹窗列出路径与大小、废纸篓优先与永久删除二次确认、CPU 卡片取消勾选后菜单栏 CPU 项即时消失并恢复；全程只查看并取消，未执行任何删除
+- [x] 13.3 修复：`hammer.and.screwdriver.fill` 不是有效 SF Symbol（实测 `NSImage(systemSymbolName:)` 返回 nil），导致下拉菜单 PureMac 项、子菜单「打开 PureMac…」、设置页边栏与模块说明共 4 处图标空白 → 统一改为已验证有效的 `trash.fill`
+- [x] 13.4 修复：概览页 / 进程页底部状态栏显示恒为禁用的「全不选 / 清理选中 (0 项) / 已选 0 项」，违反设计图 ⑫「状态栏三态只作用于清理页」→ 状态栏按页签分派，仅垃圾清理 / 大文件 / 重复文件显示清理控件
+- [x] 13.5 修复：菜单栏两项顺序与设计图 ② 相反（实际 MEM 左 / CPU 右）→ 交换 NSStatusItem 创建顺序（后创建者显示在左），改为 CPU 左 / MEM 右
+- [x] 13.6 修复：重复文件页缺未授权横幅（设计图三条硬规则要求结果页常驻）→ 补 `FDABanner`
+- [x] 13.7 复核未改动项：强退确认弹窗因「退出 / 强退」按钮紧邻，真机点击有误触真实终止用户应用的风险，仅做代码层核对，未真机触发；应用卸载页应用列表未显示每行大小（设计图 ⑨ 示意），因计算 54 个应用包体积开销大，改为选中后显示，属实现取舍
+- [x] 13.8 `swift build` 通过、`SystemToolTests` 10 个全绿；release 构建 + 固定签名 + 覆盖安装 + 重启 + 真机复验

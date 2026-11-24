@@ -12,7 +12,7 @@ final class SystemToolModule: FeatureModule {
     var id: String { Self.id }
     var title: String { "PureMac" }
     var summary: String { "垃圾清理、应用卸载、大文件与重复文件、进程退出、菜单栏 CPU/MEM 监控。" }
-    var systemImage: String { "hammer.and.screwdriver.fill" }
+    var systemImage: String { "trash.fill" }
     var defaultEnabled: Bool { true }
     var supportsResidency: Bool { false }
 
@@ -59,7 +59,7 @@ final class SystemToolModule: FeatureModule {
         parent.identifier = NSUserInterfaceItemIdentifier("systemTool.root")
         let submenu = NSMenu(title: "PureMac")
         parent.submenu = submenu
-        submenu.addItem(menuItem("打开 PureMac…", #selector(openFromMenu), "hammer.and.screwdriver.fill", id: "systemTool.open"))
+        submenu.addItem(menuItem("打开 PureMac…", #selector(openFromMenu), "trash.fill", id: "systemTool.open"))
         submenu.addItem(menuItem("PureMac 设置…", #selector(openSettings), "gearshape", id: "systemTool.settings"))
         return [parent]
     }
@@ -110,14 +110,8 @@ final class SystemToolModule: FeatureModule {
         }
         removeStatusItems()
 
-        if showCPU {
-            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            item.button?.target = self
-            item.button?.action = #selector(statusItemTapped)
-            item.button?.toolTip = "PureMac · CPU 占用（点击打开）"
-            cpuStatusItem = item
-            updateCPUStatus()
-        }
+        // NSStatusItem 后创建的会排在左侧。设计图 ② 定稿为「CPU 在左、MEM 在右」，
+        // 因此先创建 MEM、再创建 CPU，保证视觉顺序与定稿一致。
         if showMEM {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             item.button?.target = self
@@ -125,6 +119,14 @@ final class SystemToolModule: FeatureModule {
             item.button?.toolTip = "PureMac · 内存占用（点击打开）"
             memStatusItem = item
             updateMEMStatus()
+        }
+        if showCPU {
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            item.button?.target = self
+            item.button?.action = #selector(statusItemTapped)
+            item.button?.toolTip = "PureMac · CPU 占用（点击打开）"
+            cpuStatusItem = item
+            updateCPUStatus()
         }
 
         // 采样值变化时更新两个状态项的两行标题；重建前清空，避免重复订阅累积。
