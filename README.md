@@ -1,6 +1,6 @@
 # MacAppControlDeck · Mac 应用快捷控制台
 
-当前版本：`0.3.1`（2026-11-22）
+当前版本：`0.4.0`（2026-11-24）
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
@@ -38,6 +38,7 @@
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
 - **桌面宠物（Mac 本机模块）**：设置中使用标签切换 BongoCat 白猫和 KeyCat 黑猫。BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
+- **自动升级**：菜单栏「检查更新…」/ 设置 →「通用 → 更新」从 GitHub Releases 拉新版本；默认每天后台检查一次、下载后由你确认重启，更新包需通过内置 EdDSA 公钥与固定签名身份双重校验，升级后不用重新授权
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「左侧竖轨（标题/日期/时间/全屏/连接）+ 竖排标题 + 应用 4×3（12 个/页）+ 快捷 2×4（8 个/页）」；锁定视口，只保留横向翻页/页点与 `1/N` 页码，旋转保持当前页；明文局域网 HTTP
 - **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历 | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘
@@ -60,18 +61,50 @@
 
 ## 下载安装
 
-从 [Releases](https://github.com/AdrianAndroid/MacAppControlDeck/releases) 下载对应芯片的安装包：
+从 [Releases](https://github.com/AdrianAndroid/MacAppControlDeck/releases) 下载安装包。v0.4.0 起只发布一份 universal（Apple Silicon + Intel 通用）包：
 
-| 芯片 | 资产 |
+| 资产 | 用途 |
 | --- | --- |
-| Apple Silicon（M 系列） | `MacAppControlDeck-0.3.1-arm64.dmg` |
-| Intel | `MacAppControlDeck-0.3.1-x86_64.dmg` |
+| `MacAppControlDeck-0.4.0-universal.dmg` | 首次安装（内含安装脚本与说明） |
+| `MacAppControlDeck-0.4.0-universal-installer.zip` | 聊天软件传输用（解压后双击安装脚本） |
+| `MacAppControlDeck-0.4.0-universal.zip` | 自动升级使用的更新包（App 在压缩包根目录，不用手动下载） |
+| `appcast.xml` / `SHA256SUMS.txt` | 升级清单与校验和（`shasum -a 256 -c SHA256SUMS.txt`） |
 
-每个 Release 同时提供 ZIP、DMG 与 `SHA256SUMS.txt`；下载后可用 `shasum -a 256 -c SHA256SUMS.txt` 校验。
+**首次安装后就不用再手动下载**：菜单栏「检查更新…」或 设置 →「通用 → 更新」会自动从 GitHub Releases 拉新版本。
 
 **给不熟悉命令行的朋友**：ZIP 解压后是一个文件夹，DMG 里也带这两个文件——除了 App，还有 `安装 MacAppControlDeck.command` 与 `安装说明.txt`；只能通过聊天软件传文件时，发 ZIP 最省事。双击脚本即可自动完成「复制到应用程序 → 解除下载隔离 → 启动 → 打开设置 - 桌面宠物」，任何一步出问题都会弹窗说明并指向 `/tmp/deck-install.log`；脚本被系统拦下时右键 → 打开即可。
 
 终端执行 `uname -m` 可确认芯片（`arm64` / `x86_64`）。发布包未公证，首次打开需右键「打开」或在「隐私与安全性」中允许。本机执行 `package-release.sh` 时默认使用固定自签名身份；只有在没有该证书的机器上显式设置 `DECK_ALLOW_ADHOC=1` 才会生成 ad-hoc 包，而 ad-hoc 包每次重建都会重置系统授权，不建议安装到日常使用的 `/Applications`。
+
+## 自动升级
+
+v0.4.0 起内置 [Sparkle 2](https://sparkle-project.org) 自动升级，更新源是 GitHub Releases：
+
+- **入口**：菜单栏「检查更新…」、设置 →「通用 → 更新 → 检查更新…」，或「设置 → 按钮 → 添加内置操作」添加「检查更新」后从菜单栏快捷操作 / 手机面板触发
+- **自动检查**：默认开，每天一次（`SUScheduledCheckInterval=86400`），可在此开关关闭；断网或 GitHub 不可达时静默跳过，不弹窗
+- **安装前确认**：下载完成后提示重启，用户点确认才替换 App；`SUAllowsAutomaticUpdates=false`，不会静默安装
+- **校验**：更新包必须带 EdDSA 签名（公钥内置 `SUPublicEDKey`）且与本机 App 使用同一份固定自签名证书，否则拒绝升级——这样升级后辅助功能 / 输入监控 / 屏幕录制 / 自动化授权都不用重新授予
+- **通用包**：`package-release.sh universal` 用 lipo 合并 arm64 + x86_64，appcast 只有一条记录，不会给 Intel 机器下 arm64 包
+- **镜像 / 本地调试**：设置 `DECK_UPDATE_FEED=<appcast 地址>` 可临时改更新源（校验流程不变）
+
+发版（CI 自动完成）：
+
+```zsh
+# 1. 改 Build/Info.plist：CFBundleShortVersionString 与 CFBundleVersion 必须同时递增
+# 2. 提交后打标签推送，GitHub Actions 自动构建 universal 包、EdDSA 签名、生成 appcast 并发布 Release
+git tag v0.4.1 && git push origin v0.4.1
+```
+
+本机手动发版时：
+
+```zsh
+swift package resolve                        # 拉 Sparkle 二进制与官方工具
+./Build/package-release.sh universal
+./Build/make-appcast.sh BuildOutput/release/universal \
+  "https://github.com/AdrianAndroid/MacAppControlDeck/releases/download/v0.4.1/"
+```
+
+CI 需要 3 个 Secret（证书私钥与 EdDSA 私钥不进仓库）：`DECK_SIGN_P12_BASE64`、`DECK_SIGN_P12_PASSWORD`、`SPARKLE_ED_PRIVATE_KEY`。
 
 ## 构建与安装
 
@@ -395,13 +428,16 @@ open /Applications/MacAppControlDeck.app
 ## 测试
 
 ```zsh
-swift test                              # 133 项；默认跳过 4 个真实激活用例（不会再打开计算器）
+swift test --filter PanelLayoutTests    # 只跑受影响的用例（默认做法）
+swift test                              # 全量 142 项；发版前或跨模块改动才跑，默认跳过 4 个真实激活用例
 DECK_RUN_ACTIVATION_E2E=1 swift test    # 需要回归打开应用时显式启用
 ```
 
 桌宠回归覆盖窗口尺寸、设置持久化、KeyCat 的 WebKit 渲染与输入，以及两套模型的窗口切换。
 
 「打开应用」的启动/激活流水线已稳定，日常回归不再重复手工验证；只有改动 `AppControl`、激活接口、按钮配置或权限/签名时才需要回归。详见 `AGENTS.md` 的 R3。
+
+自动化测试只跑受影响功能，不做全量回归（改面板就 `--filter PanelLayoutTests`，改桌宠就 `--filter Pet`）；全量只在跨模块改动或发版前跑。详见 `AGENTS.md` 的 R4。
 
 ## 已知限制
 
@@ -459,6 +495,7 @@ Sources/MacAppControlDeck/
 │   ├── Sketch/                  # UI 草图模块：轻量代理 + 按需 runtime，关闭窗口释放
 │   ├── Calendar/                # 万年历模块：轻量代理 + 按需 runtime，关闭窗口释放
 │   └── Pet/                     # 桌面宠物模块：透明 NSPanel + BongoCat standard Live2D + CGEventTap + 按需 runtime
+├── Updater/                     # 自动升级：Sparkle 2 封装、feed 覆盖、状态持久化
 ├── Control/AppControl.swift     # 激活流水线（Dock AXPress / AXRaise / 兜底）
 ├── Control/QuickActionRunner.swift # 菜单栏按钮执行器（与 HTTP 接口同源）
 ├── Server/                      # remote 模块：NWListener HTTP 服务、路由
@@ -487,6 +524,8 @@ Docs/archive/                    # 历史归档
 > 模块边界是硬约束：`remote`、`capture`、`sketch`、`calendar` 与 `pet` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
 
 ## 归档
+
+- 2026-11-24 自动升级（Sparkle 2 + EdDSA 校验、universal 单包、GitHub Actions 发版与 appcast；菜单栏/设置/内置操作三处入口）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-github-auto-update/proposal.md) · [能力规格](openspec/specs/app-auto-update/spec.md) · [签名规格](openspec/specs/stable-code-signing/spec.md) · [发布说明](Docs/releases/v0.4.0.md)
 
 - 2026-11-24 手机面板应用与快捷按钮统一字号（快捷字号改为与应用同基准、自适应只缩小不放大，消除「老年人模式」观感；面板版本 `2026-11-24.1`，新增三视口回归）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-unify-panel-button-typography/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验证截图](Docs/verification/panel-button-typography/)
 - 2026-11-23 副屏新增未来 4 小时预报（和风 hourly 接口、5 分钟缓存、两行紧凑条；矮屏/竖屏压缩保证月历不溢出）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-hourly-weather-strip/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)

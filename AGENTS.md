@@ -82,6 +82,7 @@
    - 覆盖安装后再执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`
 8. 系统设置里出现重复条目时，只删除旧条目后重新添加当前 App；不得用 `tccutil reset` 批量清空用户其他权限。
 9. 任何签名、打包或权限流程的变更，必须新建 OpenSpec 变更并在归档时同步 `openspec/specs/stable-code-signing/spec.md`。
+10. CI（GitHub Actions）发布与自动升级包必须使用同一固定身份：证书只允许以加密 Secret 注入临时钥匙串，构建后仍须断言 DR 含 `certificate root = H"145aea72…"`；证书重建后同步更新 Secret，禁止用新证书签更新包。
 
 ### TCC 授权范围
 
@@ -125,3 +126,32 @@
 
 - 改了 `AppControl` 却以「打开应用已稳定」为由不测 → 不合格。
 - 每次加一个天气字段都重跑打开应用的手工用例 → 浪费时间。
+
+## R4. 自动化测试只跑受影响功能，不做全量回归
+
+自动化测试（`swift test`）按改动范围选择用例，不要求每次改动都跑整套；全量只在明确需要时跑。
+
+### 强制清单
+
+1. 按改动定位最小测试集，用 `swift test --filter <TestClass>[/<testName>]` 精确执行，例如：
+   - 改面板 HTML/CSS/JS → `--filter PanelLayoutTests`（必要时加 `APIRouterTests`）
+   - 改桌宠渲染/状态机 → `--filter Pet`
+   - 改配对/路由 → `--filter APIRouterTests` 或 `PairingManagerTests`
+   - 改激活流水线 → 见 R3 例外
+2. 提交说明里写清「跑了哪些用例、结果如何」；不确定该跑哪些时，按最近一次相关改动的测试范围取值。
+3. 只有在以下情况才跑全量 `swift test`：
+   - 改动跨多个模块或动了 `Package.swift` / 依赖 / 构建脚本
+   - 准备发版（release / tag）前
+   - 用户明确要求全量
+4. 发现与本改动无关的既有失败，记录现象与文件行号，不要顺手改成「全绿」；与本改动相关的失败必须修掉。
+
+### 提交说明
+
+- 写明实际执行的过滤条件与结果，例如「`swift test --filter PanelLayoutTests`：4 项全绿」。
+- 跑了全量时说明原因。
+
+### 反例
+
+- 只改了一个面板字号，却先跑 142 项全量测试再开始改 → 浪费时间。
+- 改了 `PanelHTML` 只跑 `swift test` 里的 `CalendarStoreTests`，完全没碰受影响用例 → 不合格。
+- 为了「全绿」把无关的既有失败用例改成跳过 → 掩盖问题。
