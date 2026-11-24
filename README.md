@@ -1,6 +1,6 @@
 # MacAppControlDeck · Mac 应用快捷控制台
 
-当前版本：`0.4.0`（2026-11-24）
+当前版本：`0.4.1`（2026-11-24）
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
@@ -66,9 +66,9 @@
 
 | 资产 | 用途 |
 | --- | --- |
-| `MacAppControlDeck-0.4.0-universal.dmg` | 首次安装（内含安装脚本与说明） |
-| `MacAppControlDeck-0.4.0-universal-installer.zip` | 聊天软件传输用（解压后双击安装脚本） |
-| `MacAppControlDeck-0.4.0-universal.zip` | 自动升级使用的更新包（App 在压缩包根目录，不用手动下载） |
+| `MacAppControlDeck-0.4.1-universal.dmg` | 首次安装（内含安装脚本与说明） |
+| `MacAppControlDeck-0.4.1-universal-installer.zip` | 聊天软件传输用（解压后双击安装脚本） |
+| `MacAppControlDeck-0.4.1-universal.zip` | 自动升级使用的更新包（App 在压缩包根目录，不用手动下载） |
 | `appcast.xml` / `SHA256SUMS.txt` | 升级清单与校验和（`shasum -a 256 -c SHA256SUMS.txt`） |
 
 **首次安装后就不用再手动下载**：菜单栏「检查更新…」或 设置 →「通用 → 更新」会自动从 GitHub Releases 拉新版本。
@@ -528,6 +528,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-24 **v0.4.1 发布**（自动升级 universal 单包 + PureMac 柠檬式 UI v3 + 菜单栏三状态项 + 实时网速 + MEM 内存占用菜单）：[发布说明](Docs/releases/v0.4.1.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
 - 2026-11-24 PureMac 菜单栏拆成 CPU/MEM/网速三个独立状态项、新增实时网速（getifaddrs 差分采样、定宽不抖、上下同色同字号、零 TCC 权限）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-netspeed/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [柠檬网速调研](Docs/research/2026-11-24-lemon-netspeed-research.md)
 - 2026-11-24 MEM 状态项点击弹出柠檬式内存占用菜单（即时采样、按内存降序、应用行一键正常退出、系统进程禁用）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-memory-menu/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
 - 2026-11-24 PureMac UI 按柠檬交互重做（顶部页签 v3：统一入口卡/路径进度扫描态/分组折叠/分类 tab/状态胶囊，取消走二次确认）+ 修复菜单入口与状态栏数字被裁：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-puremac-ui-redesign-and-lemon-research/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [UI 设计](Docs/plans/2026-11-24-puremac-ui-redesign.md) · [柠檬调研](Docs/research/2026-11-24-tencent-lemon.md)
