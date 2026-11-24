@@ -886,10 +886,7 @@ struct ProcessesTab: View {
     }
 
     private func canTerminate(_ consumer: ProcessResourceConsumer) -> Bool {
-        guard let path = consumer.applicationPath else { return false }
-        return path.hasPrefix("/Applications")
-            || path.contains("/Applications/")
-            || path.hasPrefix(NSHomeDirectory())
+        ProcessTerminationPolicy.canTerminate(consumer)
     }
 
     private func terminate(_ consumer: ProcessResourceConsumer, force: Bool) {

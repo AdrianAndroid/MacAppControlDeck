@@ -167,4 +167,62 @@ final class SystemToolTests: XCTestCase {
         XCTAssertEqual(info.usedPercentage, 0.6, accuracy: 0.001)
         XCTAssertFalse(info.formattedTotal.isEmpty)
     }
+
+    // MARK: - 网速格式化
+
+    func testSpeedFormattingUnits() {
+        XCTAssertEqual(SystemSampler.formatSpeed(0), "0 K/s")
+        XCTAssertEqual(SystemSampler.formatSpeed(-10), "0 K/s")
+        XCTAssertEqual(SystemSampler.formatSpeed(512), "512 B/s")
+        XCTAssertEqual(SystemSampler.formatSpeed(1_024 * 35.84), "35.8 K/s")
+        XCTAssertEqual(SystemSampler.formatSpeed(1_024 * 1_024 * 1.5), "1.5 M/s")
+    }
+
+    func testFixedSpeedHasConstantWidth() {
+        // 菜单栏定宽：任意量级数值的字符数一致（figure space 与数字同为 1 字符），
+        // 保证状态项宽度不随速率位数变化而抖动。
+        let values: [Double] = [0, -10, 1, 9.9, 10, 99.9, 100, 999.9,
+                                1_024, 1_024 * 10, 1_024 * 100,
+                                1_024 * 1_024, 1_024 * 1_024 * 12.5,
+                                1_024 * 1_024 * 1_024 * 2]
+        let widths = Set(values.map { SystemSampler.formatSpeedFixed($0).count })
+        XCTAssertEqual(widths.count, 1, "定宽格式各量级字符数应一致，实际为 \(widths)")
+        // 数值部分右对齐到 5 字符 + 1 空格 + 3 字符单位 = 9 字符。
+        XCTAssertEqual(SystemSampler.formatSpeedFixed(0).count, 9)
+        XCTAssertTrue(SystemSampler.formatSpeedFixed(0).hasSuffix(" K/s"))
+    }
+
+    func testFixedSpeedUsesFigureSpaceForPadding() {
+        // 前导填充必须是 figure space (U+2007)，它在等宽数字字体下与数字同宽，
+        // 普通空格更窄会导致列宽抖动。
+        let text = SystemSampler.formatSpeedFixed(1.5) // "   1.5 K/s"
+        XCTAssertTrue(text.hasPrefix("\u{2007}"), "前导应为 figure space")
+        XCTAssertFalse(text.hasPrefix(" "), "不应使用普通空格填充")
+    }
+
+    func testMemorySizeFormatting() {
+        XCTAssertEqual(MemoryMenuBuilder.formatBytes(0), "0 KB")
+        XCTAssertEqual(MemoryMenuBuilder.formatBytes(512), "512 B")
+        XCTAssertEqual(MemoryMenuBuilder.formatBytes(1_024), "1 KB")
+        XCTAssertEqual(MemoryMenuBuilder.formatBytes(2_567 * 1_024), "2.5 MB")
+        XCTAssertEqual(MemoryMenuBuilder.formatBytes(UInt64(1.5 * 1_024 * 1_024)), "1.5 MB")
+        XCTAssertEqual(MemoryMenuBuilder.formatBytes(UInt64(2.67 * 1_024 * 1_024 * 1_024)), "2.7 GB")
+    }
+
+    private func safeDelta(_ current: UInt64, _ previous: UInt64) -> UInt64 {
+        current >= previous ? current - previous : 0
+    }
+
+    func testSpeedDeltasNeverNegativeOnWrap() {
+        // 累计字节回绕（如接口重置）时，差分应为 0 而非负数。
+        XCTAssertEqual(safeDelta(500, 1_000_000), 0)
+        // 正常增长按差值计算。
+        XCTAssertEqual(safeDelta(1_010_240, 1_000_000), 10_240)
+    }
+
+    func testNetworkCountersAreReadable() {
+        let counters = SystemSampler.readNetworkCounters()
+        XCTAssertGreaterThanOrEqual(counters.received, 0)
+        XCTAssertGreaterThanOrEqual(counters.sent, 0)
+    }
 }

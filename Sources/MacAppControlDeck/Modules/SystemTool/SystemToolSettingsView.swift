@@ -4,6 +4,7 @@ import AppKit
 struct SystemToolSettingsView: View {
     @AppStorage("systemTool.menubar.showCPU") private var showCPU = true
     @AppStorage("systemTool.menubar.showMEM") private var showMEM = true
+    @AppStorage("systemTool.menubar.showNetSpeed") private var showNetSpeed = false
     @AppStorage("systemTool.cleaning.largeFileThreshold") private var thresholdMB = 100
     @AppStorage("systemTool.cleaning.oldFileMonths") private var oldMonths = 12
 
@@ -21,18 +22,20 @@ struct SystemToolSettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("勾选要在菜单栏显示的项目；改动即时生效，无需重启。")
                             .font(.caption).foregroundStyle(.secondary)
-                        HStack(spacing: 16) {
+                        HStack(spacing: 12) {
                             StatusInfoCard(title: "CPU 占用", sample: "29%", label: "CPU",
                                            tint: .blue, checked: $showCPU)
                             StatusInfoCard(title: "内存占用", sample: "45%", label: "MEM",
                                            tint: .purple, checked: $showMEM)
+                            StatusInfoCard(title: "实时网速", sample: "K/s", label: "↑↓ 上传下载",
+                                           tint: .green, checked: $showNetSpeed)
                         }
                         HStack(alignment: .top, spacing: 5) {
                             Image(systemName: "info.circle").font(.caption2)
-                            Text("这两项只控制各自的状态项，不是总开关。总开关是「设置 → 模块 → PureMac」的模块启用开关；模块关闭时两个状态项一并消失，勾选状态会保留，重新启用后按勾选恢复。")
+                            Text("这三项分别控制菜单栏上的三个独立状态项（CPU / MEM / 网速），每个都可单独点击打开 PureMac。它们不是总开关。总开关是「设置 → 模块 → PureMac」的模块启用开关；模块关闭时状态项全部消失，勾选状态会保留，重新启用后按勾选恢复。三项都不勾选时状态项也会消失。")
                                 .font(.caption2).foregroundStyle(.tertiary)
                         }
-                        Text("卡片中的百分比为形态示意，实际数值由菜单栏实时采样显示。")
+                        Text("卡片中的数值/K/s 为形态示意，实际由菜单栏实时采样显示；网速按 K/s → M/s 自动切档，零 TCC 权限。")
                             .font(.caption2).foregroundStyle(.quaternary)
                     }
                     .padding(10)
@@ -174,6 +177,7 @@ struct SystemToolSettingsView: View {
         .onAppear(perform: reloadFromDefaults)
         .onChange(of: showCPU) { _, _ in notifyStatusChange() }
         .onChange(of: showMEM) { _, _ in notifyStatusChange() }
+        .onChange(of: showNetSpeed) { _, _ in notifyStatusChange() }
     }
 
     private var largeRootLabel: String {

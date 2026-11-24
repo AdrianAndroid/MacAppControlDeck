@@ -205,6 +205,20 @@ final class ProcessResourceMonitor: ObservableObject {
         consumer.applicationPath.flatMap { icons[$0] }
     }
 
+    /// 按应用路径取图标（供菜单栏内存菜单一次性使用，无长期缓存）。
+    static func iconForPath(_ path: String?) -> NSImage? {
+        guard let path else { return nil }
+        return NSWorkspace.shared.icon(forFile: path)
+    }
+
+    /// 一次性采样：按常驻内存降序返回占用最高的应用，供菜单栏内存菜单点击时使用。
+    /// 不启动常驻任务、不改动当前进程页的采样状态，与主窗口互不干扰。
+    func sampleMemoryTop(limit: Int) async -> [ProcessResourceConsumer] {
+        let sampler = ProcessResourceSampler()
+        let sample = await sampler.sample()
+        return Array(ProcessResourceMath.sorted(sample.consumers, by: .memory).prefix(max(0, limit)))
+    }
+
     func setActive(_ active: Bool) {
         guard active != isSampling else { return }
         isSampling = active
@@ -258,4 +272,25 @@ final class ProcessResourceMonitor: ObservableObject {
     }
 
     deinit { samplingTask?.cancel() }
+}
+
+/// 进程退出安全策略：菜单栏内存菜单与主窗口进程页共用，避免两处规则漂移。
+enum ProcessTerminationPolicy {
+    /// 仅允许用户应用（/Applications 下或用户主目录）退出；系统 / root / 受保护进程一律禁用。
+    static func canTerminate(_ consumer: ProcessResourceConsumer) -> Bool {
+        guard let path = consumer.applicationPath else { return false }
+        return path.hasPrefix("/Applications")
+            || path.contains("/Applications/")
+            || path.hasPrefix(NSHomeDirectory())
+    }
+
+    /// 按 applicationPath 找到运行中的应用并正常退出（非强制）。返回是否成功发出退出请求。
+    @discardableResult
+    static func terminate(_ consumer: ProcessResourceConsumer) -> Bool {
+        guard canTerminate(consumer), let path = consumer.applicationPath,
+              let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == path }) else {
+            return false
+        }
+        return app.terminate()
+    }
 }
