@@ -22,6 +22,10 @@ cp "$ROOT/Build/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
+echo "==> 嵌入 Sparkle.framework（自动升级）"
+source "$ROOT/Build/signing.sh"
+deck_embed_sparkle "$APP" "$BIN_DIR"
+
 echo "==> 复制 SwiftPM 资源 bundle"
 find "$BIN_DIR" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP/Contents/Resources/" \;
 
@@ -33,7 +37,6 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
 echo "==> 签名"
-source "$ROOT/Build/signing.sh"
 deck_sign_app "$APP"
 deck_print_signature_summary "$APP"
 echo "==> 完成: $APP"

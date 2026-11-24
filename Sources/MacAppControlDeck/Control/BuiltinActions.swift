@@ -20,7 +20,8 @@ enum BuiltinActions {
         Preset(id: "sketch.open", name: "打开 UI 草图", symbol: "✎"),
         Preset(id: "calendar.open", name: "打开万年历", symbol: "▦"),
         Preset(id: "screen.open", name: "打开副屏", symbol: "🖥"),
-        Preset(id: "pet.open", name: "打开桌面宠物", symbol: "🐾")
+        Preset(id: "pet.open", name: "打开桌面宠物", symbol: "🐾"),
+        Preset(id: "update.check", name: "检查更新", symbol: "↑")
     ]
 
     static func preset(for id: String) -> Preset? {
@@ -50,6 +51,7 @@ enum BuiltinActions {
             case "calendar.open": CalendarModule.shared.open()
             case "screen.open": DeckState.shared.openScreenInBrowser()
             case "pet.open": PetModule.shared.open()
+            case "update.check": UpdateController.shared.checkForUpdates()
             default: break
             }
         }

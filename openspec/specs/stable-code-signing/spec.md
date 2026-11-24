@@ -51,6 +51,21 @@
 - **AND** 对 ad-hoc 或仅 `cdhash` 的 DR 返回非零退出码
 - **AND** 对固定自签名身份返回成功
 
+### Requirement: CI 与自动升级包的签名身份
+
+CI（GitHub Actions）构建与自动升级下发的更新包 SHALL 与本机使用同一份固定自签名身份。证书私钥只允许通过加密 Secret 注入临时钥匙串，构建后必须断言 designated requirement 仍含 `certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`；证书重建后 MUST 同步更新 Secret。
+
+#### Scenario: CI 构建发布包
+
+- **WHEN** 推送 `v*` 标签触发 `.github/workflows/release.yml`
+- **THEN** runner 从 `DECK_SIGN_P12_BASE64` 导入证书到临时钥匙串后构建并签名
+- **AND** `./Build/verify-signing.sh` 输出「稳定签名」；缺失证书时构建失败，不退化为 ad-hoc
+
+#### Scenario: 自动升级安装
+
+- **WHEN** App 通过 Sparkle 安装更新包
+- **THEN** 更新包与原 App 使用同一签名身份，升级后辅助功能 / 输入监控 / 屏幕录制 / 自动化授权保持有效，无需重新授权
+
 ### Requirement: 权限规则进入项目规则
 
 `AGENTS.md` SHALL 包含固定签名与 TCC 授权规则，明确禁止本机使用 ad-hoc 签名、禁止修改 Bundle ID/签名证书/签名标志，并要求每次构建后校验 DR。

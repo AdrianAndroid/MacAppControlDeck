@@ -208,6 +208,8 @@ struct ModulesSettingsView: View {
 struct GeneralSettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
+    @ObservedObject private var updater = UpdateController.shared
+    @State private var autoCheck = UpdateController.shared.automaticallyChecks
 
     private var dataDirectory: URL { ConfigStore.defaultDirectory() }
     private var logDirectory: URL { dataDirectory.appendingPathComponent("logs") }
@@ -216,6 +218,7 @@ struct GeneralSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 startupCard
+                updateCard
                 dataCard
                 Text("这些设置作用于整个应用，不依赖电脑控制、截图或草图模块。")
                     .font(.caption)
@@ -246,6 +249,30 @@ struct GeneralSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label("启动", systemImage: "power")
+        }
+    }
+
+    private var updateCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("自动检查更新（每天一次）", isOn: $autoCheck)
+                    .onChange(of: autoCheck) { _, newValue in
+                        updater.setAutomaticallyChecks(newValue)
+                    }
+                HStack(spacing: 10) {
+                    Button("检查更新…") { updater.checkForUpdates() }
+                    Text(updater.detailText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text("新版本从 GitHub Releases 下载，安装前需要你确认重启；更新包必须用本机固定签名与更新公钥校验。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("更新", systemImage: "arrow.triangle.2.circlepath")
         }
     }
 

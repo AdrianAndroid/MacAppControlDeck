@@ -29,6 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ModuleRegistry.shared.register(PetModule.shared)
         GlobalHotKeys.shared.install()
         MenuBarController.shared.install()
+        // 自动升级最后启动：菜单栏先就绪，Sparkle 的后台检查弹窗才不会压在空状态上。
+        UpdateController.shared.start()
 
         launchFinished = true
         if let tab = pendingSettingsTab {

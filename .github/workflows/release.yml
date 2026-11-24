@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 工具链版本
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: 导入固定自签名身份
+        env:
+          DECK_SIGN_P12_BASE64: ${{ secrets.DECK_SIGN_P12_BASE64 }}
+          DECK_SIGN_P12_PASSWORD: ${{ secrets.DECK_SIGN_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DECK_SIGN_P12_BASE64:-}" ]]; then
+            echo "缺少 Secret：DECK_SIGN_P12_BASE64"; exit 1
+          fi
+          KEYCHAIN="$RUNNER_TEMP/deck-signing.keychain-db"
+          security create-keychain -p "$DECK_SIGN_P12_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$DECK_SIGN_P12_PASSWORD" "$KEYCHAIN"
+          echo "$DECK_SIGN_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/deck-signing.p12"
+          security import "$RUNNER_TEMP/deck-signing.p12" -k "$KEYCHAIN" -P "$DECK_SIGN_P12_PASSWORD" -T /usr/bin/codesign -A
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$DECK_SIGN_P12_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed 's/"//g')
+          security find-identity -v -p codesigning
+
+      - name: 标签与 Info.plist 版本一致
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PLIST=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Build/Info.plist)
+          if [[ "$TAG" != "$PLIST" ]]; then
+            echo "标签 $TAG 与 Build/Info.plist 的 $PLIST 不一致"; exit 1
+          fi
+
+      - name: 构建 universal 发布包
+        run: ./Build/package-release.sh universal
+
+      - name: 生成 appcast（EdDSA 签名）
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]]; then
+            echo "缺少 Secret：SPARKLE_ED_PRIVATE_KEY"; exit 1
+          fi
+          echo "$SPARKLE_ED_PRIVATE_KEY" | base64 --decode > "$RUNNER_TEMP/sparkle_ed_key"
+          chmod 600 "$RUNNER_TEMP/sparkle_ed_key"
+          export DECK_ED_KEY_FILE="$RUNNER_TEMP/sparkle_ed_key"
+          ./Build/make-appcast.sh BuildOutput/release/universal \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/"
+
+      - name: 校验产物
+        run: |
+          set -euo pipefail
+          APP=BuildOutput/release/universal/MacAppControlDeck.app
+          lipo -archs "$APP/Contents/MacOS/MacAppControlDeck"
+          ./Build/verify-signing.sh "$APP"
+          grep -q edSignature BuildOutput/release/universal/appcast.xml
+          echo "appcast 已签名，架构与签名校验通过"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: BuildOutput/release/universal/*
+
+      - name: 发布 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OUT=BuildOutput/release/universal
+          gh release create "$GITHUB_REF_NAME" \
+            "$OUT"/MacAppControlDeck-*.zip \
+            "$OUT"/*.dmg \
+            "$OUT/appcast.xml" \
+            "$OUT/SHA256SUMS.txt" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

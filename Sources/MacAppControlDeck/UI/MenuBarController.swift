@@ -71,6 +71,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        menu.addItem(actionItem("检查更新…", #selector(checkForUpdatesFromMenu),
+                                image: "arrow.triangle.2.circlepath"))
         menu.addItem(actionItem("设置…", #selector(openSettingsFromMenu),
                                 image: "gearshape", keyEquivalent: ","))
         menu.addItem(.separator())
@@ -170,6 +172,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     // MARK: - 动作
+
+    @objc private func checkForUpdatesFromMenu() {
+        UpdateController.shared.checkForUpdates()
+    }
 
     @objc private func openSettingsFromMenu() {
         openSettings()

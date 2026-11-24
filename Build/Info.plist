@@ -29,10 +29,24 @@
 	<string>MacAppControlDeck</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>局域网 Mac 应用快捷控制台</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/AdrianAndroid/MacAppControlDeck/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>/M1Wq0qKKs6tw06BwzB5+ICsMDJZcELasy0vUQM/Yto=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.1</string>
+	<string>0.4.1</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>7</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -47,7 +61,5 @@
 	<string>用于通过 System Events 触发「向左/向右切换桌面」等系统快捷键。</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>NSHumanReadableCopyright</key>
-	<string>局域网 Mac 应用快捷控制台</string>
 </dict>
 </plist>
