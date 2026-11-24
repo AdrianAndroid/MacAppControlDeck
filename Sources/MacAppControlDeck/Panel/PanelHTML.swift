@@ -256,7 +256,7 @@ enum PanelHTML {
       }
 
       const queues = new Map();   // id -> { items: [], running: false, el }
-      const TIMEOUT = { shortcut: 2500, command: 4000, app: 20000 };
+      const TIMEOUT = { shortcut: 2500, command: 4000, app: 12000 };
       const clockEl = $('#clock');
       const WEEKDAYS = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
       const pad2 = n => n < 10 ? '0' + n : '' + n;

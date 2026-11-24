@@ -88,7 +88,7 @@ final class AppControl: AppControlling {
         if AXIsProcessTrusted() {
             let pressed = pressDockIcon(bundleID: bundleID, appURL: appURL)
             log("Dock 图标 AXPress -> \(pressed)")
-            if pressed, let outcome = await evaluationIfSettled(bundleID, strategy: "Dock点击", wasHidden: running.isHidden, timeout: 8.0) {
+            if pressed, let outcome = await evaluationIfSettled(bundleID, strategy: "Dock点击", wasHidden: running.isHidden, timeout: 2.0) {
                 return outcome
             }
         }
@@ -98,7 +98,7 @@ final class AppControl: AppControlling {
         if AXIsProcessTrusted() {
             let raised = await raiseWindow(pid: running.processIdentifier)
             log("AXRaise -> \(raised)")
-            if raised, let outcome = await evaluationIfSettled(bundleID, strategy: "策略零", wasHidden: running.isHidden, timeout: 5.0) {
+            if raised, let outcome = await evaluationIfSettled(bundleID, strategy: "策略零", wasHidden: running.isHidden, timeout: 1.5) {
                 return outcome
             }
         } else {
@@ -109,7 +109,7 @@ final class AppControl: AppControlling {
         let contextOK = await running.activate(from: NSRunningApplication.current)
         log("activate(from:) -> \(contextOK)")
         if let outcome = await evaluationIfSettled(bundleID, strategy: "策略一", wasHidden: running.isHidden,
-                                                   requireVisibleWindow: true) {
+                                                   timeout: 1.5) {
             return outcome
         }
 
@@ -120,7 +120,7 @@ final class AppControl: AppControlling {
         if (try? await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)) != nil {
             log("openApplication(激活) 已调用")
             if let outcome = await evaluationIfSettled(bundleID, strategy: "策略二", wasHidden: false,
-                                                       requireVisibleWindow: true) {
+                                                       timeout: 1.5) {
                 return outcome
             }
         } else {
@@ -154,26 +154,18 @@ final class AppControl: AppControlling {
             message: "系统未允许该应用切到前台（当前前台：\(front)）。可能受聚焦保护阻拦，请再点一次或在 Mac 上确认")
     }
 
-    /// 成功判定：Dock 点击/AXRaise 路径以"成为前台"为准（等价真人点击，空间切换由系统完成）；
-    /// 弱兜底策略（策略一/二）则要求窗口确实回到当前空间，避免"只切菜单栏"的假成功。
-    /// 说明：Deck 进程内 CGWindowList 存在缓存偏差，仅作为兜底策略的门槛。
+    /// 成功判定：仅以"目标成为最前台应用"为准，与 app-control 规格一致。
+    /// 进程内 CGWindowList 存在缓存偏差，窗口数只写诊断日志，不作为成功/失败依据。
     private func evaluationIfSettled(_ bundleID: String,
                                      strategy: String,
                                      wasHidden: Bool,
-                                     timeout: TimeInterval = 3.0,
-                                     requireVisibleWindow: Bool = false) async -> AppActivationOutcome? {
+                                     timeout: TimeInterval) async -> AppActivationOutcome? {
         let front = await waitForFront(bundleID, timeout: timeout)
-        var visible = visibleWindowCount(bundleID) > 0
         log("判定(\(strategy)) 前台=\(front) 可见窗口=\(visibleWindowCount(bundleID)) 离屏窗口=\(offscreenWindowCount(bundleID))")
         guard front else { return nil }
-        if requireVisibleWindow && !visible {
-            visible = await waitForWindow(bundleID, timeout: 2.0)
-        }
-        guard !requireVisibleWindow || visible else { return nil }
         return AppActivationOutcome(status: .activated,
                                     message: wasHidden ? "已取消隐藏并切到前台" : "已切换到前台")
     }
-
 
     /// 轮询等待：目标成为最前台应用。
     private func waitForFront(_ bundleID: String,
@@ -186,17 +178,6 @@ final class AppControl: AppControlling {
             try? await Task.sleep(nanoseconds: 150_000_000)
         }
         return Self.isBundle(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, bundleID)
-    }
-
-    /// 轮询等待：目标应用在当前屏幕/空间上出现可见窗口。
-    private func waitForWindow(_ bundleID: String,
-                               timeout: TimeInterval) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if visibleWindowCount(bundleID) > 0 { return true }
-            try? await Task.sleep(nanoseconds: 150_000_000)
-        }
-        return visibleWindowCount(bundleID) > 0
     }
 
     /// 通过 CoreGraphics 统计目标应用在当前屏幕/空间上的可见窗口数量（无需辅助功能权限）。
@@ -246,6 +227,8 @@ final class AppControl: AppControlling {
             guard AXUIElementCopyAttributeValue(item, kAXTitleAttribute as CFString, &cfTitle) == .success,
                   let title = cfTitle as? String else { continue }
             let normalized = Self.normalizeName(title)
+            // 跳过空标题项（Dock 分隔符等）：空串的 hasPrefix 恒为 true，会误匹配任意应用
+            guard !normalized.isEmpty else { continue }
             // "DevEco-Studio" vs 显示名 "DevEco Studio"：归一化后互相包含即可
             guard names.contains(where: { $0 == normalized || normalized.hasPrefix($0) || $0.hasPrefix(normalized) }) else { continue }
             if AXUIElementPerformAction(item, kAXPressAction as CFString) == .success {
