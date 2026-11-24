@@ -13,7 +13,6 @@ if [[ -z "$DIR" || -z "$PREFIX" ]]; then
   exit 2
 fi
 
-BIN_DIR=$(swift build -c release --show-bin-path 2>/dev/null || true)
 TOOLS="$ROOT/.build/artifacts/sparkle/Sparkle/bin"
 if [[ ! -x "$TOOLS/generate_appcast" ]]; then
   echo "错误：找不到 Sparkle 工具：$TOOLS/generate_appcast"
@@ -21,10 +20,21 @@ if [[ ! -x "$TOOLS/generate_appcast" ]]; then
   exit 3
 fi
 
-# CI 里私钥来自 Secret（DECK_ED_KEY_FILE），本机则用登录钥匙串里的密钥。
+# 私钥优先级：CI Secret 显式指定 > 本机固化文件 > 报错。
+# 不回退到钥匙串：generate_appcast 直接读登录钥匙串会弹「允许访问」授权框，
+# 非交互发版会永久卡住；本机私钥由 generate_keys -x 导出到 600 权限文件。
+DECK_LOCAL_ED_KEY="$HOME/.config/macappcontroldeck/sparkle_ed_key"
 ed_key_args=()
 if [[ -n "${DECK_ED_KEY_FILE:-}" ]]; then
+  [[ -s "$DECK_ED_KEY_FILE" ]] || { echo "错误：DECK_ED_KEY_FILE 指向的私钥为空：$DECK_ED_KEY_FILE"; exit 5; }
   ed_key_args=(--ed-key-file "$DECK_ED_KEY_FILE")
+elif [[ -s "$DECK_LOCAL_ED_KEY" ]]; then
+  ed_key_args=(--ed-key-file "$DECK_LOCAL_ED_KEY")
+else
+  echo "错误：找不到 EdDSA 私钥，拒绝回退到会弹授权框的钥匙串读取。"
+  echo "本机执行：\"$TOOLS/generate_keys\" -x \"$DECK_LOCAL_ED_KEY\" && chmod 600 \"$DECK_LOCAL_ED_KEY\""
+  echo "或设置 DECK_ED_KEY_FILE=<私钥文件>（CI 用 Secret 解码出的临时文件）。"
+  exit 5
 fi
 
 # generate_appcast 要求目录里每种 bundle version 只能有一个归档；产物目录同时

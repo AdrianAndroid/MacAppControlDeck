@@ -63,7 +63,7 @@
 ### 唯一固定身份
 
 - 名称：`MacAppControlDeck Self-Signed`
-- SHA-1：`145AEA72352C419CCCD76D6536BC70E14B2E134F`（以钥匙串中当前证书为准；证书被重建/重信任后指纹会变化，需同步更新本节与规格）
+- SHA-1：`E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`（2026-11-25 核对：与公司电脑发布的 v0.3.1 一致；以钥匙串中当前证书为准，证书被重建/重信任后指纹会变化，需同步更新本节与规格）
 - Bundle ID：`com.zhaojian.MacAppControlDeck`
 - 自签名身份不加 hardened runtime；Apple Development 身份才使用 `--options runtime`
 
@@ -72,7 +72,7 @@
 1. 本机构建统一执行 `./Build/build.sh`，禁止手工 `codesign --sign -` 或手工 ad-hoc 重签后再安装。
 2. `Build/build.sh` 和 `Build/package-release.sh` 必须通过 `Build/signing.sh` 的 `deck_sign_app` 签名，不得各自维护一套签名分支。
 3. 签名后必须校验 designated requirement：
-   - 稳定：`identifier "com.zhaojian.MacAppControlDeck" and certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`
+   - 稳定：`identifier "com.zhaojian.MacAppControlDeck" and certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`
    - 不稳定：只有 `cdhash H"..."`
 4. 证书缺失时必须失败并提示 `./Build/setup-signing.sh`，禁止静默降级为 ad-hoc。
 5. 本机日常使用的 `/Applications/MacAppControlDeck.app` 不得安装 ad-hoc 包；release 包只有显式 `DECK_ALLOW_ADHOC=1` 才允许 ad-hoc，并必须在说明中写明该包会重置 TCC 授权。
@@ -82,7 +82,7 @@
    - 覆盖安装后再执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`
 8. 系统设置里出现重复条目时，只删除旧条目后重新添加当前 App；不得用 `tccutil reset` 批量清空用户其他权限。
 9. 任何签名、打包或权限流程的变更，必须新建 OpenSpec 变更并在归档时同步 `openspec/specs/stable-code-signing/spec.md`。
-10. CI（GitHub Actions）发布与自动升级包必须使用同一固定身份：证书只允许以加密 Secret 注入临时钥匙串，构建后仍须断言 DR 含 `certificate root = H"145aea72…"`；证书重建后同步更新 Secret，禁止用新证书签更新包。
+10. 本机 `./Build/publish-local.sh` 是正式发版主路径，CI 只作兜底；CI 构建与自动升级包必须使用同一固定身份：证书只允许以加密 Secret 注入临时钥匙串，构建后仍须断言 DR 含 `certificate root = H"e8357462…"`；证书重建后同步更新 Secret，禁止用新证书签更新包。
 
 ### TCC 授权范围
 

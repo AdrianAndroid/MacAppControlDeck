@@ -88,24 +88,22 @@ v0.4.0 起内置 [Sparkle 2](https://sparkle-project.org) 自动升级，更新�
 - **通用包**：`package-release.sh universal` 用 lipo 合并 arm64 + x86_64，appcast 只有一条记录，不会给 Intel 机器下 arm64 包
 - **镜像 / 本地调试**：设置 `DECK_UPDATE_FEED=<appcast 地址>` 可临时改更新源（校验流程不变）
 
-发版（CI 自动完成）：
+发版（**这台 Mac 是正式发版机**，本机一键完成）：
 
 ```zsh
 # 1. 改 Build/Info.plist：CFBundleShortVersionString 与 CFBundleVersion 必须同时递增
-# 2. 提交后打标签推送，GitHub Actions 自动构建 universal 包、EdDSA 签名、生成 appcast 并发布 Release
-git tag v0.4.1 && git push origin v0.4.1
+# 2. 写 Docs/releases/<版本>.md，提交并推送 main
+# 3. 自检，不改动任何线上状态：
+./Build/publish-local.sh --verify-only
+# 4. 预演：构建 + 签名 + 校验，不推 tag 不发布：
+./Build/publish-local.sh --dry-run
+# 5. 正式发布（自动创建 tag、上传 5 个资产、逐项复核线上结果）：
+./Build/publish-local.sh
 ```
 
-本机手动发版时：
+脚本自检 gh 登录、固定签名身份、EdDSA 私钥与内置公钥一致、main 与远程同步；随后构建 universal 包、用本机私钥签 appcast、校验架构 / designated requirement / SHA256 / edSignature，再创建 Release 并复核线上资产、appcast 与校验和。完整 SOP 见 [本机发布手册](Docs/releases/local-publish.md)。
 
-```zsh
-swift package resolve                        # 拉 Sparkle 二进制与官方工具
-./Build/package-release.sh universal
-./Build/make-appcast.sh BuildOutput/release/universal \
-  "https://github.com/AdrianAndroid/MacAppControlDeck/releases/download/v0.4.1/"
-```
-
-CI 需要 3 个 Secret（证书私钥与 EdDSA 私钥不进仓库）：`DECK_SIGN_P12_BASE64`、`DECK_SIGN_P12_PASSWORD`、`SPARKLE_ED_PRIVATE_KEY`。
+私钥只放在本机 `~/.config/macappcontroldeck/sparkle_ed_key`（600 权限，不进仓库），与登录钥匙串的 `Private key for signing Sparkle updates`、仓库 Secret `SPARKLE_ED_PRIVATE_KEY` 是同一份；**禁止轮换 `SUPublicEDKey`**，否则 v0.4.1 存量用户的 Sparkle 升级链会断裂。CI 的 3 个 Secret（`DECK_SIGN_P12_BASE64`、`DECK_SIGN_P12_PASSWORD`、`SPARKLE_ED_PRIVATE_KEY`）仅兜底用；本机发布后 CI 检测到 Release 已存在会自动跳过，不会重复构建或覆盖资产。
 
 ## 构建与安装
 
@@ -133,7 +131,7 @@ open /Applications/MacAppControlDeck.app
 ./Build/package-release.sh x86_64
 ```
 
-> **固定签名规则**：本机构建与本地发布包默认使用固定身份 `MacAppControlDeck Self-Signed`（当前证书 SHA-1 `145AEA72352C419CCCD76D6536BC70E14B2E134F`；证书重建后指纹会变化，见 `openspec/specs/stable-code-signing/spec.md`），其 designated requirement 必须包含 `certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`。如果签名身份缺失，`build.sh` 会直接失败，不会静默退回 ad-hoc。辅助功能、输入监控、屏幕录制和自动化授权都绑定这个身份，因此重新构建后不需要反复授权；不要把 ad-hoc release 包装到本机日常环境。
+> **固定签名规则**：本机构建与本地发布包默认使用固定身份 `MacAppControlDeck Self-Signed`（当前证书 SHA-1 `E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3`；证书重建后指纹会变化，见 `openspec/specs/stable-code-signing/spec.md`），其 designated requirement 必须包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`。如果签名身份缺失，`build.sh` 会直接失败，不会静默退回 ad-hoc。辅助功能、输入监控、屏幕录制和自动化授权都绑定这个身份，因此重新构建后不需要反复授权；不要把 ad-hoc release 包装到本机日常环境。
 
 运行后：菜单栏出现滑块图标，Dock 也有图标。App 自动在本机局域网 IP 上监听（默认端口 47615，被占用自动 +1），窗口首屏显示面板地址（形如 `http://192.168.x.x:47615/panel/`），可点击复制。
 
@@ -474,7 +472,7 @@ DECK_RUN_ACTIVATION_E2E=1 swift test    # 需要回归打开应用时显式启�
 | 配对提示成功但仍停在配对页 | 旧版在「按钮数为 0」时会退回配对页；本版已修复为进入主界面并显示空状态，按提示在 Mac 端添加按钮即可（面板 5 秒自动刷新） |
 | 点击后只切菜单栏、不跳桌面 | ①检查调度中心开关（见上）；②检查辅助功能状态灯是否绿色。手动点 Dock 图标也不跳桌面即为开关问题 |
 | 辅助功能状态灯一直橙色 | 先执行 `./Build/verify-signing.sh /Applications/MacAppControlDeck.app`；若显示 ad-hoc/纯 cdhash，说明装错了包（多为 v0.2.0 及更早的 ad-hoc release）；换回 v0.3.0+ 的固定签名包 `./Build/build.sh`。若签名正常，删除系统设置里的旧条目，重新添加当前 App，再重启程序 |
-| 已授权屏幕录制却仍提示授权 | 先确认当前 App 不是 ad-hoc：`./Build/verify-signing.sh`。固定签名包的 designated requirement 应包含 `certificate root = H"145aea72352c419cccd76d6536bc70e14b2e134f"`；若仍是纯 cdhash，重新执行 `./Build/build.sh` 并覆盖安装，再授权一次 |
+| 已授权屏幕录制却仍提示授权 | 先确认当前 App 不是 ad-hoc：`./Build/verify-signing.sh`。固定签名包的 designated requirement 应包含 `certificate root = H"e83574620fe6cf96ba5a9c902f8b6a5c38f5a6b3"`；若仍是纯 cdhash，重新执行 `./Build/build.sh` 并覆盖安装，再授权一次 |
 | F1 触发不了 Snipaste 等全局热键应用 | 已知限制：请改用「命令按钮」（应用选 Snipaste、参数 `snip`）。普通应用中 F1 可正常注入 |
 | F1 不打开区域截图 | ①先在 设置 → 快捷键 打开 F1（默认全部关闭）；②Apple 键盘把 F1 当亮度键：开启「将 F1、F2 等键用作标准功能键」或按 `fn + F1`；③F1 被其他程序占用：设置 → 快捷键 会显示「被其他应用占用」并每 2 秒重试，也可改键，期间用 `⌘⇧X` |
 | 手机端 F1 按钮没有发到目标应用 | 已知限制：若开启了 Deck 的全局 F1，应用运行期间它会优先打开区域截图。需要向目标应用发送 F1 时，先关闭 Deck 的全局 F1 或改用命令按钮 |
@@ -528,6 +526,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-25 **本机设为正式发版机**（`publish-local.sh` 一键发布、EdDSA 私钥固化到本机、CI 幂等兜底、签名指纹同步为 `E8357462…`）：[本机发布手册](Docs/releases/local-publish.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-25-make-local-machine-primary-release-publisher/proposal.md) · [能力规格](openspec/specs/local-release-publishing/spec.md)
 - 2026-11-24 **v0.4.1 发布**（自动升级 universal 单包 + PureMac 柠檬式 UI v3 + 菜单栏三状态项 + 实时网速 + MEM 内存占用菜单）：[发布说明](Docs/releases/v0.4.1.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
 - 2026-11-24 PureMac 菜单栏拆成 CPU/MEM/网速三个独立状态项、新增实时网速（getifaddrs 差分采样、定宽不抖、上下同色同字号、零 TCC 权限）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-netspeed/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [柠檬网速调研](Docs/research/2026-11-24-lemon-netspeed-research.md)
 - 2026-11-24 MEM 状态项点击弹出柠檬式内存占用菜单（即时采样、按内存降序、应用行一键正常退出、系统进程禁用）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-memory-menu/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
@@ -562,7 +561,7 @@ Docs/archive/                    # 历史归档
 - 2026-11-23 手机控制台安卓横屏全屏入口与快捷按钮文字自适应：[OpenSpec 变更](openspec/changes/archive/2026-11-23-fix-android-panel-layout/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 点击「已连接」强制刷新面板（`/panel/?v=…&t=…` 重载，面板版本 `2026-11-23.3`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-panel-force-refresh/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 横屏时钟改为鲜艳红色（`#ff3b30`、加粗、柔光，面板版本 `2026-11-23.2`）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-tint-panel-clock-red/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
-- 2026-11-23 重装、面板横屏时钟与傻瓜安装包（签名身份恢复为 `145AEA72…`、横屏时钟、双击安装脚本、`macappcontroldeck://` 深链接、聊天传输 ZIP）：[实施记录](Docs/archive/2026-11-23-friendly-install-and-panel-clock/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-signing-fingerprint-docs/proposal.md)
+- 2026-11-23 重装、面板横屏时钟与傻瓜安装包（签名身份恢复为当时的 `145AEA72…`，现已变更为 `E8357462…`、横屏时钟、双击安装脚本、`macappcontroldeck://` 深链接、聊天传输 ZIP）：[实施记录](Docs/archive/2026-11-23-friendly-install-and-panel-clock/SUMMARY.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-signing-fingerprint-docs/proposal.md)
 - 2026-11-23 聊天软件传输用安装包（ZIP 内含 App + 安装脚本 + 说明，解压双击即可装）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-chat-transfer-bundle/proposal.md) · [能力规格](openspec/specs/release-installer/spec.md)
 - 2026-11-23 设置页深链接与安装后直达桌宠设置（`macappcontroldeck://settings/pet`，未预期失败也弹窗）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-pet-settings-deeplink/proposal.md) · [能力规格](openspec/specs/settings-deeplink/spec.md)
 - 2026-11-23 发布包内置双击安装脚本（自动安装/解除隔离/启动，失败弹窗说明）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-friendly-installer/proposal.md) · [能力规格](openspec/specs/release-installer/spec.md)

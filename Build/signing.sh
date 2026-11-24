@@ -10,7 +10,10 @@
 set -euo pipefail
 
 DECK_CANONICAL_SIGN_IDENTITY="MacAppControlDeck Self-Signed"
-DECK_CANONICAL_SIGN_SHA1="145AEA72352C419CCCD76D6536BC70E14B2E134F"
+# 当前钥匙串证书指纹（2026-11-25 核对，与 v0.3.1 公司电脑发布包一致）。
+# 仅作文档记录：实际断言在 deck_assert_stable_signature / publish-local.sh 里按
+# designated requirement 动态校验，不硬编码指纹比较，避免证书重建后规则漂移。
+DECK_CANONICAL_SIGN_SHA1="E83574620FE6CF96BA5A9C902F8B6A5C38F5A6B3"
 
 deck_signing_identity() {
   if [[ -n "${DECK_SIGN_IDENTITY:-}" ]]; then
