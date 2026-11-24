@@ -146,9 +146,22 @@ final class APIRouterTests: XCTestCase {
         let html = String(data: response.body, encoding: .utf8)!
         XCTAssertTrue(html.contains("Mac 应用快捷控制台"))
         XCTAssertTrue(html.contains("grid-template-columns: var(--left-rail)"), "横屏需要左侧竖轨")
-        XCTAssertTrue(html.contains("writing-mode:vertical-rl"), "应用/快捷标题竖排")
+        XCTAssertTrue(html.contains("class=\"zone-head\""), "应用/快捷标题与翻页圆点横排在区域顶部")
         XCTAssertTrue(html.contains("12/appCols"), "横屏每页固定 12 个应用")
         XCTAssertTrue(html.contains("pcount"), "分页需要页码")
+    }
+
+    func test_screenCountdownServedWithoutToken() async {
+        let router = makeRouter()
+        let response = await router.handle(makeRequest("GET", "/api/screen/countdown"))
+        XCTAssertEqual(response.status, 200)
+        XCTAssertEqual(response.headers["Cache-Control"], "no-store, must-revalidate")
+        let json = try? JSONSerialization.jsonObject(with: response.body) as? [String: Any]
+        XCTAssertNotNil(json?["enabled"], "需要 enabled 开关")
+        XCTAssertNotNil(json?["phase"], "需要阶段")
+        XCTAssertNotNil(json?["targetEpoch"], "需要目标时间点，页面只做倒数")
+        XCTAssertNotNil(json?["label"])
+        XCTAssertNotNil(json?["showSeconds"])
     }
 
     func test_screenServedWithoutToken() async {

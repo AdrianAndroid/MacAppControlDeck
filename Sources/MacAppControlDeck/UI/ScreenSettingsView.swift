@@ -4,6 +4,7 @@ import SwiftUI
 struct ScreenSettingsView: View {
     @ObservedObject private var state = DeckState.shared
     @ObservedObject private var weather = WeatherSettings.shared
+    @ObservedObject private var offWork = OffWorkSettings.shared
 
     @State private var publicKeyPEM = ""
     @State private var copiedKey = false
@@ -29,6 +30,7 @@ struct ScreenSettingsView: View {
 
                 addressCard
                 weatherCard
+                countdownCard
                 notesCard
             }
             .padding(20)
@@ -69,6 +71,74 @@ struct ScreenSettingsView: View {
         } label: {
             Label("副屏地址", systemImage: "rectangle.on.rectangle")
         }
+    }
+
+    // MARK: - 下班倒计时
+
+    private var countdownCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("显示下班倒计时", isOn: $offWork.enabled)
+                HStack(spacing: 18) {
+                    DatePicker("上班时间", selection: startTimeBinding, displayedComponents: .hourAndMinute)
+                    DatePicker("下班时间", selection: endTimeBinding, displayedComponents: .hourAndMinute)
+                }
+                .disabled(!offWork.enabled)
+                HStack(spacing: 18) {
+                    Toggle("显示秒", isOn: $offWork.showSeconds)
+                    Toggle("竖屏也显示", isOn: $offWork.showInPortrait)
+                }
+                .disabled(!offWork.enabled)
+                Text(countdownPreview)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Text("每天按同一套时间计算：到点前显示距上班，上班中显示距下班，下班后正计时到 24:00；下班时间早于上班时间视为跨夜班。暂不区分工作日与法定节假日。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("下班倒计时", systemImage: "hourglass")
+        }
+    }
+
+    private var startTimeBinding: Binding<Date> {
+        timeBinding(get: { offWork.startMinute }, set: { offWork.startMinute = $0 })
+    }
+
+    private var endTimeBinding: Binding<Date> {
+        timeBinding(get: { offWork.endMinute }, set: { offWork.endMinute = $0 })
+    }
+
+    private func timeBinding(get minutes: @escaping () -> Int, set: @escaping (Int) -> Void) -> Binding<Date> {
+        Binding(
+            get: {
+                let minute = ((minutes() % 1440) + 1440) % 1440
+                return Calendar.current.date(bySettingHour: minute / 60, minute: minute % 60, second: 0,
+                                             of: Date()) ?? Date()
+            },
+            set: { date in
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                set((parts.hour ?? 0) * 60 + (parts.minute ?? 0))
+            }
+        )
+    }
+
+    private var countdownPreview: String {
+        guard offWork.enabled else { return "预览：未开启" }
+        let now = Date()
+        let snapshot = OffWorkCountdown.snapshot(now: now, config: offWork.config)
+        let seconds = snapshot.countUp
+            ? now.timeIntervalSince1970 - snapshot.targetEpoch
+            : snapshot.targetEpoch - now.timeIntervalSince1970
+        var line = "预览：\(snapshot.label) \(OffWorkCountdown.durationText(seconds, withSeconds: offWork.showSeconds))"
+        if snapshot.phase == .working {
+            line += " · \(snapshot.targetText) · 已工作 \(Int((snapshot.progress * 100).rounded()))%"
+        } else {
+            line += " · \(snapshot.targetText)"
+        }
+        return line
     }
 
     // MARK: - 天气

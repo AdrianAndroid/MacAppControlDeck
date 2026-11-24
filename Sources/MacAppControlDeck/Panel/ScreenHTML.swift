@@ -3,7 +3,7 @@ import Foundation
 /// 只读副屏页面：模拟时钟 + 当月月历。
 /// 页面不包含 token、不调用任何 /api/* 接口，拿到地址也只能看时间与日期。
 enum ScreenHTML {
-    static let version = "2026-11-23.10"
+    static let version = "2026-11-24.4"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -118,11 +118,19 @@ enum ScreenHTML {
         white-space: nowrap;
       }
 
+      /* 月历与倒计时作为一组整体垂直居中，两者间距固定，剩余空白分给上下。 */
+      .cal-group {
+        margin: auto 0;
+        min-height: 0; min-width: 0;
+        display: flex; flex-direction: column;
+        gap: calc(var(--u) * 1.8);
+      }
       .cal {
-        flex: 1 1 auto;
+        flex: 0 1 auto;
         min-height: 0; min-width: 0;
         display: flex; flex-direction: column;
         justify-content: center;
+        padding: calc(var(--u) * 2.1) 0 calc(var(--u) * .5);
       }
       .mon {
         display: flex; align-items: baseline; justify-content: center;
@@ -189,6 +197,104 @@ enum ScreenHTML {
         font-weight: 700;
       }
       .cell.blank span { visibility: hidden; }
+
+      /* ---- 下班倒计时：月历底部，单一结构；放不下只等比缩小 ---- */
+      .grid { max-height: max(calc(var(--u) * 25), 36vh); }
+      .cal-group { --cd-scale: 1; }
+      .cd {
+        flex: 0 0 auto; display: none; align-items: center;
+        max-width: 100%; overflow: hidden;
+        gap: calc(var(--u) * 2 * var(--cd-scale));
+        padding: calc(var(--u) * 1.3 * var(--cd-scale)) calc(var(--u) * 1.6 * var(--cd-scale));
+        border-radius: calc(var(--u) * 2.4 * var(--cd-scale));
+        background: rgba(255, 255, 255, .045);
+        border: 1px solid rgba(255, 255, 255, .07);
+      }
+      .cd.on { display: flex; }
+      .cd-icon { flex: 0 0 auto; position: relative;
+                 width: calc(var(--u) * 6.8 * var(--cd-scale));
+                 height: calc(var(--u) * 6.8 * var(--cd-scale)); }
+      .cd-layer { position: absolute; inset: 0; opacity: 0; transform: scale(.94);
+                  transition: opacity .4s ease, transform .4s ease; }
+      .cd-layer.on { opacity: 1; transform: scale(1); }
+      .cd-layer svg { width: 100%; height: 100%; display: block; }
+      .cd-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+                 gap: calc(var(--u) * .7 * var(--cd-scale)); }
+      .cd-label { font-size: calc(var(--u) * 1.7 * var(--cd-scale)); letter-spacing: .16em;
+                  color: var(--muted); line-height: 1.1; white-space: nowrap; }
+      .cd-time { font-size: calc(var(--u) * 4.8 * var(--cd-scale)); line-height: 1.05; font-weight: 600;
+                 font-variant-numeric: tabular-nums; letter-spacing: .03em;
+                 white-space: nowrap; }
+      .cd-meta { font-size: calc(var(--u) * 1.6 * var(--cd-scale)); color: var(--muted); line-height: 1.15;
+                 font-variant-numeric: tabular-nums; margin-top: calc(var(--u) * .3 * var(--cd-scale));
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      @media (min-width: 1100px) { .cd-time { font-size: calc(var(--u) * 5.6 * var(--cd-scale)); } }
+      .cd-progress { flex: 0 0 auto; position: relative; margin-left: calc(var(--u) * .9 * var(--cd-scale));
+                     width: calc(var(--u) * 4.8 * var(--cd-scale));
+                     height: calc(var(--u) * 4.8 * var(--cd-scale));
+                     display: grid; place-items: center; color: var(--ink); }
+      .cd-progress svg { width: 100%; height: 100%; display: block; }
+      .cd-pct { position: absolute; font-size: calc(var(--u) * 1.35 * var(--cd-scale)); font-weight: 600;
+                font-variant-numeric: tabular-nums; color: var(--ink); }
+      .cd[data-phase="before"] .cd-time { color: var(--muted); }
+      .cd[data-phase="after"] .cd-time { color: #34c759; }
+      .cd[data-phase="before"] .cd-progress { visibility: hidden; }
+      .cd[data-phase="after"] .cd-progress { visibility: hidden; }
+
+      /* ---- 动图：14 个场景共用的一组 keyframes ---- */
+      .cd-icon .sweep { animation: cd-sweep 8s linear infinite; transform-origin: 16px 12px; }
+      .cd-icon .sweep.slow { animation-duration: 48s; }
+      .cd-icon .float { animation: cd-float calc(2.8s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .bob { animation: cd-bob calc(1.1s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .steam { animation: cd-steam calc(2.2s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .steam.s2 { animation-delay: .55s; }
+      .cd-icon .steam.s3 { animation-delay: 1.1s; }
+      .cd-icon .tick1 { animation: cd-tick calc(1.5s * var(--cd-speed, 1)) infinite; }
+      .cd-icon .tick2 { animation: cd-tick calc(1.5s * var(--cd-speed, 1)) infinite .25s; }
+      .cd-icon .tick3 { animation: cd-tick calc(1.5s * var(--cd-speed, 1)) infinite .5s; }
+      .cd-icon .swing { animation: cd-swing calc(2.6s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: 12.3px 12.6px; }
+      .cd-icon .flip { animation: cd-flip calc(6s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: 16px 16px; }
+      .cd-icon .fall { animation: cd-fall calc(2s * var(--cd-speed, 1)) linear infinite; }
+      .cd-icon .rise { animation: cd-rise calc(2.4s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .rise.d2 { animation-delay: .5s; }
+      .cd-icon .pop { animation: cd-pop calc(2.4s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: 24.6px 18.4px; }
+      .cd-icon .grow1 { animation: cd-grow calc(4s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: left center; }
+      .cd-icon .grow2 { animation: cd-grow calc(4s * var(--cd-speed, 1)) ease-in-out infinite 1s; transform-origin: left center; }
+      .cd-icon .grow3 { animation: cd-grow calc(4s * var(--cd-speed, 1)) ease-in-out infinite 2s; transform-origin: left center; }
+      .cd-icon .fill { animation: cd-fill calc(3s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: bottom center; }
+      .cd-icon .spin { animation: cd-sweep calc(2.4s * var(--cd-speed, 1)) linear infinite; transform-origin: 16px 15px; }
+      .cd-icon .page { animation: cd-page calc(4s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: 24px 12px; }
+      .cd-icon .print { animation: cd-print calc(3s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .glow { animation: cd-glow calc(2.4s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .note1 { animation: cd-note calc(2.6s * var(--cd-speed, 1)) ease-in-out infinite; }
+      .cd-icon .note2 { animation: cd-note calc(2.6s * var(--cd-speed, 1)) ease-in-out infinite .9s; }
+      .cd-icon .sway { animation: cd-sway calc(3.2s * var(--cd-speed, 1)) ease-in-out infinite; transform-origin: 16px 22px; }
+      .cd-icon .gait-a { animation: cd-gait-a .7s steps(1) infinite; }
+      .cd-icon .gait-b { animation: cd-gait-b .7s steps(1) infinite; }
+      @keyframes cd-sweep { to { transform: rotate(360deg); } }
+      @keyframes cd-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-.7px); } }
+      @keyframes cd-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-.8px); } }
+      @keyframes cd-steam { 0% { opacity: .1; transform: translateY(1.6px); } 45% { opacity: .85; transform: translateY(-1.8px); } 100% { opacity: .05; transform: translateY(-4px); } }
+      @keyframes cd-tick { 0%, 100% { transform: translateY(0); opacity: .55; } 40% { transform: translateY(1.2px); opacity: 1; } }
+      @keyframes cd-swing { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+      @keyframes cd-flip { 0%, 42% { transform: rotate(0deg); } 52%, 92% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
+      @keyframes cd-fall { 0% { transform: translateY(0) scaleY(.5); opacity: .9; } 80% { transform: translateY(4.4px) scaleY(1); opacity: .9; } 100% { transform: translateY(4.6px) scaleY(.2); opacity: 0; } }
+      @keyframes cd-rise { 0%, 100% { transform: translateY(1.2px); opacity: .55; } 50% { transform: translateY(-1.2px); opacity: 1; } }
+      @keyframes cd-pop { 0%, 60%, 100% { transform: scale(0); opacity: 0; } 70%, 90% { transform: scale(1); opacity: 1; } }
+      @keyframes cd-grow { 0%, 8% { transform: scaleX(0); opacity: .2; } 40%, 80% { transform: scaleX(1); opacity: 1; } 95%, 100% { transform: scaleX(0); opacity: .2; } }
+      @keyframes cd-fill { 0%, 10% { transform: scaleY(.1); } 70%, 90% { transform: scaleY(1); } 100% { transform: scaleY(.1); } }
+      @keyframes cd-page { 0%, 55% { transform: rotate(0deg); } 70%, 100% { transform: rotate(-24deg); } }
+      @keyframes cd-print { 0%, 100% { transform: translateY(0); opacity: .6; } 50% { transform: translateY(-1.6px); opacity: 1; } }
+      @keyframes cd-glow { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+      @keyframes cd-note { 0%, 100% { transform: translateY(0); opacity: .3; } 50% { transform: translateY(-2px); opacity: 1; } }
+      @keyframes cd-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+      @keyframes cd-gait-a { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+      @keyframes cd-gait-b { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .cd-icon * { animation: none !important; }
+        .cd-layer { transition: none; }
+        .cd-icon .gait-b { display: none; }
+      }
 
       /* ---- 天气：城市 / 概览 / 预报表（MagicMirror 右上角结构）---- */
       .wx-col { gap: 0; }
@@ -466,6 +572,7 @@ enum ScreenHTML {
         <section class="col cal-col">
           <div class="kicker center">CALENDAR</div>
           <div class="rule"></div>
+          <div class="cal-group">
           <div class="cal">
             <div class="mon">
               <button class="nav" id="prev" aria-label="上个月">‹</button>
@@ -477,6 +584,28 @@ enum ScreenHTML {
               <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
             </div>
             <div class="grid" id="grid" role="grid" aria-label="当月月历"></div>
+          </div>
+
+          <section class="cd" id="cd" data-phase="working">
+            <div class="cd-icon" id="cdIcon">
+              <div class="cd-layer" id="cdLayerA"></div>
+              <div class="cd-layer" id="cdLayerB"></div>
+            </div>
+            <div class="cd-body">
+              <div class="cd-label" id="cdLabel">距下班</div>
+              <div class="cd-time" id="cdTime">--:--:--</div>
+              <div class="cd-meta" id="cdMeta"></div>
+            </div>
+            <div class="cd-progress" id="cdProgress" aria-hidden="true">
+              <svg viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="2.6"/>
+                <circle id="cdArc" cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.6"
+                        stroke-linecap="round" transform="rotate(-90 18 18)"
+                        stroke-dasharray="94.25" stroke-dashoffset="0"/>
+              </svg>
+              <span class="cd-pct" id="cdPct">100%</span>
+            </div>
+          </section>
           </div>
         </section>
       </div>
@@ -828,6 +957,264 @@ enum ScreenHTML {
       }
       startClock();
 
+      // ---- 下班倒计时（阶段由 Swift 算；场景按时钟轮播，页面只负责渲染）----
+      var CD = { sceneEvery: 300, microEvery: 45, milestoneHold: 30000, milestones: [50, 25, 10] };
+      var cd = null;
+      var cdTickTimer = null;
+      var cdRotateTimer = null;
+      var cdSceneKey = '';
+      var cdLayerOn = 1;
+      var cdLastBucket = null;
+      var cdOverride = { until: 0, index: -1 };
+
+      var cdScenes = {
+        working: [
+          // A 显示器走时 + 键帽起伏
+          '<g class="float"><rect x="4.6" y="4.8" width="22.8" height="13.6" rx="2.2"/><path d="M13 23.2h6M16 18.4v4.8"/></g>' +
+          '<circle cx="16" cy="11.8" r="4.4"/><path class="sweep" d="M16 11.8V8.6"/><path class="sweep slow" d="M16 11.8h2.4"/>' +
+          '<path class="tick1" d="M7.6 26.6h2.4"/><path class="tick2" d="M14.8 26.6h2.4"/><path class="tick3" d="M22 26.6h2.4"/>',
+          // B 咖啡 + 勺子搅动
+          '<path d="M5.6 13.6h13.2v6.8a4 4 0 0 1-4 4H9.6a4 4 0 0 1-4-4Z"/><path d="M18.8 15.4h1.7a2.9 2.9 0 0 1 0 5.8h-1.7"/>' +
+          '<g class="swing"><path d="M12.2 12.4V6.6"/><circle cx="12.2" cy="6.4" r="1.1"/></g>' +
+          '<path class="steam" d="M8.4 10.8c0-1.2 1.1-1.5 1.1-2.8"/><path class="steam s2" d="M12.2 10.4c0-1.2 1.1-1.5 1.1-2.8"/><path class="steam s3" d="M16 10.8c0-1.2 1.1-1.5 1.1-2.8"/>' +
+          '<path d="M4.4 26.8h23.2"/>',
+          // C 沙漏翻转
+          '<g class="flip"><path d="M9.2 5.4h13.6M9.2 26.6h13.6"/><path d="M9.6 5.4c0 5 6.4 6.8 6.4 10.6s-6.4 5.6-6.4 10.6"/>' +
+          '<path d="M22.4 5.4c0 5-6.4 6.8-6.4 10.6s6.4 5.6 6.4 10.6"/></g>' +
+          '<path class="fall" d="M16 12.6v4.6"/>',
+          // D 整理文件 + 打勾
+          '<g class="rise"><rect x="6" y="16.4" width="11.6" height="8.6" rx="1.4"/></g>' +
+          '<g class="rise d2"><rect x="9.2" y="12.2" width="11.6" height="8.6" rx="1.4"/></g>' +
+          '<rect x="12.4" y="8" width="11.6" height="8.6" rx="1.4"/>' +
+          '<path class="pop" d="M23.8 19.4l1.8 1.8 3-3"/>',
+          // E 打字文稿逐行出现
+          '<rect x="5" y="6.4" width="22" height="15.6" rx="2"/><path d="M13 26.2h6M16 22v4.2"/>' +
+          '<g class="grow1"><path d="M8.8 11.4h8.4"/></g><g class="grow2"><path d="M8.8 15h12.4"/></g><g class="grow3"><path d="M8.8 18.6h6.6"/></g>',
+          // F 充能进度（对应「还剩多少」）
+          '<rect x="4.6" y="9" width="19.2" height="14" rx="3"/><path d="M26.6 13.4v5.2"/>' +
+          '<g class="fill"><rect x="6.4" y="10.8" width="15.6" height="10.4" rx="2" fill="currentColor" stroke="none" opacity=".8"/></g>' +
+          '<path class="glow" d="M14.6 9.4l-2 4.8h3l-2.2 4.8 5.2-5.8h-2.6l1.4-3.8Z"/>',
+          // G 转笔
+          '<g class="bob"><path d="M8.4 24.4c2.8 0 4.6-2 4.6-4.8"/><path d="M6 26.6h20"/></g>' +
+          '<g class="spin"><rect x="14.6" y="7.4" width="2.8" height="12" rx="1.4"/></g>',
+          // H 撕日历
+          '<rect x="6.6" y="6.6" width="18.8" height="17" rx="2"/><path d="M6.6 11.4h18.8"/>' +
+          '<path class="rise d2" d="M10.6 16h8.8M10.6 19.6h6"/>' +
+          '<g class="page"><path d="M21.6 7.6h3.8v3.8h-3.8z"/></g>',
+          // I 打印纸飞出
+          '<rect x="7" y="14.4" width="18" height="9" rx="1.8"/><path d="M11 14.4V9.2h10v5.2"/>' +
+          '<g class="print"><path d="M12.4 18.4h7.2M12.4 21h5.2"/></g><path d="M4.6 26.6h22.8"/>',
+          // J 灯泡亮起
+          '<path d="M16 5.6a6.4 6.4 0 0 0-3.6 11.7v2.3h7.2v-2.3A6.4 6.4 0 0 0 16 5.6Z"/>' +
+          '<path d="M13 22.2h6M13.8 25.4h4.4"/>' +
+          '<g class="glow"><path d="M16 1.8v1.6M8.4 4.4l1.2 1.2M23.6 4.4l-1.2 1.2"/></g>',
+          // K 耳机 + 音符
+          '<path d="M7 18.4v-2.8a9 9 0 0 1 18 0v2.8"/><rect x="4.8" y="17.4" width="4.6" height="7" rx="2.2"/>' +
+          '<rect x="22.6" y="17.4" width="4.6" height="7" rx="2.2"/>' +
+          '<g class="note1"><circle cx="13.4" cy="13.6" r="1.2" fill="currentColor" stroke="none"/><path d="M14.6 13.6V9"/></g>' +
+          '<g class="note2"><circle cx="18.6" cy="16" r="1.2" fill="currentColor" stroke="none"/><path d="M19.8 16v-4.4"/></g>',
+          // L 盆栽摇叶
+          '<path d="M10 22.4h12l-1.4 5.2h-9.2Z"/><path class="sway" d="M16 22.4V13.6"/>' +
+          '<g class="sway"><path d="M16 16.4c-3.2 0-5.4-1.8-5.4-4.8 3.4 0 5.4 1.8 5.4 4.8Z"/>' +
+          '<path d="M16 19c3 0 5-1.8 5-4.4-3.2 0-5 1.7-5 4.4Z"/></g>'
+        ],
+        before: [
+          // 咖啡热气（每天固定一个）
+          '<path d="M6.4 14.6h13v6.4a3.8 3.8 0 0 1-3.8 3.8h-5.4a3.8 3.8 0 0 1-3.8-3.8Z"/>' +
+          '<path d="M19.4 16.2h1.6a2.8 2.8 0 0 1 0 5.6h-1.6"/>' +
+          '<path class="steam" d="M9.8 11.8c0-1.3 1.1-1.6 1.1-3"/><path class="steam s2" d="M13.4 11.4c0-1.3 1.1-1.6 1.1-3"/>' +
+          '<path class="steam s3" d="M17 11.8c0-1.3 1.1-1.6 1.1-3"/><path d="M4.6 26.8h22.8"/>'
+        ],
+        after: [
+          // 门口小人走出（每天固定一个）
+          '<path d="M5 27V5h9"/><g class="bob"><circle cx="17.6" cy="9.4" r="2.1"/>' +
+          '<path d="M17.6 11.5v6.4"/><path d="M15 13.6l2.6 1 2.6-1.2"/>' +
+          '<g class="gait-a"><path d="M17.6 17.9 14.6 24.6M17.6 17.9 19.8 24.2"/></g>' +
+          '<g class="gait-b"><path d="M17.6 17.9 19.4 24.6M17.6 17.9 15.2 24"/></g></g>' +
+          '<path d="M23.6 12.6l3 3-3 3"/>'
+        ]
+      };
+
+      function cdPad(value) { return String(value).padStart(2, '0'); }
+
+      function cdDuration(totalSeconds, withSeconds) {
+        var s = Math.max(0, Math.floor(totalSeconds));
+        var h = Math.floor(s / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var sec = s % 60;
+        return withSeconds ? cdPad(h) + ':' + cdPad(m) + ':' + cdPad(sec) : cdPad(h) + ':' + cdPad(m);
+      }
+
+      function cdMacHour() { return macWall().getUTCHours(); }
+
+      function cdDaySeconds() {
+        var wall = macWall();
+        return wall.getUTCHours() * 3600 + wall.getUTCMinutes() * 60 + wall.getUTCSeconds();
+      }
+
+      function cdRemainingPercent() {
+        if (!cd) { return 0; }
+        if (cd.phase === 'after') { return 0; }
+        return Math.round(Math.min(1, Math.max(0, 1 - (cd.progress || 0))) * 100);
+      }
+
+      // 单一结构：先按 1.0 渲染，再按可用宽高等比缩小，不换排版
+      function cdFit() {
+        var group = document.querySelector('.cal-group');
+        var card = document.getElementById('cd');
+        var col = document.querySelector('.cal-col');
+        var cal = document.querySelector('.cal');
+        if (!group || !card || !col || !cal || !cd) { return; }
+        var gap = parseFloat(getComputedStyle(group).rowGap) || 0;
+        var availH = col.clientHeight - cal.offsetHeight - gap;
+        if (availH <= 0) { card.classList.remove('on'); return; }
+        // 二分找「内容不溢出」的最大缩放：结构不变，只缩尺寸
+        var lo = 0.6, hi = 1;
+        var fits = false;
+        for (var i = 0; i < 7; i++) {
+          var mid = (lo + hi) / 2;
+          group.style.setProperty('--cd-scale', mid.toFixed(3));
+          var timeEl = document.getElementById('cdTime');
+          var metaEl = document.getElementById('cdMeta');
+          var okW = card.scrollWidth <= card.clientWidth + 1 &&
+                    timeEl.scrollWidth <= timeEl.clientWidth + 1 &&
+                    metaEl.scrollWidth <= metaEl.clientWidth + 1;
+          var okH = card.offsetHeight <= availH + 1;
+          if (okW && okH) { lo = mid; fits = true; } else { hi = mid; }
+        }
+        group.style.setProperty('--cd-scale', lo.toFixed(3));
+        card.classList.toggle('on', fits || lo >= 0.6);
+      }
+
+      function cdApplyScene() {
+        if (!cd) { return; }
+        var list = cdScenes[cd.phase] || cdScenes.working;
+        var index = 0;
+        if (cd.phase === 'working') {
+          if (cdOverride.until > Date.now()) {
+            index = Math.min(list.length - 1, Math.max(0, cdOverride.index));
+          } else {
+            index = (Math.floor(cdDaySeconds() / CD.sceneEvery) + cdMacHour()) % list.length;
+          }
+        }
+        var key = cd.phase + ':' + index;
+        if (key === cdSceneKey) { return; }
+        cdSceneKey = key;
+        var a = document.getElementById('cdLayerA');
+        var b = document.getElementById('cdLayerB');
+        var next = cdLayerOn === 1 ? a : b;
+        var prev = cdLayerOn === 1 ? b : a;
+        next.innerHTML = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+          'stroke-linecap="round" stroke-linejoin="round">' + list[index] + '</svg>';
+        next.classList.add('on');
+        prev.classList.remove('on');
+        cdLayerOn = cdLayerOn === 1 ? 2 : 1;
+      }
+
+      function cdCheckMilestone() {
+        if (!cd || cd.phase !== 'working') { cdLastBucket = null; return; }
+        var pct = cdRemainingPercent();
+        var bucket = pct <= 10 ? 10 : pct <= 25 ? 25 : pct <= 50 ? 50 : 100;
+        if (cdLastBucket !== null && bucket < cdLastBucket && CD.milestones.indexOf(bucket) >= 0) {
+          var map = { 50: 5, 25: 3, 10: 2 };
+          cdOverride = { until: Date.now() + CD.milestoneHold, index: map[bucket] || 0 };
+          cdSceneKey = '';
+          cdApplyScene();
+        }
+        cdLastBucket = bucket;
+      }
+
+      function cdRenderTime() {
+        if (!cd) { return; }
+        var timeEl = document.getElementById('cdTime');
+        if (!timeEl) { return; }
+        var remaining = cd.countUp
+          ? Date.now() / 1000 - cd.targetEpoch
+          : cd.targetEpoch - Date.now() / 1000;
+        if (remaining < 0) { loadCountdown(); return; }
+        timeEl.textContent = cdDuration(remaining, cd.showSeconds);
+      }
+
+      function cdRenderMeta() {
+        var metaEl = document.getElementById('cdMeta');
+        var pctEl = document.getElementById('cdPct');
+        var arc = document.getElementById('cdArc');
+        if (!cd) { return; }
+        var pct = cdRemainingPercent();
+        if (metaEl) {
+          if (cd.phase === 'working') {
+            metaEl.textContent = '还剩 ' + pct + '% · ' + cd.targetText;
+          } else {
+            metaEl.textContent = cd.targetText;
+          }
+        }
+        if (pctEl) { pctEl.textContent = pct + '%'; }
+        if (arc) { arc.setAttribute('stroke-dashoffset', String((94.25 * (1 - pct / 100)).toFixed(2))); }
+      }
+
+      function cdScheduleTick() {
+        if (cdTickTimer) { clearTimeout(cdTickTimer); }
+        if (!cd) { return; }
+        var delay = 1000 - (Date.now() % 1000);
+        cdTickTimer = setTimeout(function () {
+          cdRenderTime();
+          cdRenderMeta();
+          cdCheckMilestone();
+          cdScheduleTick();
+        }, delay + 6);
+      }
+
+      function cdStartRotation() {
+        if (cdRotateTimer) { clearInterval(cdRotateTimer); }
+        cdRotateTimer = setInterval(function () {
+          if (!cd || document.visibilityState !== 'visible') { return; }
+          var group = document.querySelector('.cal-group');
+          var speeds = ['0.88', '1.06', '0.96'];
+          var micro = Math.floor(cdDaySeconds() / CD.microEvery) % speeds.length;
+          if (group) { group.style.setProperty('--cd-speed', speeds[micro]); }
+          cdApplyScene();
+        }, 5000);
+      }
+
+      function applyCountdown(data) {
+        cd = data && data.enabled ? data : null;
+        var card = document.getElementById('cd');
+        if (!cd) {
+          if (card) { card.classList.remove('on'); }
+          cdSceneKey = '';
+          if (cdTickTimer) { clearTimeout(cdTickTimer); cdTickTimer = null; }
+          if (cdRotateTimer) { clearInterval(cdRotateTimer); cdRotateTimer = null; }
+          return;
+        }
+        card.dataset.phase = cd.phase || 'working';
+        cdOverride = { until: 0, index: -1 };
+        cdLastBucket = cd.phase === 'working' ? Math.round(Math.min(1, Math.max(0, 1 - (cd.progress || 0))) * 100) : null;
+        cdSceneKey = '';
+        document.getElementById('cdLabel').textContent = cd.label || '';
+        card.classList.add('on');
+        cdApplyScene();
+        cdRenderMeta();
+        cdRenderTime();
+        cdFit();
+        cdScheduleTick();
+        cdStartRotation();
+      }
+
+      function loadCountdown() {
+        fetch('/api/screen/countdown', { cache: 'no-store' }).then(function (response) {
+          if (!response.ok) { throw new Error('HTTP ' + response.status); }
+          return response.json();
+        }).then(applyCountdown).catch(function () {
+          applyCountdown(null);
+        });
+      }
+
+      if (window.ResizeObserver) {
+        new ResizeObserver(function () { if (cd) { cdFit(); } }).observe(document.querySelector('.cal-col'));
+      } else {
+        window.addEventListener('resize', function () { if (cd) { cdFit(); } });
+      }
+
       // ---- 天气 ----
       var weatherTimer = null;
       var lastWeatherFetch = 0;
@@ -996,6 +1383,7 @@ enum ScreenHTML {
         if (document.visibilityState === 'visible') {
           loadMacTime();
           loadWeather();
+          loadCountdown();
         }
       });
       var screenEventRevision = 0;
@@ -1018,6 +1406,7 @@ enum ScreenHTML {
               screenEventRevision = data.revision;
               loadMacTime();
               loadWeather();
+              loadCountdown();
             }
           })
           .catch(function () {})
@@ -1035,6 +1424,7 @@ enum ScreenHTML {
       }, 60 * 1000);
       loadWeather();
       scheduleWeather();
+      loadCountdown();
 
       // 首次进入短暂展示控制条，提示可点按。
       setTimeout(showUI, 400);

@@ -158,6 +158,12 @@ final class APIRouter {
                                                    screenVersion: ScreenHTML.version))
             response.headers["Cache-Control"] = "no-store, must-revalidate"
             return response
+        case ("GET", "/api/screen/countdown"):
+            // 副屏下班倒计时：阶段与目标时间由 Swift 算，页面只做倒数。
+            let offWork = await MainActor.run { OffWorkSettings.shared.config }
+            var countdown = HTTPResponse.json(OffWorkCountdown.snapshot(now: Date(), config: offWork))
+            countdown.headers["Cache-Control"] = "no-store, must-revalidate"
+            return countdown
         case ("GET", "/api/weather"):
             // 只读天气：不返回坐标、API Host、凭据或 JWT。
             let config = await MainActor.run { WeatherSettings.shared.config }
