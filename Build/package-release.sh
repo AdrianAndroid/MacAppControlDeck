@@ -51,21 +51,30 @@ assemble_app() {
   rm -rf "$iconset"
 }
 
+# 承接最近一次构建的 bin 目录。不用命令替换 + tail 捕获：那会把 swift build 的
+# 编译输出与错误信息一起吞掉，CI 失败时只剩一行 exit code，无法定位。
+DECK_LAST_BIN_DIR=""
+
 build_arch() {
   local arch="$1" scratch="$2"
   echo "==> 清理 $arch 构建缓存（避免已删除资源残留在 SwiftPM bundle）"
   swift package clean --scratch-path "$scratch" >/dev/null
   echo "==> 获取 $arch 构建产物"
-  swift build -c release --arch "$arch" --scratch-path "$scratch"
-  swift build -c release --arch "$arch" --scratch-path "$scratch" --show-bin-path
+  # --disable-sandbox：SwiftPM 在部分 macOS 环境（含 CI runner）会因 sandbox-exec
+  # 权限失败；本项目所有构建统一带该参数。
+  swift build -c release --arch "$arch" --scratch-path "$scratch" --disable-sandbox
+  DECK_LAST_BIN_DIR="$(swift build -c release --arch "$arch" --scratch-path "$scratch" --show-bin-path --disable-sandbox)"
+  echo "==> $arch bin 目录：$DECK_LAST_BIN_DIR"
 }
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
 if [[ "$ARCH" == "universal" ]]; then
-  BIN_ARM=$(build_arch arm64 "$ROOT/.build-arm64" | tail -1)
-  BIN_X86=$(build_arch x86_64 "$ROOT/.build-x86_64" | tail -1)
+  build_arch arm64 "$ROOT/.build-arm64"
+  BIN_ARM="$DECK_LAST_BIN_DIR"
+  build_arch x86_64 "$ROOT/.build-x86_64"
+  BIN_X86="$DECK_LAST_BIN_DIR"
 
   echo "==> 组装 universal $APP"
   assemble_app "$APP" "$BIN_ARM" "$OUT"
@@ -83,7 +92,8 @@ if [[ "$ARCH" == "universal" ]]; then
   fi
   echo "主程序架构: $ACTUAL"
 else
-  BIN_DIR=$(build_arch "$ARCH" "$SCRATCH" | tail -1)
+  build_arch "$ARCH" "$SCRATCH"
+  BIN_DIR="$DECK_LAST_BIN_DIR"
   echo "==> 组装 $APP"
   assemble_app "$APP" "$BIN_DIR" "$OUT"
 
