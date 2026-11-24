@@ -42,6 +42,7 @@
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「左侧竖轨（标题/日期/时间/全屏/连接）+ 竖排标题 + 应用 4×3（12 个/页）+ 快捷 2×4（8 个/页）」；锁定视口，只保留横向翻页/页点与 `1/N` 页码，旋转保持当前页；明文局域网 HTTP
 - **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历（含下班倒计时） | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘
+- **PureMac 系统工具（Mac 本机模块）**：单一模块承载垃圾/缓存清理、应用卸载与残留、大文件、重复文件、菜单栏 CPU/MEM/实时网速监控、运行中应用退出/强制退出；清理默认展示路径与大小、默认不选中、优先移废纸篓，永久删除需单独二次确认；菜单栏 CPU/MEM/网速三个独立状态项可分别勾选显示与点击（点 MEM 弹出内存占用菜单、可一键退出应用），模块禁用时一并消失；网速用公开 API 差分采样、定宽显示不抖动、零 TCC 权限；清理引擎移植自 PureMac（MIT，momenbasel，见 `THIRD_PARTY_NOTICES.md`）。详见变更 `add-system-cleaner`、`add-menubar-netspeed`、`add-menubar-memory-menu`
 
 ## 开发规则
 
@@ -526,6 +527,10 @@ Docs/archive/                    # 历史归档
 > 模块边界是硬约束：`remote`、`capture`、`sketch`、`calendar` 与 `pet` 各自拥有服务、数据、权限和生命周期，互不引用、互不混排。详见 [Docs/architecture/MODULES.md](Docs/architecture/MODULES.md)。
 
 ## 归档
+
+- 2026-11-24 PureMac 菜单栏拆成 CPU/MEM/网速三个独立状态项、新增实时网速（getifaddrs 差分采样、定宽不抖、上下同色同字号、零 TCC 权限）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-netspeed/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [柠檬网速调研](Docs/research/2026-11-24-lemon-netspeed-research.md)
+- 2026-11-24 MEM 状态项点击弹出柠檬式内存占用菜单（即时采样、按内存降序、应用行一键正常退出、系统进程禁用）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-memory-menu/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
+- 2026-11-24 PureMac UI 按柠檬交互重做（顶部页签 v3：统一入口卡/路径进度扫描态/分组折叠/分类 tab/状态胶囊，取消走二次确认）+ 修复菜单入口与状态栏数字被裁：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-puremac-ui-redesign-and-lemon-research/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [UI 设计](Docs/plans/2026-11-24-puremac-ui-redesign.md) · [柠檬调研](Docs/research/2026-11-24-tencent-lemon.md)
 
 - 2026-11-24 副屏倒计时改单一布局 + 剩余语义 + 14 个动图轮播（二分等比缩放、`还剩 xx%`、5 分钟轮播与里程碑插播、400ms 交叉淡入）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-refine-screen-countdown-ui/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-countdown/)
 

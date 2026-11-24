@@ -38,7 +38,13 @@ TBD - created by archiving change add-core-control-loop. Update Purpose after ar
 
 ### Requirement: 激活已运行的应用并切到前台（含跨桌面空间）
 
-系统 SHALL 采用"等价真人点击 Dock"的激活路径，在具备辅助功能权限时优先通过 Dock 图标 AXPress 完成激活，从而复用系统调度中心的跨空间规则；成功与否以"目标应用是否成为前台应用"为准。
+系统 SHALL 采用"等价真人点击 Dock"的激活路径，在具备辅助功能权限时优先通过 Dock 图标 AXPress 完成激活，从而复用系统调度中心的跨空间规则；成功与否以"目标应用是否成为前台应用"为唯一条件。Dock 图标匹配 MUST 跳过标题为空或归一化后为空的项。各级激活策略的等待上限 MUST 保证失败路径在 10 秒内收敛。
+
+#### Scenario: Dock 中存在多个空标题项
+
+- **WHEN** 辅助功能遍历 Dock 子项时遇到标题为空或归一化后为空的项（如分隔符、空格图标）
+- **THEN** 系统跳过该项，不把它当作目标应用的图标按下
+- **AND** 只有标题与目标应用名匹配的非空 Dock 项才会执行 AXPress
 
 #### Scenario: 已运行未隐藏的应用（辅助功能已授权）
 
@@ -69,6 +75,14 @@ TBD - created by archiving change add-core-control-loop. Update Purpose after ar
 - **WHEN** 判定激活是否成功
 - **THEN** 仅以 `NSWorkspace.frontmostApplication` 是否为目标应用作为成功条件
 - **AND** `CGWindowListCopyWindowInfo` 的可见性结果只写入诊断日志，不作为成功或失败依据
+- **AND** 应用已成为前台但可见窗口数为 0 时判定成功并立即返回，不继续尝试后续兜底策略，不返回"未能切前台，当前前台=目标应用"这类自相矛盾结果
+
+#### Scenario: 激活失败快速收敛
+
+- **WHEN** 各级激活策略均未让目标应用成为前台
+- **THEN** 每条策略的等待上限不超过 2 秒（Dock 点击 2 秒、AXRaise 1.5 秒、上下文激活与 LSOpen 各 1.5 秒）
+- **AND** 全部策略在 10 秒内收敛并返回真实失败原因
+- **AND** 成功路径的响应时间不受失败等待上限影响
 
 #### Scenario: 已运行但无可见窗口
 

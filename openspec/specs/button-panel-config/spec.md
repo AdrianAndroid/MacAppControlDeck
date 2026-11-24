@@ -112,3 +112,14 @@ TBD - created by archiving change add-core-control-loop. Update Purpose after ar
 - **WHEN** 旧配置文件中存在未知字段
 - **THEN** 读取与写回过程不删除未知字段（宽容解析）
 - **AND** 文件损坏时仍按既有降级策略处理，不阻塞程序启动
+
+### Requirement: 内置操作作为可添加的按钮来源
+
+系统 SHALL 提供一组由本程序自身实现的内置操作，用户可在「设置 → 按钮管理 → 添加内置操作」中将其添加为快捷按钮。内置操作 SHALL 至少包含打开设置、截图/OCR、打开 UI 草图、打开万年历、打开桌面宠物，以及「打开 PureMac」（id `systemTool.open`）。
+
+#### Scenario: 添加打开 PureMac 内置操作
+
+- **WHEN** 用户在按钮管理中添加内置操作「打开 PureMac」
+- **THEN** 创建一条内置类型按钮，id 为 `systemTool.open`，显示名「打开 PureMac」
+- **AND** 该按钮出现在菜单栏「快捷操作」子菜单与手机面板快捷区
+- **AND** 点击后打开 PureMac 系统工具窗口；模块被禁用时点击不产生动作

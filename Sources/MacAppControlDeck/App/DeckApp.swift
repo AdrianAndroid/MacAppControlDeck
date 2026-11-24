@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ModuleRegistry.shared.register(SketchModule.shared)
         ModuleRegistry.shared.register(CalendarModule.shared)
         ModuleRegistry.shared.register(PetModule.shared)
+        ModuleRegistry.shared.register(SystemToolModule.shared)
         GlobalHotKeys.shared.install()
         MenuBarController.shared.install()
         // 自动升级最后启动：菜单栏先就绪，Sparkle 的后台检查弹窗才不会压在空状态上。
@@ -89,6 +90,7 @@ enum SettingsDeepLink {
         case "sketch": return .sketch
         case "calendar": return .calendar
         case "pet": return .pet
+        case "systemtool", "puremac", "cleaner": return .systemTool
         case "buttons": return .buttons
         case "devices": return .devices
         case "remote", "service": return .remoteService

@@ -113,3 +113,42 @@ https://github.com/excalidraw/excalidraw-libraries ，均标注 **MIT License**�
 - 本项目使用其 `web/` 猫模型、场景与行为脚本及 macOS 物理键码映射，并接入本应用的窗口和输入桥接。
 - 上游未提供项目级许可证；其 README 声明项目仅供个人使用和内部交流，不用于商业分发。公开或商业分发前须向权利人取得明确授权。
 - KeyCat 所附 three.js 使用 MIT 许可证，原文保留于 `Modules/Pet/Resources/keycat/THREE_LICENSE`。
+
+## PureMac（系统工具 / 清理模块）
+
+- 上游：https://github.com/momenbasel/PureMac
+- 许可证：MIT License, Copyright (c) 2026 PureMac Contributors（许可全文见下）。
+- 引入方式：精选文件移植 + 薄适配，非整包引入。仅移植扫描/清理/哈希/进程/应用发现相关的底层文件到
+  `Sources/MacAppControlDeck/Modules/SystemTool/UpstreamPureMac/`，每个文件保留来源与 MIT 版权头。
+- 适配说明：裁剪 `ScanEngine` 为八个分类的纯路径扫描（不执行 brew/docker/cargo 等外部命令），
+  把 `CleaningEngine` 的删除路径重写为废纸篓优先的 `SystemTrashService`，
+  `AppPathFinder` 内联搜索路径表并以通用安全策略替换逐 app 规则表；
+  不移植上游 SwiftUI 视图、调度、更新、相似照片、保护审计等模块。
+- 生效模块：`Sources/MacAppControlDeck/Modules/SystemTool/`。
+- MIT 许可允许并入本项目的 GPL-3.0 分发；保留下列版权与许可声明即满足署名义务。
+
+### PureMac MIT License 全文
+
+```
+MIT License
+
+Copyright (c) 2026 PureMac Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
