@@ -12,6 +12,14 @@
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.zhaojian.MacAppControlDeck</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>MacAppControlDeck</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.4.1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -23,14 +31,24 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>MacAppControlDeck</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+	<key>CFBundleVersion</key>
+	<string>7</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>用于通过 System Events 触发「向左/向右切换桌面」等系统快捷键。</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>局域网 Mac 应用快捷控制台</string>
+	<key>NSLocationUsageDescription</key>
+	<string>用于自动获取所在城市并显示本地天气；坐标只发送给和风天气，不写入页面或日志。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>用于自动获取所在城市并显示本地天气。</string>
 	<key>SUAllowsAutomaticUpdates</key>
 	<false/>
 	<key>SUAutomaticallyUpdate</key>
@@ -40,26 +58,8 @@
 	<key>SUFeedURL</key>
 	<string>https://github.com/AdrianAndroid/MacAppControlDeck/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>/M1Wq0qKKs6tw06BwzB5+ICsMDJZcELasy0vUQM/Yto=</string>
+	<string>x8a3M9ogBAobK/wuo+vFh6gEYFL8AzAhEURCpJLmMWo=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
-	<key>CFBundleShortVersionString</key>
-	<string>0.4.1</string>
-	<key>CFBundleVersion</key>
-	<string>7</string>
-	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.utilities</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>14.0</string>
-	<key>LSUIElement</key>
-	<true/>
-	<key>NSLocationUsageDescription</key>
-	<string>用于自动获取所在城市并显示本地天气；坐标只发送给和风天气，不写入页面或日志。</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>用于自动获取所在城市并显示本地天气。</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>用于通过 System Events 触发「向左/向右切换桌面」等系统快捷键。</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
 </dict>
 </plist>
