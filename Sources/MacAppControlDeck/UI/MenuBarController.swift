@@ -22,10 +22,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             button.toolTip = "Mac 应用快捷控制台"
         }
         menu.delegate = self
-        button?.image = nil
-        button?.title = "B"
         rebuild()
-        button?.title = "A\(menu.items.count)"
         item.menu = menu
         statusItem = item
     }

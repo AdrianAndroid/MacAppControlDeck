@@ -339,6 +339,45 @@ struct LargeFilesTab: View {
     @AppStorage("systemTool.cleaning.largeFileThreshold") private var thresholdMB = 100
     @AppStorage("systemTool.cleaning.oldFileMonths") private var oldMonths = 12
     @State private var roots: [String] = UserDefaults.standard.stringArray(forKey: "systemTool.cleaning.largeFileRoots") ?? []
+    // v3：分类 tab 与分组折叠（借鉴柠檬大文件结果页）
+    private enum FileKind: String, CaseIterable { case all, document, video, audio, package, other
+        var label: String {
+            switch self {
+            case .all: return "全部"; case .document: return "文档"; case .video: return "视频"
+            case .audio: return "音频"; case .package: return "安装包"; case .other: return "其他"
+            }
+        }
+    }
+    @State private var fileKind: FileKind = .all
+    @State private var collapsedSizeGroups: Set<String> = []
+
+    /// 按扩展名映射柠檬式分类；纯展示分组，不影响扫描/选中逻辑。
+    private func kind(of item: CleanableItem) -> FileKind {
+        let ext = (item.path as NSString).pathExtension.lowercased()
+        if ["pages", "numbers", "key", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "rtf", "csv"].contains(ext) { return .document }
+        if ["mp4", "mov", "m4v", "avi", "mkv", "wmv", "flv"].contains(ext) { return .video }
+        if ["mp3", "m4a", "aac", "flac", "wav", "aiff", "ogg"].contains(ext) { return .audio }
+        if ["dmg", "pkg", "zip", "tar", "gz", "rar", "7z", "app"].contains(ext) { return .package }
+        return .other
+    }
+    private var filteredLargeFiles: [CleanableItem] {
+        fileKind == .all ? state.largeFiles : state.largeFiles.filter { kind(of: $0) == fileKind }
+    }
+    /// 按大小分桶，对齐柠檬「1 GB 以上 / 100 MB–1 GB / …」。
+    private func sizeBucket(_ item: CleanableItem) -> String {
+        if item.size >= 1024 * 1024 * 1024 { return "1 GB 以上" }
+        if item.size >= 500 * 1024 * 1024 { return "500 MB – 1 GB" }
+        if item.size >= 100 * 1024 * 1024 { return "100 MB – 500 MB" }
+        return "其他大小"
+    }
+    private var sizeBuckets: [(String, [CleanableItem])] {
+        let order = ["1 GB 以上", "500 MB – 1 GB", "100 MB – 500 MB", "其他大小"]
+        let grouped = Dictionary(grouping: filteredLargeFiles, by: sizeBucket)
+        return order.compactMap { key in
+            guard let items = grouped[key], !items.isEmpty else { return nil }
+            return (key, items.sorted { $0.size > $1.size })
+        }
+    }
 
     private var rootLabel: String {
         if let first = roots.first, !first.isEmpty {
@@ -411,7 +450,7 @@ struct LargeFilesTab: View {
                 .controlSize(.small)
                 .buttonStyle(.borderedProminent)
                 .disabled(state.phase != .idle)
-                Button("取消") { state.cancelScan() }
+                Button("取消") { state.requestCancelScan() }
                     .controlSize(.small)
                     .disabled(state.phase != .scanning)
             }
@@ -421,38 +460,78 @@ struct LargeFilesTab: View {
 
             if state.largeFiles.isEmpty {
                 if state.phase == .scanning {
-                    EmptyStateView(
-                        icon: "magnifyingglass",
-                        title: "正在扫描大文件…",
-                        message: state.currentPath.isEmpty
-                            ? "正在遍历扫描目录，请稍候。"
-                            : state.currentPath
+                    ScanningStateView(
+                        title: "正在扫描大文件",
+                        currentPath: state.currentPath,
+                        detail: "遍历扫描目录，结果默认不选中",
+                        onCancel: { state.requestCancelScan() }
                     )
                 } else {
-                    EmptyStateView(
+                    EmptyScanState(
                         icon: "doc",
                         title: "尚未扫描大文件",
-                        message: "扫描结果默认全部不选中。确认路径与大小后再勾选，清理前会再次确认。",
+                        message: "按大小与时间筛选。结果默认全部不选中，确认路径与大小后再勾选。",
                         actionTitle: "开始扫描",
                         action: { Task { await state.scanLargeFiles() } }
                     )
                 }
             } else {
-                FileTable(
-                    allSelected: allSelected,
-                    selectAll: { state.setLargeFilesSelected(!allSelected) }
-                ) {
-                    ForEach(state.largeFiles) { item in
-                        CleanableRow(
-                            item: item,
-                            selected: item.isSelected,
-                            onToggle: { state.setLargeFileSelected(item.id, value: $0) },
-                            onExclude: { CleanupExclusions.add($0) }
-                        )
-                        Divider()
+                // v3：分类 tab（对齐柠檬「全部/音频/视频/文档/安装包/其他」）
+                HStack(spacing: 4) {
+                    ForEach(FileKind.allCases, id: \.self) { kind in
+                        Button(kind.label) { fileKind = kind }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                            .foregroundStyle(fileKind == kind ? Color.accentColor : Color.secondary)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(fileKind == kind ? Color.accentColor.opacity(0.12) : Color.clear)
+                            .cornerRadius(6)
                     }
+                    Spacer(minLength: 6)
+                    Text("按大小").font(.caption2).foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
+
+                if filteredLargeFiles.isEmpty {
+                    EmptyStateView(icon: "doc", title: "该分类下没有文件", message: "切换到「全部」查看其他结果。")
+                } else {
+                    FileTable(
+                        allSelected: allSelected,
+                        selectAll: { state.setLargeFilesSelected(!allSelected) }
+                    ) {
+                        ForEach(sizeBuckets, id: \.0) { bucket, items in
+                            CollapsibleGroupHeader(
+                                title: bucket,
+                                count: items.count,
+                                sizeText: systemToolByteText(items.reduce(0) { $0 + $1.size }),
+                                collapsed: Binding(
+                                    get: { collapsedSizeGroups.contains(bucket) },
+                                    set: { if $0 { collapsedSizeGroups.insert(bucket) } else { collapsedSizeGroups.remove(bucket) } }
+                                ),
+                                allSelected: items.allSatisfy { $0.isSelected },
+                                onToggleAll: {
+                                    let select = !items.allSatisfy { $0.isSelected }
+                                    for item in items { state.setLargeFileSelected(item.id, value: select) }
+                                }
+                            ) {
+                                EmptyView()
+                            }
+                            Divider()
+                            if !collapsedSizeGroups.contains(bucket) {
+                                ForEach(items) { item in
+                                    CleanableRow(
+                                        item: item,
+                                        selected: item.isSelected,
+                                        onToggle: { state.setLargeFileSelected(item.id, value: $0) },
+                                        onExclude: { CleanupExclusions.add($0) }
+                                    )
+                                    Divider()
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                }
             }
 
             HStack(spacing: 6) {
@@ -515,7 +594,7 @@ struct DuplicateTab: View {
                 .controlSize(.small)
                 .buttonStyle(.borderedProminent)
                 .disabled(state.duplicateScanning || state.phase != .idle)
-                Button("取消") { state.cancelScan() }
+                Button("取消") { state.requestCancelScan() }
                     .controlSize(.small)
                     .disabled(!state.duplicateScanning)
             }
@@ -593,23 +672,22 @@ struct DuplicateTab: View {
                     }
                 }
             } else if state.duplicateScanning {
-                VStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    Text("正在按内容哈希比对文件…")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if !state.currentPath.isEmpty {
-                        Text(state.currentPath)
-                            .font(.caption2).foregroundStyle(.tertiary)
-                            .lineLimit(1).truncationMode(.middle)
-                            .frame(maxWidth: 460)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ScanningStateView(
+                    title: "正在查找重复文件",
+                    currentPath: state.currentPath,
+                    detail: {
+                        if let p = state.duplicateProgress {
+                            return "已检查 \(p.filesInspected) 个文件"
+                        }
+                        return "按内容哈希比对，结果默认不选中"
+                    }(),
+                    onCancel: { state.requestCancelScan() }
+                )
             } else {
-                EmptyStateView(
+                EmptyScanState(
                     icon: "doc.on.doc",
                     title: "按内容查找重复文件",
-                    message: "每组默认保留一份（keeper），其余文件默认不选中。只有勾选并确认后才会移入废纸篓。",
+                    message: "先选择扫描根目录。每组默认保留一份（keeper），其余默认不选中，勾选并确认后才移入废纸篓。",
                     actionTitle: "开始扫描",
                     action: { state.scanDuplicates() }
                 )
@@ -726,6 +804,9 @@ struct ProcessesTab: View {
                 Text("进程名称")
                     .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
+                Text("状态")
+                    .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
+                    .frame(width: 72, alignment: .leading)
                 Text("CPU")
                     .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
                     .frame(width: 56, alignment: .trailing)
@@ -858,6 +939,12 @@ private struct ProcessRow: View {
                     .lineLimit(1).truncationMode(.middle)
             }
             Spacer(minLength: 8)
+            // v3：状态胶囊（借鉴柠檬启动项），系统进程置灰
+            StatusCapsule(
+                text: canTerminate ? "正常" : "系统进程",
+                tone: canTerminate ? .normal : .system
+            )
+            .frame(width: 72, alignment: .leading)
             if let cpu = consumer.cpuFraction {
                 Text("\(Int((cpu * 100).rounded()))%")
                     .font(.caption).monospacedDigit()

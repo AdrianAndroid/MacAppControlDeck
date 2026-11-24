@@ -528,6 +528,8 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-24 PureMac UI 按柠檬交互重做（顶部页签 v3：统一入口卡/路径进度扫描态/分组折叠/分类 tab/状态胶囊，取消走二次确认）+ 修复菜单入口与状态栏数字被裁：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-puremac-ui-redesign-and-lemon-research/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [UI 设计](Docs/plans/2026-11-24-puremac-ui-redesign.md) · [柠檬调研](Docs/research/2026-11-24-tencent-lemon.md)
+
 - 2026-11-24 副屏倒计时改单一布局 + 剩余语义 + 14 个动图轮播（二分等比缩放、`还剩 xx%`、5 分钟轮播与里程碑插播、400ms 交叉淡入）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-refine-screen-countdown-ui/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-countdown/)
 
 - 2026-11-24 副屏月历底部新增每天下班倒计时（上班/下班时间可配、带秒、三态与动效、四档自适应；状态由 Swift 计算，页面只倒数）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-screen-offwork-countdown/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-countdown/)

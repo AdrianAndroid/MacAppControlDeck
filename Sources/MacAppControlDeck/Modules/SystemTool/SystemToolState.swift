@@ -70,6 +70,9 @@ final class SystemToolState: ObservableObject {
     @Published var hasFullDiskAccess = false
     @Published var lastCleanResult: TrashResult?
     @Published var activeTab: SystemToolTab = .overview
+    /// v3：取消扫描统一走二次确认。所有取消入口调用 requestCancelScan()，
+    /// 由 RootView 的 alert 绑定此标记，确认后才真正 cancelScan()。
+    @Published var cancelConfirmationPending = false
 
     let sampler: SystemSampler
 
@@ -121,6 +124,17 @@ final class SystemToolState: ObservableObject {
     }
 
     // MARK: - 取消 / 停止
+
+    /// 统一取消入口：先弹二次确认，确认后才真正取消（对齐柠檬交互）。
+    func requestCancelScan() {
+        guard phase == .scanning || duplicateScanning else { return }
+        cancelConfirmationPending = true
+    }
+
+    func confirmCancelScan() {
+        cancelConfirmationPending = false
+        cancelScan()
+    }
 
     func cancelScan() {
         scanCancelled = true
@@ -561,6 +575,18 @@ final class SystemToolState: ObservableObject {
         if let free = attrs[.systemFreeSize] as? Int64 { info.freeSpace = free }
         info.usedSpace = info.totalSpace - info.freeSpace
         return info
+    }
+
+    /// v3 首页引导区用：已扫描分类的可清理总量（与概览卡片口径一致）。
+    var overviewTotalReclaimable: (scanned: Bool, count: Int, size: Int64) {
+        let scanned = !junkResults.isEmpty || !largeFiles.isEmpty || duplicateResult != nil
+        let count = junkResults.reduce(0) { $0 + $1.itemCount }
+            + largeFiles.count
+            + (duplicateResult?.groups.count ?? 0)
+        let size = junkResults.reduce(Int64(0)) { $0 + $1.totalSize }
+            + largeFiles.reduce(Int64(0)) { $0 + $1.size }
+            + (duplicateResult?.reclaimableSize ?? 0)
+        return (scanned, count, size)
     }
 
     func overviewSummary(for card: SystemToolOverviewCard) -> SystemToolOverviewSummary {

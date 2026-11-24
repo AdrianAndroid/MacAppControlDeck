@@ -81,7 +81,8 @@ struct SystemToolRootView: View {
             SystemToolStatusBar(
                 state: state,
                 onClean: { showCleanConfirm = true },
-                onUninstall: { showUninstallConfirm = true }
+                onUninstall: { showUninstallConfirm = true },
+                onCancelScan: { state.requestCancelScan() }
             )
         }
         .frame(minWidth: 640, minHeight: 520)
@@ -94,6 +95,13 @@ struct SystemToolRootView: View {
         }
         .sheet(isPresented: $showUninstallConfirm) {
             UninstallConfirmSheet(state: state)
+        }
+        // v3：取消扫描走二次确认（对齐柠檬「进度丢失，下次需重新开始」）
+        .alert("确认取消扫描？", isPresented: $state.cancelConfirmationPending) {
+            Button("继续扫描", role: .cancel) { state.cancelConfirmationPending = false }
+            Button("取消扫描", role: .destructive) { state.confirmCancelScan() }
+        } message: {
+            Text("退出后扫描进度将会丢失，下次需重新开始扫描。")
         }
     }
 }
@@ -133,6 +141,7 @@ struct SystemToolStatusBar: View {
     @ObservedObject var state: SystemToolState
     let onClean: () -> Void
     let onUninstall: () -> Void
+    var onCancelScan: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 10) {
@@ -147,18 +156,21 @@ struct SystemToolStatusBar: View {
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
             case .scanning:
+                // v3：对齐柠檬——不定长进度 + 当前路径，不显示百分比数字。
                 ProgressView()
                     .controlSize(.small)
-                Text("扫描中 \(Int(state.scanProgress * 100))%")
+                Text("正在扫描…")
                     .font(.caption).fontWeight(.medium)
                 if !state.currentPath.isEmpty {
                     Text(state.currentPath)
                         .font(.caption2).foregroundStyle(.tertiary)
                         .lineLimit(1).truncationMode(.middle)
-                        .frame(maxWidth: 190)
+                        .frame(maxWidth: 220)
                 }
-                Button("取消") { state.cancelScan() }
-                    .controlSize(.small)
+                Button("取消") {
+                    if let onCancelScan { onCancelScan() } else { state.requestCancelScan() }
+                }
+                .controlSize(.small)
             case .cleaning:
                 ProgressView(value: state.scanProgress)
                     .frame(width: 90)
@@ -213,6 +225,32 @@ struct OverviewTab: View {
 
                 if let result = state.lastCleanResult {
                     CleanResultBar(result: result) { state.lastCleanResult = nil }
+                }
+
+                // v3：借鉴柠檬首页引导区——上次扫描发现的可清理量 + 单主按钮
+                SystemToolCard {
+                    HStack(alignment: .center, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("畅快清理，清爽一下").font(.headline)
+                            let total = state.overviewTotalReclaimable
+                            if total.scanned {
+                                Text("上次扫描发现 \(systemToolByteText(total.size)) 可清理 · \(total.count) 项")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            } else {
+                                Text("扫描系统垃圾、缓存、大文件与重复文件").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 8)
+                        Button {
+                            let categories = CleaningCategory.allCases.filter { $0 != .largeFiles }
+                            Task { await state.scanJunk(categories: categories) }
+                        } label: {
+                            Label("开始扫描", systemImage: "sparkles")
+                        }
+                        .controlSize(.regular)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(state.phase != .idle)
+                    }
                 }
 
                 let disk = state.diskInfo()
@@ -317,6 +355,7 @@ struct JunkTab: View {
     ]
     @State private var enabledGroups: Set<String> = ["系统垃圾", "用户缓存", "开发缓存", "废纸篓"]
     @State private var exclusionNotice: String?
+    @State private var collapsedCategories: Set<CleaningCategory> = []
 
     private var activeCategories: [CleaningCategory] {
         groups.filter { enabledGroups.contains($0.0) }.flatMap { $0.1 }
@@ -362,7 +401,7 @@ struct JunkTab: View {
                         .controlSize(.small)
                         .buttonStyle(.borderedProminent)
                         .disabled(state.phase != .idle || activeCategories.isEmpty)
-                        Button("取消") { state.cancelScan() }
+                        Button("取消") { state.requestCancelScan() }
                             .controlSize(.small)
                             .disabled(state.phase != .scanning)
                     }
@@ -384,20 +423,20 @@ struct JunkTab: View {
 
             if state.junkResults.isEmpty {
                 if state.phase == .scanning {
-                    EmptyStateView(
-                        icon: "magnifyingglass",
-                        title: "正在扫描…",
-                        message: state.currentPath.isEmpty
-                            ? "正在统计各分类的可清理项目，请稍候。"
-                            : state.currentPath
+                    ScanningStateView(
+                        title: "正在扫描垃圾",
+                        currentPath: state.currentPath,
+                        detail: "逐项统计可清理项目，结果默认不选中",
+                        onCancel: { state.requestCancelScan() }
                     )
                 } else {
-                    EmptyStateView(
+                    EmptyScanState(
                         icon: "trash",
-                        title: "尚未扫描",
-                        message: "选择要扫描的分类后点「扫描」。结果中的每一项默认都不选中，清理前会再次确认。",
+                        title: "尚未扫描垃圾",
+                        message: "选择要扫描的分类后开始。结果中的每一项默认都不选中，清理前会再次确认。",
                         actionTitle: "开始扫描",
-                        action: { Task { await state.scanJunk(categories: activeCategories) } }
+                        action: { Task { await state.scanJunk(categories: activeCategories) } },
+                        disabled: activeCategories.isEmpty
                     )
                 }
             } else {
@@ -411,38 +450,40 @@ struct JunkTab: View {
                     }
                 ) {
                     ForEach(state.junkResults) { result in
-                        HStack(spacing: 8) {
-                            Image(systemName: result.category.icon)
-                                .foregroundStyle(result.category.color)
-                            Text(result.category.displayName)
-                                .font(.callout).fontWeight(.semibold)
-                            Text("\(result.itemCount) 项 · \(systemToolByteText(result.totalSize))")
-                                .font(.caption2).foregroundStyle(.secondary)
-                            Spacer()
-                            Button(result.items.allSatisfy { $0.isSelected || $0.selectOnlyByHand } ? "全不选" : "全选") {
+                        // v3：可折叠分组头（对齐柠檬「分类 · 共 N 项」）
+                        CollapsibleGroupHeader(
+                            title: result.category.displayName,
+                            count: result.itemCount,
+                            sizeText: systemToolByteText(result.totalSize),
+                            collapsed: Binding(
+                                get: { collapsedCategories.contains(result.category) },
+                                set: { if $0 { collapsedCategories.insert(result.category) } else { collapsedCategories.remove(result.category) } }
+                            ),
+                            allSelected: result.items.allSatisfy { $0.isSelected || $0.selectOnlyByHand },
+                            onToggleAll: {
                                 let select = !result.items.allSatisfy { $0.isSelected || $0.selectOnlyByHand }
                                 state.toggleJunkCategory(result.category, selected: select)
                             }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
+                        ) {
+                            Image(systemName: result.category.icon)
+                                .foregroundStyle(result.category.color)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.accentColor.opacity(0.06))
                         Divider()
 
-                        ForEach(result.items) { item in
-                            CleanableRow(
-                                item: item,
-                                selected: item.isSelected,
-                                disabled: item.selectOnlyByHand,
-                                onToggle: { state.setJunkItemSelected(item.id, value: $0) },
-                                onExclude: { path in
-                                    CleanupExclusions.add(path)
-                                    exclusionNotice = "已加入排除路径：\((path as NSString).abbreviatingWithTildeInPath)（下次扫描生效）"
-                                }
-                            )
-                            Divider()
+                        if !collapsedCategories.contains(result.category) {
+                            ForEach(result.items) { item in
+                                CleanableRow(
+                                    item: item,
+                                    selected: item.isSelected,
+                                    disabled: item.selectOnlyByHand,
+                                    onToggle: { state.setJunkItemSelected(item.id, value: $0) },
+                                    onExclude: { path in
+                                        CleanupExclusions.add(path)
+                                        exclusionNotice = "已加入排除路径：\((path as NSString).abbreviatingWithTildeInPath)（下次扫描生效）"
+                                    }
+                                )
+                                Divider()
+                            }
                         }
                     }
                 }

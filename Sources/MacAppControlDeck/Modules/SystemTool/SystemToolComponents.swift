@@ -92,6 +92,140 @@ struct EmptyStateView: View {
     }
 }
 
+// MARK: - v3 统一入口卡（对齐柠檬「标题 + 副标题 + 单主按钮」）
+// 与 EmptyStateView 并存：EmptyStateView 用于「无结果/失败」的内部空态，
+// EmptyScanState 用于各功能页「尚未扫描」的入口态，二者语义不同。
+
+struct EmptyScanState: View {
+    let icon: String
+    let title: String
+    let message: String
+    let actionTitle: String
+    let action: () -> Void
+    var disabled: Bool = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(Color.accentColor.opacity(0.75))
+            Text(title)
+                .font(.title3).fontWeight(.semibold)
+            Text(message)
+                .font(.caption).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+            Button(action: action) {
+                Label(actionTitle, systemImage: "magnifyingglass")
+            }
+            .controlSize(.regular)
+            .buttonStyle(.borderedProminent)
+            .disabled(disabled)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+}
+
+// MARK: - v3 统一扫描态（对齐柠檬：当前路径 + 不定长进度条 + 取消，无百分比）
+
+struct ScanningStateView: View {
+    let title: String
+    let currentPath: String
+    let detail: String
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.large)
+            Text(title)
+                .font(.headline)
+            if !currentPath.isEmpty {
+                Text(currentPath)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(maxWidth: 420)
+            }
+            // 柠檬式不定长进度条：不显示百分比，用循环动画表达「进行中」。
+            ProgressView()
+                .progressViewStyle(.linear)
+                .frame(width: 260)
+            if !detail.isEmpty {
+                Text(detail)
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+            Button("取消", action: onCancel)
+                .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+}
+
+// MARK: - v3 状态胶囊（借鉴柠檬启动项的「全部开启/部分开启/全部关闭」）
+
+struct StatusCapsule: View {
+    enum Tone { case normal, system, accent }
+    let text: String
+    var tone: Tone = .normal
+
+    private var color: Color {
+        switch tone {
+        case .normal: return .green
+        case .system: return .secondary
+        case .accent: return .accentColor
+        }
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.caption2)
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.14)))
+            .foregroundStyle(color)
+    }
+}
+
+// MARK: - v3 可折叠分组头（对齐柠檬「1 GB 以上文件：共 13 项」）
+
+struct CollapsibleGroupHeader<Trailing: View>: View {
+    let title: String
+    let count: Int
+    let sizeText: String
+    @Binding var collapsed: Bool
+    var allSelected: Bool = false
+    var onToggleAll: (() -> Void)? = nil
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button { collapsed.toggle() } label: {
+                Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(width: 14)
+            }
+            .buttonStyle(.plain)
+            Image(systemName: allSelected ? "checkmark.square.fill" : "square")
+                .foregroundStyle(allSelected ? Color.accentColor : Color.secondary)
+                .onTapGesture { onToggleAll?() }
+                .frame(width: 20)
+            Text(title).font(.callout).fontWeight(.semibold)
+            Text("\(count) 项 · \(sizeText)")
+                .font(.caption2).foregroundStyle(.secondary)
+            Spacer(minLength: 6)
+            trailing
+            if let onToggleAll {
+                Button(allSelected ? "全不选" : "全选", action: onToggleAll)
+                    .buttonStyle(.borderless).font(.caption)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.accentColor.opacity(0.06))
+        .contentShape(Rectangle())
+    }
+}
+
 // MARK: - 卡片容器
 
 struct SystemToolCard<Content: View>: View {

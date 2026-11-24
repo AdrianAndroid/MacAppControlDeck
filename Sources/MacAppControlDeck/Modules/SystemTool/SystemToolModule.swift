@@ -137,33 +137,79 @@ final class SystemToolModule: FeatureModule {
 
     private func updateCPUStatus() {
         guard let button = cpuStatusItem?.button else { return }
-        button.attributedTitle = twoLineTitle(value: sampler.cpuPercentText, label: "CPU")
+        setStatusContent(button, value: sampler.cpuPercentText, label: "CPU")
     }
 
     private func updateMEMStatus() {
         guard let button = memStatusItem?.button else { return }
-        button.attributedTitle = twoLineTitle(value: sampler.memoryPercentText, label: "MEM")
+        setStatusContent(button, value: sampler.memoryPercentText, label: "MEM")
     }
 
-    /// 仿柠檬分栏形态：上数值（大）、下标签（小、次要色）。
-    private func twoLineTitle(value: String, label: String) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        result.append(NSAttributedString(string: value, attributes: [
-            .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-            .foregroundColor: NSColor.labelColor,
-        ]))
-        result.append(NSAttributedString(string: "\n\(label)", attributes: [
-            .font: NSFont.systemFont(ofSize: 9, weight: .regular),
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ]))
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        paragraph.lineBreakMode = .byWordWrapping
-        result.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: result.length))
-        return result
+    /// 用自定义 view 承载两行文字，避开 NSStatusItem button 对多行 attributedTitle 贴顶裁切的问题。
+    private func setStatusContent(_ button: NSStatusBarButton, value: String, label: String) {
+        let metricView: StatusMetricView
+        if let existing = button.subviews.first(where: { $0 is StatusMetricView }) as? StatusMetricView {
+            metricView = existing
+        } else {
+            metricView = StatusMetricView(frame: .zero)
+            button.addSubview(metricView)
+            metricView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                metricView.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+                metricView.trailingAnchor.constraint(equalTo: button.trailingAnchor),
+                metricView.topAnchor.constraint(equalTo: button.topAnchor),
+                metricView.bottomAnchor.constraint(equalTo: button.bottomAnchor),
+                metricView.widthAnchor.constraint(greaterThanOrEqualToConstant: 34),
+            ])
+        }
+        metricView.value = value
+        metricView.label = label
+        button.title = ""
+        button.attributedTitle = NSAttributedString(string: "")
     }
 
     @objc private func statusItemTapped() { open() }
+}
+
+/// 菜单栏状态项的两行指标视图（上数值、下标签），用自定义绘制避免 NSStatusItem
+/// 对多行 attributedTitle 的贴顶裁切；两行在 view 内垂直居中，跟随系统深浅色。
+private final class StatusMetricView: NSView {
+    var value: String = "" { didSet { needsDisplay = true } }
+    var label: String = "" { didSet { needsDisplay = true } }
+
+    private let valueFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    private let labelFont = NSFont.systemFont(ofSize: 8, weight: .regular)
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        let valueAttrs: [NSAttributedString.Key: Any] = [
+            .font: valueFont, .foregroundColor: NSColor.labelColor
+        ]
+        let labelAttrs: [NSAttributedString.Key: Any] = [
+            .font: labelFont, .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        let valueSize = (value as NSString).size(withAttributes: valueAttrs)
+        let labelSize = (label as NSString).size(withAttributes: labelAttrs)
+
+        // draw(at:) 的 y 是文字左下角（NSView 默认坐标系原点在左下）。
+        // 数值行占据视图上半部、标签行占据下半部，各自从底边算起，确保两行都落在 22pt 内。
+        let valueY = bounds.height - valueSize.height
+        let labelY: CGFloat = 0
+        (value as NSString).draw(
+            at: NSPoint(x: (bounds.width - valueSize.width) / 2, y: valueY),
+            withAttributes: valueAttrs)
+        (label as NSString).draw(
+            at: NSPoint(x: (bounds.width - labelSize.width) / 2, y: labelY),
+            withAttributes: labelAttrs)
+    }
+
+    override var intrinsicContentSize: NSSize {
+        let w = max(
+            (value as NSString).size(withAttributes: [.font: valueFont]).width,
+            (label as NSString).size(withAttributes: [.font: labelFont]).width
+        ) + 8
+        return NSSize(width: max(w, 34), height: 22)
+    }
 }
 
 extension Notification.Name {

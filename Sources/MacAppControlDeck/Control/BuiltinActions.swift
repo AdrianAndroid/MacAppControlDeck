@@ -21,7 +21,7 @@ enum BuiltinActions {
         Preset(id: "calendar.open", name: "打开万年历", symbol: "▦"),
         Preset(id: "screen.open", name: "打开副屏", symbol: "🖥"),
         Preset(id: "pet.open", name: "打开桌面宠物", symbol: "🐾"),
-        Preset(id: "update.check", name: "检查更新", symbol: "↑")
+        Preset(id: "update.check", name: "检查更新", symbol: "↑"),
         Preset(id: "systemTool.open", name: "打开 PureMac", symbol: "🧹")
     ]
 
