@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-23.7"
+    static let version = "2026-11-24.1"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -34,7 +34,8 @@ enum PanelHTML {
         --radius: calc(var(--u) * 4);
         --left-rail: clamp(86px, 11vw, 108px);
         --rail-w: 160px;
-        --sc-unit: 11px;
+        /* 快捷卡片默认与应用卡片同一字号；只在空间不足时等比缩小。 */
+        --sc-unit: var(--label);
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { height:100%; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
@@ -104,10 +105,10 @@ enum PanelHTML {
       .btn .state { font-size:calc(var(--label) - 2px); color:var(--muted); min-height:calc(var(--label) - 1px); white-space:nowrap; }
       .btn.placeholder { background:transparent; border:1px dashed var(--line); opacity:.35; pointer-events:none; }
       #shortcutPages .btn:not(.placeholder) { gap:calc(var(--sc-unit) * .22); padding:calc(var(--sc-unit) * .3); }
-      #shortcutPages .symbol { flex:none; font-size:calc(var(--sc-unit) * 1.45); line-height:1.05; letter-spacing:0; }
-      #shortcutPages .label { flex:none; width:100%; min-width:0; font-size:var(--sc-unit); line-height:1.12;
+      #shortcutPages .symbol { flex:none; font-size:calc(var(--sc-unit) * 1.55); line-height:1.05; letter-spacing:0; }
+      #shortcutPages .label { flex:none; width:100%; min-width:0; font-size:var(--sc-unit); line-height:1.15;
                               overflow-wrap:anywhere; word-break:break-all; }
-      #shortcutPages .state { flex:none; min-height:0; max-width:100%; font-size:calc(var(--sc-unit) * .78); line-height:1.05; }
+      #shortcutPages .state { flex:none; min-height:0; max-width:100%; font-size:calc(var(--sc-unit) - 2px); line-height:1.05; }
       #shortcutPages .state:empty { display:none; }
       .btn .state.busy { color:var(--warn); } .btn .state.done { color:var(--ok); } .btn .state.fail { color:var(--err); }
       #pair { display:none; flex:1 1 auto; min-height:0; flex-direction:column; gap:12px; padding-top:8vh;
@@ -459,13 +460,16 @@ enum PanelHTML {
         fitShortcutContent();
       }
 
-      // 同一快捷区共用字号，按最拥挤卡片缩放，保持图标、名称和状态的比例。
+      // 同一快捷区共用字号，按最拥挤卡片缩放；上限与应用按钮字号一致，只缩小、不放大。
       function fitShortcutContent(){
         const cards=[...shortcutPagesEl.querySelectorAll('.btn:not(.placeholder)')];
         if(!cards.length || !cards[0].clientWidth || !cards[0].clientHeight) return;
         const root=document.documentElement.style;
         const size=Math.min(...cards.map(card=>Math.min(card.clientWidth,card.clientHeight)));
-        let lo=2, hi=Math.min(16, size*.23), best=lo;
+        const appLabel=document.querySelector('#appsPages .btn .label');
+        const cap=appLabel?parseFloat(getComputedStyle(appLabel).fontSize):11;
+        const maxUnit=Math.min(cap, size*.23);
+        let lo=Math.min(2,maxUnit), hi=maxUnit, best=lo;
         function fits(unit){
           root.setProperty('--sc-unit',unit+'px');
           return cards.every(card=>{

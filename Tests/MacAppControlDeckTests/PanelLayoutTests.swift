@@ -182,6 +182,35 @@ final class PanelLayoutTests: XCTestCase {
         }
     }
 
+    func testButtonTypographyConsistency() {
+        waitFor("fixture") { (self.js("document.querySelectorAll('#shortcutPages .btn:not(.placeholder)').length") as? Int) == 10 }
+        let cases: [(String, NSSize)] = [
+            ("type-landscape", NSSize(width: 844, height: 390)),
+            ("type-narrow", NSSize(width: 480, height: 320)),
+            ("type-portrait", NSSize(width: 390, height: 844))
+        ]
+        for (name, size) in cases {
+            window.setContentSize(size)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+            _ = js("layoutNow()")
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            let fonts = js("""
+            (()=>{
+              const px=e=>e?parseFloat(getComputedStyle(e).fontSize):0;
+              return {app:px(document.querySelector('#appsPages .btn .label')),
+                      shortcut:px(document.querySelector('#shortcutPages .btn:not(.placeholder) .label'))};
+            })()
+            """) as? [String: Double] ?? [:]
+            let app = fonts["app"] ?? 0
+            let shortcut = fonts["shortcut"] ?? 0
+            XCTAssertGreaterThan(app, 0, "应用按钮字号缺失: \(name)")
+            XCTAssertGreaterThan(shortcut, 0, "快捷按钮字号缺失: \(name)")
+            XCTAssertLessThanOrEqual(shortcut, app + 0.5, "快捷字号不应大于应用字号: \(name) \(fonts)")
+            assertShortcutContentFits()
+            snapshot(name)
+        }
+    }
+
     func testRealFixtureSnapshots() {
         guard ProcessInfo.processInfo.environment["DECK_PANEL_FIXTURE_JSON"] != nil else { return }
         waitFor("real fixture") {

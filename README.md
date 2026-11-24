@@ -488,6 +488,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-24 手机面板应用与快捷按钮统一字号（快捷字号改为与应用同基准、自适应只缩小不放大，消除「老年人模式」观感；面板版本 `2026-11-24.1`，新增三视口回归）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-unify-panel-button-typography/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验证截图](Docs/verification/panel-button-typography/)
 - 2026-11-23 副屏新增未来 4 小时预报（和风 hourly 接口、5 分钟缓存、两行紧凑条；矮屏/竖屏压缩保证月历不溢出）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-hourly-weather-strip/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 副屏改 MagicMirror 风格三栏（严格 1:1:1、统一小标题/分隔线，天气栏城市+湿度降水+大图标温度+体感+5 天四列表格，竖屏顺序调整）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-screen-weather-ui/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 全局快捷键改为默认关闭（首次安装/恢复默认全部不占用按键，旧配置一次性迁移为关闭；按需在 设置 → 快捷键 打开）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-default-disable-global-hotkeys/proposal.md) · [能力规格](openspec/specs/global-hotkeys/spec.md)
