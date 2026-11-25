@@ -51,11 +51,6 @@ struct ButtonsSettingsView: View {
         state.buttons.count > 12 || isSearching
     }
 
-    private var selectedButton: ButtonConfig? {
-        guard let selectedID else { return nil }
-        return state.buttons.first { $0.id == selectedID }
-    }
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
@@ -79,9 +74,6 @@ struct ButtonsSettingsView: View {
                         .padding(.bottom, 18)
                     }
                     .onPreferenceChange(ButtonCardFramePreferenceKey.self) { frames = $0 }
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        selectionBar
-                    }
                 }
 
                 footnote
@@ -216,44 +208,13 @@ struct ButtonsSettingsView: View {
     private var footnote: some View {
         VStack(alignment: .leading, spacing: 3) {
             Divider()
-            Text("点击卡片选中；按住 0.5 秒后拖动可排序；右键可重命名、上移、下移或删除。")
+            Text("按住 0.5 秒后拖动可排序；右键可重命名、编辑组合、上移、下移或删除。")
             Text("按钮顺序会同时影响菜单栏与手机面板；参数与命令只保存在本机。")
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-    }
-
-    @ViewBuilder
-    private var selectionBar: some View {
-        if let selectedButton {
-            HStack(spacing: 10) {
-                Image(systemName: iconName(for: selectedButton))
-                    .foregroundStyle(.secondary)
-                Text("已选 \(selectedButton.name)")
-                    .font(.callout.weight(.medium))
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Button("重命名…") { startRename(selectedButton) }
-                if selectedButton.kind == .shortcut {
-                    Button("编辑组合…") { editingShortcut = selectedButton }
-                }
-                Button("删除…", role: .destructive) { pendingDelete = selectedButton }
-                Button {
-                    selectedID = nil
-                } label: {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(.plain)
-                .help("取消选中")
-            }
-            .buttonStyle(.bordered)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(.bar)
-            .overlay(alignment: .top) { Divider() }
-        }
     }
 
     @ViewBuilder
@@ -649,15 +610,6 @@ struct ButtonsSettingsView: View {
     private func startRename(_ button: ButtonConfig) {
         pendingRename = button
         renameText = button.name
-    }
-
-    private func iconName(for button: ButtonConfig) -> String {
-        switch button.kind {
-        case .app: return "app"
-        case .shortcut: return "keyboard"
-        case .command: return "terminal"
-        case .builtin: return "square.grid.2x2"
-        }
     }
 
     private func kindLabel(for button: ButtonConfig) -> String {
