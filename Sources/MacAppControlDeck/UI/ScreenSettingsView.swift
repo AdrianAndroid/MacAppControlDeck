@@ -5,6 +5,7 @@ struct ScreenSettingsView: View {
     @ObservedObject private var state = DeckState.shared
     @ObservedObject private var weather = WeatherSettings.shared
     @ObservedObject private var offWork = OffWorkSettings.shared
+    @ObservedObject private var appearance = ScreenAppearanceSettings.shared
 
     @State private var publicKeyPEM = ""
     @State private var copiedKey = false
@@ -31,6 +32,7 @@ struct ScreenSettingsView: View {
                 addressCard
                 weatherCard
                 countdownCard
+                appearanceCard
                 notesCard
             }
             .padding(20)
@@ -70,6 +72,32 @@ struct ScreenSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label("副屏地址", systemImage: "rectangle.on.rectangle")
+        }
+    }
+
+    // MARK: - 外观
+
+    private var appearanceCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("横屏模块边框", isOn: $appearance.enabled)
+                HStack(spacing: 10) {
+                    Text("边框强度").frame(width: 62, alignment: .leading)
+                    Slider(value: $appearance.strength, in: 0...0.30, step: 0.01)
+                    Text("\(Int((appearance.strength * 100).rounded()))%")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 38, alignment: .trailing)
+                }
+                .disabled(!appearance.enabled)
+                Text("拖动滑块时副屏即时更新；只作用于横屏（时钟 / 月历 / 倒计时 / 天气各自成框），竖屏不画外框。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("外观", systemImage: "rectangle.3.group")
         }
     }
 

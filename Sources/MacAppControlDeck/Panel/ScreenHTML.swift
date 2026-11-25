@@ -3,7 +3,7 @@ import Foundation
 /// 只读副屏页面：模拟时钟 + 当月月历。
 /// 页面不包含 token、不调用任何 /api/* 接口，拿到地址也只能看时间与日期。
 enum ScreenHTML {
-    static let version = "2026-11-24.4"
+    static let version = "2026-11-25.1"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -118,19 +118,25 @@ enum ScreenHTML {
         white-space: nowrap;
       }
 
-      /* 月历与倒计时作为一组整体垂直居中，两者间距固定，剩余空白分给上下。 */
-      .cal-group {
+      /* 月历面板 + 倒计时面板作为一组整体垂直居中，两者间距固定。 */
+      .cal-stack {
         margin: auto 0;
         min-height: 0; min-width: 0;
         display: flex; flex-direction: column;
-        gap: calc(var(--u) * 1.8);
+        gap: calc(var(--u) * 1.6);
+      }
+      .cal-panel {
+        flex: 0 1 auto;
+        min-height: 0; min-width: 0;
+        display: flex; flex-direction: column;
+        padding: 0;
       }
       .cal {
         flex: 0 1 auto;
         min-height: 0; min-width: 0;
         display: flex; flex-direction: column;
         justify-content: center;
-        padding: calc(var(--u) * 2.1) 0 calc(var(--u) * .5);
+        padding: calc(var(--u) * 1.2) 0 calc(var(--u) * .2);
       }
       .mon {
         display: flex; align-items: baseline; justify-content: center;
@@ -199,7 +205,7 @@ enum ScreenHTML {
       .cell.blank span { visibility: hidden; }
 
       /* ---- 下班倒计时：月历底部，单一结构；放不下只等比缩小 ---- */
-      .grid { max-height: max(calc(var(--u) * 25), 36vh); }
+      .grid { max-height: max(calc(var(--u) * 30), 42vh); row-gap: calc(var(--u) * .9); }
       .cal-group { --cd-scale: 1; }
       .cd {
         flex: 0 0 auto; display: none; align-items: center;
@@ -297,7 +303,7 @@ enum ScreenHTML {
       }
 
       /* ---- 天气：城市 / 概览 / 预报表（MagicMirror 右上角结构）---- */
-      .wx-col { gap: 0; }
+      .wx-col { gap: 0; overflow: hidden; }
       .wx-status {
         display: none;
         color: #ff9f0a;
@@ -487,6 +493,27 @@ enum ScreenHTML {
         #frame[data-weather="off"] .stage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         #frame[data-weather="off"] .cal-col { grid-column: 2; }
         .cell { font-size: calc(var(--u) * 3); }
+        /* 横屏四个模块：时钟 / 月历 / 倒计时 / 天气各自成框。 */
+        .stage { gap: calc(var(--u) * 1.6); }
+        #frame[data-frames="on"] .clock-col,
+        #frame[data-frames="on"] .wx-col,
+        #frame[data-frames="on"] .cal-panel,
+        #frame[data-frames="on"] .cd {
+          border: 1px solid rgba(255, 255, 255, var(--frame-strength, .16));
+          border-radius: calc(var(--u) * 2.4);
+        }
+        #frame[data-frames="on"] .clock-col,
+        #frame[data-frames="on"] .wx-col,
+        #frame[data-frames="on"] .cal-panel {
+          padding: calc(var(--u) * .9) calc(var(--u) * 1.3);
+        }
+        /* 加框后天气列少 20px 左右，收紧内部行距避免压出框外。 */
+        #frame[data-frames="on"] .wx-hours { margin-top: calc(var(--u) * .4); padding-top: calc(var(--u) * .4); }
+        #frame[data-frames="on"] .wx-foot { margin-top: calc(var(--u) * .1); }
+        #frame[data-frames="on"] .wx-days { gap: calc(var(--u) * .2); }
+        #frame[data-frames="on"] .cd {
+          padding: calc(var(--u) * 1.3 * var(--cd-scale)) calc(var(--u) * 1.6 * var(--cd-scale));
+        }
       }
       @media (orientation: portrait) {
         /* 竖屏：时钟 → 天气（含小时条/预报）→ 月历，压缩天气块给日历留足行高。 */
@@ -499,6 +526,7 @@ enum ScreenHTML {
         .nav { font-size: calc(4vw * var(--scale)); padding: .8vw 1.2vw; }
         .dow { font-size: calc(3.2vw * var(--scale)); }
         .cell { font-size: calc(4vw * var(--scale)); }
+        .grid { row-gap: calc(var(--u) * .5); }
         .cell span { width: 1.5em; height: 1.5em; }
         .rule { margin: calc(var(--u) * .8) 0 calc(var(--u) * 1.2); }
         .wx-icon { width: calc(var(--u) * 7); height: calc(var(--u) * 7); }
@@ -517,7 +545,7 @@ enum ScreenHTML {
       }
       /* 平板/桌面窗口等大屏上，别让月历网格无限拉伸；保持接近方形单元格并整体居中。 */
       @media (min-height: 700px) {
-        .grid { max-height: calc(var(--u) * 46); }
+        .grid { max-height: max(calc(var(--u) * 34), 46vh); }
       }
       @media (min-width: 640px) and (min-height: 520px) {
         #frame { inset: calc(var(--u) * 2.6); border-radius: calc(var(--u) * 6); border: 1px solid var(--frame); }
@@ -570,9 +598,10 @@ enum ScreenHTML {
         </section>
 
         <section class="col cal-col">
+          <div class="cal-stack">
+          <div class="cal-panel">
           <div class="kicker center">CALENDAR</div>
           <div class="rule"></div>
-          <div class="cal-group">
           <div class="cal">
             <div class="mon">
               <button class="nav" id="prev" aria-label="上个月">‹</button>
@@ -584,6 +613,7 @@ enum ScreenHTML {
               <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
             </div>
             <div class="grid" id="grid" role="grid" aria-label="当月月历"></div>
+          </div>
           </div>
 
           <section class="cd" id="cd" data-phase="working">
@@ -957,6 +987,25 @@ enum ScreenHTML {
       }
       startClock();
 
+
+      // ---- 外观：横屏模块边框（开关 + 强度，实时生效）----
+      function applyScreenFrame(data) {
+        var frame = document.getElementById('frame');
+        if (!frame) { return; }
+        var strength = data && typeof data.strength === 'number' ? data.strength : 0.16;
+        document.documentElement.style.setProperty('--frame-strength', String(strength));
+        frame.dataset.frames = data && data.enabled ? 'on' : 'off';
+      }
+
+      function loadScreenFrame() {
+        fetch('/api/screen/frame', { cache: 'no-store' }).then(function (response) {
+          if (!response.ok) { throw new Error('HTTP ' + response.status); }
+          return response.json();
+        }).then(applyScreenFrame).catch(function () {
+          applyScreenFrame({ enabled: true, strength: 0.16 });
+        });
+      }
+
       // ---- 下班倒计时（阶段由 Swift 算；场景按时钟轮播，页面只负责渲染）----
       var CD = { sceneEvery: 300, microEvery: 45, milestoneHold: 30000, milestones: [50, 25, 10] };
       var cd = null;
@@ -1060,10 +1109,10 @@ enum ScreenHTML {
 
       // 单一结构：先按 1.0 渲染，再按可用宽高等比缩小，不换排版
       function cdFit() {
-        var group = document.querySelector('.cal-group');
+        var group = document.querySelector('.cal-stack');
         var card = document.getElementById('cd');
         var col = document.querySelector('.cal-col');
-        var cal = document.querySelector('.cal');
+        var cal = document.querySelector('.cal-panel');
         if (!group || !card || !col || !cal || !cd) { return; }
         var gap = parseFloat(getComputedStyle(group).rowGap) || 0;
         var availH = col.clientHeight - cal.offsetHeight - gap;
@@ -1384,6 +1433,7 @@ enum ScreenHTML {
           loadMacTime();
           loadWeather();
           loadCountdown();
+          loadScreenFrame();
         }
       });
       var screenEventRevision = 0;
@@ -1407,6 +1457,7 @@ enum ScreenHTML {
               loadMacTime();
               loadWeather();
               loadCountdown();
+              loadScreenFrame();
             }
           })
           .catch(function () {})
@@ -1425,6 +1476,7 @@ enum ScreenHTML {
       loadWeather();
       scheduleWeather();
       loadCountdown();
+      loadScreenFrame();
 
       // 首次进入短暂展示控制条，提示可点按。
       setTimeout(showUI, 400);

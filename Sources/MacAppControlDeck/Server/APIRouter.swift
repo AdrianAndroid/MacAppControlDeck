@@ -158,6 +158,12 @@ final class APIRouter {
                                                    screenVersion: ScreenHTML.version))
             response.headers["Cache-Control"] = "no-store, must-revalidate"
             return response
+        case ("GET", "/api/screen/frame"):
+            // 副屏外观：横屏模块边框开关与强度。
+            let frame = await MainActor.run { ScreenAppearanceSettings.shared.config }
+            var appearance = HTTPResponse.json(frame)
+            appearance.headers["Cache-Control"] = "no-store, must-revalidate"
+            return appearance
         case ("GET", "/api/screen/countdown"):
             // 副屏下班倒计时：阶段与目标时间由 Swift 算，页面只做倒数。
             let offWork = await MainActor.run { OffWorkSettings.shared.config }
