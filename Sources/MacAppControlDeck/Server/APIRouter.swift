@@ -164,6 +164,12 @@ final class APIRouter {
             var appearance = HTTPResponse.json(frame)
             appearance.headers["Cache-Control"] = "no-store, must-revalidate"
             return appearance
+        case ("GET", "/api/screen/display"):
+            // 副屏显示：尺寸 / 桌宠 / 常亮，统一由 Mac 端下发。
+            let display = await MainActor.run { ScreenDisplaySettings.shared.config }
+            var config = HTTPResponse.json(display)
+            config.headers["Cache-Control"] = "no-store, must-revalidate"
+            return config
         case ("GET", "/api/screen/countdown"):
             // 副屏下班倒计时：阶段与目标时间由 Swift 算，页面只做倒数。
             let offWork = await MainActor.run { OffWorkSettings.shared.config }

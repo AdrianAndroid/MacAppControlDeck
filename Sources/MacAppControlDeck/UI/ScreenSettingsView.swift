@@ -6,6 +6,7 @@ struct ScreenSettingsView: View {
     @ObservedObject private var weather = WeatherSettings.shared
     @ObservedObject private var offWork = OffWorkSettings.shared
     @ObservedObject private var appearance = ScreenAppearanceSettings.shared
+    @ObservedObject private var display = ScreenDisplaySettings.shared
 
     @State private var publicKeyPEM = ""
     @State private var copiedKey = false
@@ -33,6 +34,7 @@ struct ScreenSettingsView: View {
                 weatherCard
                 countdownCard
                 appearanceCard
+                displayCard
                 notesCard
             }
             .padding(20)
@@ -99,6 +101,63 @@ struct ScreenSettingsView: View {
         } label: {
             Label("外观", systemImage: "rectangle.3.group")
         }
+    }
+
+    // MARK: - 副屏显示与桌宠
+
+    private var displayCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                settingRow("显示尺寸") {
+                    segmented([("s", "小"), ("m", "中"), ("l", "大")], selection: $display.size)
+                }
+                settingRow("桌宠模式") {
+                    segmented([("fixed", "固定"), ("random", "随机切换")], selection: $display.petMode)
+                }
+                settingRow("桌宠") {
+                    segmented([("cat", "像素猫"), ("dog", "小狗"), ("robot", "机器人")], selection: $display.petId)
+                }
+                settingRow("随机间隔") {
+                    segmented([("30", "30 秒"), ("60", "1 分钟"), ("300", "5 分钟"), ("900", "15 分钟")],
+                              selection: Binding(
+                                get: { String(display.petInterval) },
+                                set: { display.petInterval = Int($0) ?? 60 }
+                              ))
+                    .disabled(display.petMode != "random")
+                }
+                HStack(spacing: 10) {
+                    Button("立即换一只") { display.requestPetSwitch() }
+                    Toggle("副屏常亮", isOn: $display.keepAwake)
+                    Spacer()
+                }
+                Text("副屏控制条只保留刷新与全屏；尺寸、桌宠与常亮都在这里设置。修改后立即下发到副屏，无需在副屏操作。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("副屏显示与桌宠", systemImage: "pawprint")
+        }
+    }
+
+    private func settingRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 10) {
+            Text(title).frame(width: 72, alignment: .leading)
+            content()
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func segmented(_ options: [(value: String, label: String)], selection: Binding<String>) -> some View {
+        Picker("", selection: selection) {
+            ForEach(options, id: \.value) { option in
+                Text(option.label).tag(option.value)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 420)
+        .labelsHidden()
     }
 
     // MARK: - 下班倒计时

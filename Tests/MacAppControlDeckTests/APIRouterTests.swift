@@ -245,4 +245,25 @@ final class APIRouterTests: XCTestCase {
         XCTAssertFalse(body.contains("latitude"))
         XCTAssertFalse(body.contains("deck_token"))
     }
+
+    func testScreenDisplayIsPublicAndReturnsConfig() async {
+        let response = await makeRouter().handle(makeRequest("GET", "/api/screen/display"))
+        XCTAssertEqual(response.status, 200)
+        XCTAssertEqual(response.headers["Cache-Control"], "no-store, must-revalidate")
+        struct Display: Decodable {
+            let size: String
+            let petMode: String
+            let petId: String
+            let petInterval: Int
+            let keepAwake: Bool
+            let petSwitchNonce: Int
+        }
+        let display = try? JSONDecoder().decode(Display.self, from: response.body)
+        let value = try? XCTUnwrap(display)
+        guard let display = value else { return }
+        XCTAssertTrue(ScreenDisplayConfig.validSizes.contains(display.size))
+        XCTAssertTrue(["fixed", "random"].contains(display.petMode))
+        XCTAssertTrue(ScreenDisplayConfig.validPetIDs.contains(display.petId))
+        XCTAssertTrue(ScreenDisplayConfig.validIntervals.contains(display.petInterval))
+    }
 }
