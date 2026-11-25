@@ -21,6 +21,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             button.image?.isTemplate = true
             button.toolTip = "Mac 应用快捷控制台"
         }
+        // 位置由系统记住：按住 ⌘ 拖动一次即可固定顺序。
+        item.autosaveName = "MacAppControlDeck.main"
         menu.delegate = self
         rebuild()
         item.menu = menu
