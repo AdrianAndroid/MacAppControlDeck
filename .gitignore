@@ -24,3 +24,16 @@ BuildOutput/
 # UI 草图 Web 构建依赖
 Web/sketch/node_modules/
 Web/sketch/.vite/
+
+# 本机凭据与个人数据（public 仓库防误提交；已确认不影响任何已跟踪文件）
+*.p12
+*.pfx
+*.pem
+*.p8
+*.key
+*.mobileprovision
+sparkle_ed_key
+weather-secrets.json
+.env
+.env.*
+!.env.example

@@ -46,6 +46,18 @@ die()  { print -u2 -- "错误：$*"; exit 1; }
 info() { print -r -- "==> $*"; }
 ok()   { print -r -- "    ✓ $*"; }
 
+# 下载已发布资产：优先走 gh 认证通道（本机代理偶发 CONNECT 502 时 curl 会失败），
+# 失败再回退到公开下载 URL。
+fetch_asset_to_file() {
+  local pattern="$1" dest="$2"
+  gh release download "$TAG" -p "$pattern" -O "$dest" >/dev/null 2>&1 \
+    || curl -fsSL "$DL_PREFIX/$pattern" -o "$dest" >/dev/null 2>&1
+}
+fetch_asset_stdout() {
+  gh release download "$TAG" -p "$1" -O - 2>/dev/null \
+    || curl -fsSL "$DL_PREFIX/$1" 2>/dev/null
+}
+
 usage() {
   sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
@@ -96,6 +108,15 @@ check_credentials() {
   seed_len=$(base64 -D < "$KEY_FILE" 2>/dev/null | wc -c | tr -d ' ')
   [[ "$seed_len" == "32" ]] || die "私钥不是有效的 32 字节 Ed25519 种子（解码长度 $seed_len）"
   ok "EdDSA 私钥就绪（600 权限、32 字节种子，内容不打印）"
+
+  # public 仓库边界：私钥绝不能落在仓库内或被 git 跟踪
+  if [[ "$KEY_FILE" == "$ROOT"/* ]]; then
+    die "私钥文件位于仓库目录内：$KEY_FILE（必须放在仓库外，如 ~/.config/macappcontroldeck/）"
+  fi
+  if git ls-files --error-unmatch "$KEY_FILE" >/dev/null 2>&1; then
+    die "私钥文件已被 git 跟踪：$KEY_FILE"
+  fi
+  ok "私钥位于仓库外且未被 git 跟踪"
 
   local kc_pub
   kc_pub=$("$SPARKLE_BIN/generate_keys" -p 2>/dev/null | tail -1 | tr -d '\r\n')
@@ -205,7 +226,7 @@ verify_only() {
   cp "$UPDATE_ZIP" "$stage/"
   DECK_ED_KEY_FILE="$KEY_FILE" "$ROOT/Build/make-appcast.sh" "$stage" "$DL_PREFIX" >/dev/null
   local_sig=$(grep -o 'sparkle:edSignature="[^"]*"' "$stage/appcast.xml")
-  online_sig=$(curl -fsSL "$FEED_URL" 2>/dev/null | grep -o 'sparkle:edSignature="[^"]*"' || true)
+  online_sig=$(fetch_asset_stdout "appcast.xml" | grep -o 'sparkle:edSignature="[^"]*"' || true)
   [[ -n "$online_sig" ]] || die "拉不到线上 appcast：$FEED_URL"
   [[ "$local_sig" == "$online_sig" ]] \
     || die "本机重签的 appcast 签名与线上不一致（$local_sig vs $online_sig）"
@@ -273,18 +294,18 @@ publish() {
 
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
-  curl -fsSL "$FEED_URL" -o "$tmp/appcast.xml"
+  fetch_asset_to_file "appcast.xml" "$tmp/appcast.xml" || die "拉不到线上 appcast.xml"
   diff -q "$tmp/appcast.xml" "$OUT/appcast.xml" >/dev/null \
     || die "线上 appcast.xml 与本地不一致"
   ok "线上 appcast.xml 与本地完全一致"
-  curl -fsSL "$DL_PREFIX/SHA256SUMS.txt" -o "$tmp/SHA256SUMS.txt"
+  fetch_asset_to_file "SHA256SUMS.txt" "$tmp/SHA256SUMS.txt" || die "拉不到线上 SHA256SUMS.txt"
   diff -q "$tmp/SHA256SUMS.txt" "$OUT/SHA256SUMS.txt" >/dev/null \
     || die "线上 SHA256SUMS.txt 与本地不一致"
   ok "线上 SHA256SUMS.txt 与本地完全一致"
 
   if [[ "$VERIFY_DOWNLOAD" == 1 ]]; then
     info "下载更新 ZIP 做 SHA256 复核（约 20 MB）"
-    curl -fsSL "$DL_PREFIX/$(basename "$UPDATE_ZIP")" -o "$tmp/update.zip"
+    fetch_asset_to_file "$(basename "$UPDATE_ZIP")" "$tmp/update.zip" || die "拉不到线上更新 ZIP"
     local want got
     want=$(grep " $(basename "$UPDATE_ZIP")$" "$OUT/SHA256SUMS.txt" | awk '{print $1}')
     got=$(shasum -a 256 "$tmp/update.zip" | awk '{print $1}')

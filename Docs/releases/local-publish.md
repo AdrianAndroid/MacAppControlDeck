@@ -118,3 +118,51 @@ git add -A && git commit -m "release(vX.Y.Z): ..." && git push origin main
   `LAM8lKgT4RrlCk692VQmsmP4K3XtMUpdzWViXixFG3yb760Dvt3KVi4VKyCcuX3RpQMimArQFzPqWsAhgUfWBA==`
 - 当前固定证书 SHA-1 `E8357462…` 与 v0.3.1 公司电脑发布包的 designated requirement 一致，升级后 TCC 授权不失配。
 - `AGENTS.md` / `README.md` / `Build/signing.sh` / `stable-code-signing` 规格里的过时指纹 `145AEA72…` 已同步为当前值；历史归档文档保留原记录。
+
+## 8. public 仓库的本地数据边界
+
+用户真正关心的是「练手项目公开在 public 仓库，会不会把这台电脑上其他本地数据带出去」。2026-11-25 实测核查结论：**不会**。所有导出与读取都限定在项目专用凭据，发布产物只包含项目自身文件。
+
+### 核查结果
+
+| 检查项 | 结果 |
+| --- | --- |
+| 全部 git 对象（3340 个）扫描 EdDSA 私钥 / 32 字节 seed / PEM 私钥 | 0 命中 |
+| 仓库内 `.p12` / `.pem` / `.key` / `id_rsa` / `.env` 文件 | 0 个；`WeatherSecretStore.swift` 只是读写本机 `weather-secrets.json` 的代码，无硬编码密钥 |
+| 发布包（universal ZIP / installer ZIP / DMG）内容 | 只有 App、Sparkle.framework、LICENSE、第三方声明、图标、安装脚本与说明；无 `/Users/*` 下的个人文件、`.ssh`、钥匙串、桌面/文档数据 |
+| 主程序二进制里的本机路径 | 仅 1 条 SwiftPM 资源 bundle 的**项目构建路径** `/Users/zhaojian/code/MacAppControlDeck/.build-x86_64/…`（调试符号，不含文件内容）；另有系统框架字符串 `/Users/Shared/Library/Application` |
+| 仓库里 `id_rsa` / `.ssh/` / `login.keychain-db` 的出现位置 | 全是 `Tests/…/SystemToolTests.swift` 的安全白名单测试常量与 `Build/setup-signing.sh` 的钥匙串路径，不是真实数据 |
+| 仓库里 `/Users/zhaojian` 的出现位置 | 技能文档示例路径、早期归档记录的旧项目目录 `/Users/zhaojian/Desktop/MacAppControlDeck`，均为路径字符串 |
+| GitHub 仓库设置 | `secret_scanning: enabled`、`secret_scanning_push_protection: enabled` |
+| Actions Secrets | 仅 3 个项目专用项（`DECK_SIGN_P12_BASE64` / `DECK_SIGN_P12_PASSWORD` / `SPARKLE_ED_PRIVATE_KEY`） |
+| Workflow 触发 | 只有 `push tags v*` 与 `workflow_dispatch`；**没有** `pull_request` / `pull_request_target`，fork PR 拿不到 Secrets |
+| Release 资产 | 5 个（appcast.xml / 2 个 ZIP / DMG / SHA256SUMS.txt），无凭据文件 |
+| 本机私钥位置 | `~/.config/macappcontroldeck/sparkle_ed_key`，仓库外、600 权限；`git status` 干净 |
+
+### 操作范围的诚实说明
+
+- `generate_keys -x` 只导出 Sparkle 的 `ed25519` 一项；`find-certificate -c 'MacAppControlDeck Self-Signed' -Z` 只取这一张自签名证书；配置 CI 时导出的 p12 已剔除 4 个无关的 Apple Development 私钥，只含该单身份，本机无 p12 残留。
+- 排查钥匙串弹窗时曾运行过一次 `security dump-keychain` 来定位 EdDSA 项：它在**本机终端**列出过钥匙串条目的属性名（包含 `Microsoft Office Credentials` 等条目名称），但 macOS 该命令不输出密码 / 私钥数据；输出未写入文件、未提交、未上传，临时文件已清理。
+- 本机 `/tmp/deck-*` 残留的是本项目历次截图、构建备份与临时脚本，只在本机磁盘，**没有进仓库**；是否清理由用户决定，不自动删除。
+
+### 本来就公开、但不是「数据泄漏」的个人信息
+
+public 仓库的 git 提交元信息对所有人可见，历史提交里出现过 4 个作者身份：`adrianandroid@users.noreply.github.com`、`ext_zhaojian03@kuaishou.com`（公司邮箱）、`18310579837@163.com`（手机号前缀）、`zhaojian@users.noreply.github.com`。这是历史 commit 的作者字段，不是本地文件内容，也不是本次发版造成的。建议以后统一用 GitHub noreply 邮箱：
+
+```zsh
+git config user.name "AdrianAndroid"
+git config user.email "adrianandroid@users.noreply.github.com"
+```
+
+已公开的邮箱无法真正「删除」（rewrite 历史会改变已公开 commit 并影响 fork，通常不值得）；可在 GitHub Settings → Emails 勾选「Keep my email addresses private」并开启提交邮箱校验。
+
+### 自查命令
+
+```zsh
+# 仓库里是否出现本机个人路径 / 密钥标记
+git grep -n -I -E '/Users/zhaojian|id_rsa|\.ssh/|BEGIN PRIVATE KEY' -- .
+# 发布包里是否混入个人数据
+unzip -Z1 BuildOutput/release/universal/*universal.zip | grep -iE '/Users/|\.ssh|Desktop|Library/Keychains'
+# 本机私钥是否在仓库外、权限正确
+ls -l ~/.config/macappcontroldeck/sparkle_ed_key
+```
