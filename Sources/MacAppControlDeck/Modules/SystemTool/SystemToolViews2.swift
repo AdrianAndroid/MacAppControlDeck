@@ -25,7 +25,7 @@ struct UninstallTab: View {
                 }
                 .controlSize(.small)
                 .buttonStyle(.borderedProminent)
-                .disabled(state.selectedApp == nil || state.scanningResiduals)
+                .disabled(state.selectedApp == nil || state.scanningResiduals || !state.hasFullDiskAccess)
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -92,7 +92,9 @@ struct UninstallTab: View {
                         Text("关联文件").font(.subheadline).fontWeight(.semibold)
                     }
 
-                    if state.scanningResiduals {
+                    if !state.hasFullDiskAccess {
+                        FullDiskAccessGate()
+                    } else if state.scanningResiduals {
                         HStack {
                             ProgressView().controlSize(.small)
                             Text("正在扫描关联文件…").font(.caption).foregroundStyle(.secondary)
@@ -390,6 +392,14 @@ struct LargeFilesTab: View {
     }
 
     var body: some View {
+        if !state.hasFullDiskAccess {
+            FullDiskAccessGate()
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !state.hasFullDiskAccess { FDABanner().padding(.horizontal, 12).padding(.top, 10) }
             if let result = state.lastCleanResult {
@@ -567,9 +577,15 @@ struct DuplicateTab: View {
     @ObservedObject var state: SystemToolState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if !state.hasFullDiskAccess { FDABanner().padding(.horizontal, 12).padding(.top, 10) }
+        if !state.hasFullDiskAccess {
+            FullDiskAccessGate()
+        } else {
+            content
+        }
+    }
 
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("扫描根目录").font(.caption).fontWeight(.semibold)

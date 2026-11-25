@@ -5,6 +5,7 @@ import ServiceManagement
 enum SettingsTab: Hashable {
     case general
     case menu
+    case statusBar
     case hotkeys
     case modules
     case capture
@@ -30,6 +31,7 @@ struct SettingsView: View {
                     sidebarRow(.general, "通用", "gearshape")
                     sidebarRow(.menu, "菜单", "list.bullet.rectangle")
                     sidebarRow(.hotkeys, "快捷键", "keyboard")
+                    sidebarRow(.statusBar, "状态栏", "menubar.rectangle")
                 }
                 Section("模块") {
                     sidebarRow(.modules, "模块", "square.stack.3d.up")
@@ -78,6 +80,8 @@ struct SettingsView: View {
             GeneralSettingsView()
         case .menu:
             MenuSettingsView()
+        case .statusBar:
+            StatusBarSettingsView()
         case .hotkeys:
             HotKeySettingsView()
         case .modules:

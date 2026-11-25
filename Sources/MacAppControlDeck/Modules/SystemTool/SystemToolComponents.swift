@@ -546,3 +546,31 @@ struct ConfirmCleanSheet: View {
 
     private var totalSize: Int64 { items.reduce(0) { $0 + $1.size } }
 }
+
+/// 未授权时的整块占位：不展示任何不完整结果，只给一句话与授权入口。
+struct FullDiskAccessGate: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 30, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("需要「完全磁盘访问权限」")
+                .font(.headline)
+            Text("未授权时只能读到部分目录，因此这里不展示不完整的扫描结果。\n授权后重新打开本页即可看到完整内容。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                SystemPermissionGate.openFullDiskAccessSettings()
+            } label: {
+                Label("打开系统设置授权", systemImage: "gearshape")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}

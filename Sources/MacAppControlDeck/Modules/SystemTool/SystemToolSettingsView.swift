@@ -2,9 +2,7 @@ import SwiftUI
 import AppKit
 
 struct SystemToolSettingsView: View {
-    @AppStorage("systemTool.menubar.showCPU") private var showCPU = true
-    @AppStorage("systemTool.menubar.showMEM") private var showMEM = true
-    @AppStorage("systemTool.menubar.showNetSpeed") private var showNetSpeed = false
+    @ObservedObject private var statusBar = StatusBarRegistry.shared
     @AppStorage("systemTool.cleaning.largeFileThreshold") private var thresholdMB = 100
     @AppStorage("systemTool.cleaning.oldFileMonths") private var oldMonths = 12
 
@@ -24,11 +22,11 @@ struct SystemToolSettingsView: View {
                             .font(.caption).foregroundStyle(.secondary)
                         HStack(spacing: 12) {
                             StatusInfoCard(title: "CPU 占用", sample: "29%", label: "CPU",
-                                           tint: .blue, checked: $showCPU)
+                                           tint: .blue, checked: showCPUBinding)
                             StatusInfoCard(title: "内存占用", sample: "45%", label: "MEM",
-                                           tint: .purple, checked: $showMEM)
+                                           tint: .purple, checked: showMEMBinding)
                             StatusInfoCard(title: "实时网速", sample: "K/s", label: "↑↓ 上传下载",
-                                           tint: .green, checked: $showNetSpeed)
+                                           tint: .green, checked: showNetBinding)
                         }
                         HStack(alignment: .top, spacing: 5) {
                             Image(systemName: "info.circle").font(.caption2)
@@ -175,9 +173,18 @@ struct SystemToolSettingsView: View {
             .padding()
         }
         .onAppear(perform: reloadFromDefaults)
-        .onChange(of: showCPU) { _, _ in notifyStatusChange() }
-        .onChange(of: showMEM) { _, _ in notifyStatusChange() }
-        .onChange(of: showNetSpeed) { _, _ in notifyStatusChange() }
+    }
+
+    // 状态栏开关统一走公共注册中心（与 设置 → 状态栏 同一份数据）。
+    private var showCPUBinding: Binding<Bool> { statusBinding("systemTool.cpu") }
+    private var showMEMBinding: Binding<Bool> { statusBinding("systemTool.mem") }
+    private var showNetBinding: Binding<Bool> { statusBinding("systemTool.net") }
+
+    private func statusBinding(_ entryID: String) -> Binding<Bool> {
+        Binding(
+            get: { statusBar.isVisible(entryID) },
+            set: { statusBar.setVisible($0, entryID: entryID) }
+        )
     }
 
     private var largeRootLabel: String {
@@ -191,10 +198,6 @@ struct SystemToolSettingsView: View {
         excludedPaths = CleanupExclusions.paths()
         largeRoots = UserDefaults.standard.stringArray(forKey: "systemTool.cleaning.largeFileRoots") ?? []
         duplicateRoot = UserDefaults.standard.string(forKey: "systemTool.cleaning.duplicateScanRoot") ?? NSHomeDirectory()
-    }
-
-    private func notifyStatusChange() {
-        NotificationCenter.default.post(name: .systemToolStatusPreferenceChanged, object: nil)
     }
 
     private func chooseLargeRoot() {

@@ -219,10 +219,16 @@ struct OverviewTab: View {
     let goTo: (SystemToolTab) -> Void
 
     var body: some View {
+        if !state.hasFullDiskAccess {
+            FullDiskAccessGate()
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: SystemToolUI.gap) {
-                if !state.hasFullDiskAccess { FDABanner() }
-
                 if let result = state.lastCleanResult {
                     CleanResultBar(result: result) { state.lastCleanResult = nil }
                 }
@@ -367,9 +373,15 @@ struct JunkTab: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if !state.hasFullDiskAccess { FDABanner().padding(.horizontal, 12).padding(.top, 10) }
+        if !state.hasFullDiskAccess {
+            FullDiskAccessGate()
+        } else {
+            content
+        }
+    }
 
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
             if let result = state.lastCleanResult {
                 CleanResultBar(result: result) { state.lastCleanResult = nil }
                     .padding(.horizontal, 12)
