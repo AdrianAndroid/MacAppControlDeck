@@ -1,6 +1,6 @@
 # MacAppControlDeck · Mac 应用快捷控制台
 
-当前版本：`0.4.1`（2026-11-24）
+当前版本：`0.4.2`（2026-11-26）
 
 在局域网内用 iPhone / iPad / Android 的浏览器遥控 Mac：点击按钮即可启动或激活对应应用，自动切换到应用窗口所在的虚拟桌面并置于前台。无云服务、无公网、无注册账号。
 
@@ -27,7 +27,7 @@
 
 - **一键启动 / 切换应用**：手机点按钮 → 应用启动或切到前台；窗口在其他「桌面空间」时自动跳过去
 - **跨桌面切换**：通过「按下 Dock 图标」实现，与真人点击 Dock 完全等价，复用系统调度中心的跨空间规则
-- **按钮管理**：Mac 端搜索添加应用（按 Bundle ID 绑定）、重命名、排序、删除（有确认）
+- **按钮管理**：Mac 端 4 列卡片网格，应用与快捷操作分组；支持搜索、组内长按拖动排序、右键重命名/编辑组合/上移/下移/删除；点击只高亮选中，不执行按钮
 - **配对与撤销**：6 位一次性配对码（2 分钟、错 3 次作废），已配对设备可随时撤销
 - **菜单栏常驻**：应用只占菜单栏，不占 Dock；下拉菜单直接点应用 / 快捷操作 / 命令
 - **全局快捷键可管且默认关闭**：设置 →「快捷键」首次安装时全部为关闭状态，需要哪个就打开哪个；可一键停用全部，也能单独关闭、录制改键或恢复默认组合；被其他应用占用时如实显示状态并自动重试。可选入口：截图 `F1` / `⌘⇧X`，草图 `⌃⌥D`，桌宠 `⌃⌥P`
@@ -67,9 +67,9 @@
 
 | 资产 | 用途 |
 | --- | --- |
-| `MacAppControlDeck-0.4.1-universal.dmg` | 首次安装（内含安装脚本与说明） |
-| `MacAppControlDeck-0.4.1-universal-installer.zip` | 聊天软件传输用（解压后双击安装脚本） |
-| `MacAppControlDeck-0.4.1-universal.zip` | 自动升级使用的更新包（App 在压缩包根目录，不用手动下载） |
+| `MacAppControlDeck-0.4.2-universal.dmg` | 首次安装（内含安装脚本与说明） |
+| `MacAppControlDeck-0.4.2-universal-installer.zip` | 聊天软件传输用（解压后双击安装脚本） |
+| `MacAppControlDeck-0.4.2-universal.zip` | 自动升级使用的更新包（App 在压缩包根目录，不用手动下载） |
 | `appcast.xml` / `SHA256SUMS.txt` | 升级清单与校验和（`shasum -a 256 -c SHA256SUMS.txt`） |
 
 **首次安装后就不用再手动下载**：菜单栏「检查更新…」或 设置 →「通用 → 更新」会自动从 GitHub Releases 拉新版本。
@@ -339,8 +339,13 @@ open /Applications/MacAppControlDeck.app
 
 菜单栏 →「设置…」→「按钮」标签页：
 
+<img src="Docs/images/readme/settings-buttons.png" width="840" alt="设置：按钮管理 4 列卡片网格">
+
+- 4 列卡片网格，按「应用」「快捷操作」分组；按钮数超过 12 个时显示搜索框，可按名称、Bundle ID、快捷键或类型过滤
+- 点击卡片只做蓝色高亮选中，不执行按钮本身；底部不再出现选中操作条
+- 按住 0.5 秒进入拖动准备态，继续移动超过 4pt 才开始排序；拖动期间浮层跟随指针，目标位置显示虚线空隙，松手只落盘一次
+- 右键卡片可「重命名…」「编辑组合…」（仅快捷操作）、「上移」「下移」「删除…」（删除有确认）
 - 「添加按钮」→「添加应用按钮…」搜索选择应用（按 Bundle ID 绑定）；也可添加「快捷操作」或「命令按钮」
-- 每行支持「⋯ → 重命名…」、↑↓ 排序、「⋯ → 删除…」（删除有确认）
 - 应用被删除/移动后按钮显示「应用缺失」，可回到 App 列表重新绑定
 - 「设备」标签页可撤销任意设备的配对（撤销后旧凭证立即失效）
 
@@ -528,6 +533,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-26 **v0.4.2 发布**（按钮管理 4 列卡片网格 + 长按拖动排序 + 右键菜单；副屏桌宠/控制条自动隐藏；区域截图钉图原位；状态栏日历；桌宠快捷栏）：[发布说明](Docs/releases/v0.4.2.md) · [按钮能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 XP-Pen Deco 640 自定义手写板驱动预研（非需求，未建 OpenSpec 变更）：用户态 `IOHIDManager` 方案、三条 HID 通道、私有 12 字节报文与初始化序列、8+2 可配置按键、等比例画布限制与鼠标光标仲裁、只读映射到完整接管的分阶段路线：[预研报告](Docs/research/2026-11-26-deco640-driver-research.md) · [HID 探针](Tools/DecoProbe.swift)
 - 2026-11-26 移除按钮管理底部选中操作条：点击卡片仅高亮选中，不再弹出「已选 xxx / 重命名 / 删除」底栏，重命名、删除、编辑组合、上移、下移统一走右键菜单：[OpenSpec 变更](openspec/changes/archive/2026-11-26-remove-buttons-grid-selection-bar/proposal.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 按钮管理改为 4 列卡片网格：点击选中、底部操作条、右键重命名/上移/下移/删除；长按 0.5 秒进入拖动准备态，拖动期间只本地预览、松手一次落盘，组内排序并同步菜单栏与手机面板：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/proposal.md) · [设计](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/design.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
