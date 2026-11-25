@@ -29,6 +29,10 @@ final class PetPanelController {
     private var lastMousePoint: CGPoint = .zero
     private var hasMousePoint = false
 
+    private func syncDock() {
+        PetDockCenter.shared.updatePetFrame(panel.frame, size: settings.size)
+    }
+
     var isOpen: Bool { panel.isVisible }
     var window: NSWindow { panel }
     private var usesBongoScene: Bool {
@@ -60,10 +64,12 @@ final class PetPanelController {
         }
         panel.ignoresMouseEvents = settings.clickThrough
         panel.orderFrontRegardless()
+        PetDockCenter.shared.show(petFrame: panel.frame, size: settings.size)
         startHoverTracking()
     }
 
     func hide() {
+        PetDockCenter.shared.hide()
         stopHoverTracking()
         pettingKeyCat = false
         KeyCatBridge.shared.resetInput()
@@ -71,6 +77,7 @@ final class PetPanelController {
     }
 
     func shutdown() {
+        PetDockCenter.shared.shutdown()
         stopHoverTracking()
         settings.saveCurrentPositionIfNeeded(frame: panel.frame)
         panel.orderOut(nil)
@@ -107,9 +114,11 @@ final class PetPanelController {
                 context.duration = 0.18
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 panel.animator().setFrame(target, display: true)
+                syncDock()
             }
         } else {
             panel.setFrame(target, display: true)
+            syncDock()
         }
         updateHitCache()
         saveCurrentPosition()
@@ -121,6 +130,7 @@ final class PetPanelController {
         let anchor = PetGeometry.defaultAnchor(in: screen.visibleFrame, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
         let frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
         panel.setFrame(frame, display: true)
+        syncDock()
         settings.savePosition(
             PetGeometry.normalizedPosition(of: frame, in: screen.visibleFrame),
             for: PetGeometry.screenID(for: screen)
@@ -140,6 +150,7 @@ final class PetPanelController {
             bongoCat: usesBongoScene, keyCat: usesKeyCatScene
         )
         panel.setFrame(newFrame, display: true)
+        syncDock()
         updateHitCache()
     }
 
@@ -225,6 +236,7 @@ final class PetPanelController {
             frame = PetGeometry.frame(anchor: anchor, size: settings.size, bongoCat: usesBongoScene, keyCat: usesKeyCatScene)
         }
         panel.setFrame(frame, display: false)
+        syncDock()
         settings.savePosition(
             PetGeometry.normalizedPosition(of: frame, in: screen.visibleFrame),
             for: screenID
@@ -377,6 +389,7 @@ final class PetPanelController {
         let screen = screen(containing: candidate)
         let clamped = PetGeometry.clamp(candidate, to: screen.visibleFrame)
         panel.setFrameOrigin(clamped.origin)
+        syncDock()
         currentScreenID = PetGeometry.screenID(for: screen)
         updateHitCache()
     }

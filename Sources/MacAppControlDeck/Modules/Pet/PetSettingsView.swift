@@ -5,6 +5,7 @@ struct PetSettingsView: View {
     @ObservedObject private var settings = PetSettings.shared
     @ObservedObject private var registry = ModuleRegistry.shared
     @ObservedObject private var deck = DeckState.shared
+    @ObservedObject private var dockSettings = PetDockSettings.shared
     @State private var runtimeLoaded = false
 
     var body: some View {
@@ -13,6 +14,7 @@ struct PetSettingsView: View {
                 statusCard
                 appearanceCard
                 behaviorCard
+                dockCard
                 systemCard
                 privacyCard
             }
@@ -149,6 +151,64 @@ struct PetSettingsView: View {
             .padding(6)
         } label: {
             Label("行为", systemImage: "hand.tap")
+        }
+    }
+
+    private var dockCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("显示底部快捷栏", isOn: $dockSettings.enabled)
+                Text("只取手机 Deck 里的「应用」按钮；快捷操作与命令按钮不显示。当前 \(deck.appButtons.count) 个。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack {
+                    Text("排序方式")
+                    Picker("", selection: $dockSettings.sortMode) {
+                        ForEach(PetDockSortMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 300)
+                }
+                HStack {
+                    Text("冷却时间")
+                    Picker("", selection: $dockSettings.cooldownMinutes) {
+                        Text("关").tag(0)
+                        Text("15 分钟").tag(15)
+                        Text("30 分钟").tag(30)
+                        Text("60 分钟").tag(60)
+                    }
+                    .frame(width: 160)
+                    Text("刚点过的应用降权，但当前页位置不动")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                HStack {
+                    Text("半衰期")
+                    Picker("", selection: $dockSettings.halfLifeDays) {
+                        Text("3 天").tag(3)
+                        Text("7 天").tag(7)
+                        Text("14 天").tag(14)
+                    }
+                    .frame(width: 160)
+                    Text("更早的点击权重按 0.5 的 k 次方衰减")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Toggle("显示运行中圆点", isOn: $dockSettings.showRunningDot)
+                Toggle("标记最近点击的图标（只标记最后一次）", isOn: $dockSettings.markLastClicked)
+                Button("清空点击统计") {
+                    PetDockStats.shared.reset()
+                }
+                Text("排序只在「首次出现 / 点击后空闲 5 秒 / 改设置」时重算，不会在鼠标下方跳位。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(6)
+        } label: {
+            Label("底部快捷栏", systemImage: "square.grid.3x1.below.line.grid.1x2")
         }
     }
 

@@ -36,6 +36,7 @@
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`（默认关闭，可在设置 → 快捷键打开）；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
 - **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
+- **桌宠底部快捷栏**：桌宠下方一条半透明胶囊，只放手机 Deck 的「应用」按钮；点一下直接切换/启动应用，运行中的应用带绿点，最后一次点击的图标变浅。图标少时条宽收缩并相对桌宠居中，图标多时撑满桌宠宽度、长按横向拖动滚动（松手即停）；默认按点击频率排序（半衰期 7 天、冷却 30 分钟），不点不跳位；可在 设置 → 桌面宠物 →「底部快捷栏」开关、改排序、清空统计
 - **桌面宠物（Mac 本机模块）**：设置中使用标签切换 BongoCat 白猫和 KeyCat 黑猫。BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **自动升级**：菜单栏「检查更新…」/ 设置 →「通用 → 更新」从 GitHub Releases 拉新版本；默认每天后台检查一次、下载后由你确认重启，更新包需通过内置 EdDSA 公钥与固定签名身份双重校验，升级后不用重新授权
@@ -540,6 +541,7 @@ Docs/archive/                    # 历史归档
 - 2026-11-24 自动升级（Sparkle 2 + EdDSA 校验、universal 单包、GitHub Actions 发版与 appcast；菜单栏/设置/内置操作三处入口）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-github-auto-update/proposal.md) · [能力规格](openspec/specs/app-auto-update/spec.md) · [签名规格](openspec/specs/stable-code-signing/spec.md) · [发布说明](Docs/releases/v0.4.0.md)
 
 - 2026-11-24 手机面板应用与快捷按钮统一字号（快捷字号改为与应用同基准、自适应只缩小不放大，消除「老年人模式」观感；面板版本 `2026-11-24.1`，新增三视口回归）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-unify-panel-button-typography/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验证截图](Docs/verification/panel-button-typography/)
+- 2026-11-24 桌宠底部快捷栏（单行胶囊 + 长按拖动滚动 + 点击频率排序，条宽随图标数量收缩并居中，去掉单格底框）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-pet-dock/proposal.md) · [设计](openspec/changes/archive/2026-11-24-add-pet-dock/design.md) · [能力规格](openspec/specs/desktop-pet/spec.md)
 - 2026-11-23 副屏新增未来 4 小时预报（和风 hourly 接口、5 分钟缓存、两行紧凑条；矮屏/竖屏压缩保证月历不溢出）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-add-hourly-weather-strip/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 副屏改 MagicMirror 风格三栏（严格 1:1:1、统一小标题/分隔线，天气栏城市+湿度降水+大图标温度+体感+5 天四列表格，竖屏顺序调整）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-refresh-screen-weather-ui/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-23 全局快捷键改为默认关闭（首次安装/恢复默认全部不占用按键，旧配置一次性迁移为关闭；按需在 设置 → 快捷键 打开）：[OpenSpec 变更](openspec/changes/archive/2026-11-23-default-disable-global-hotkeys/proposal.md) · [能力规格](openspec/specs/global-hotkeys/spec.md)
