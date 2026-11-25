@@ -528,7 +528,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
-- 2026-11-26 XP-Pen Deco 640 自定义手写板驱动预研（非需求，未建 OpenSpec 变更）：用户态 `IOHIDManager` 方案、三条 HID 通道、私有 12 字节报文与初始化序列、只读映射到完整接管的分阶段路线：[预研报告](Docs/research/2026-11-26-deco640-driver-research.md) · [HID 探针](Tools/DecoProbe.swift)
+- 2026-11-26 XP-Pen Deco 640 自定义手写板驱动预研（非需求，未建 OpenSpec 变更）：用户态 `IOHIDManager` 方案、三条 HID 通道、私有 12 字节报文与初始化序列、8+2 可配置按键、等比例画布限制与鼠标光标仲裁、只读映射到完整接管的分阶段路线：[预研报告](Docs/research/2026-11-26-deco640-driver-research.md) · [HID 探针](Tools/DecoProbe.swift)
 - 2026-11-26 移除按钮管理底部选中操作条：点击卡片仅高亮选中，不再弹出「已选 xxx / 重命名 / 删除」底栏，重命名、删除、编辑组合、上移、下移统一走右键菜单：[OpenSpec 变更](openspec/changes/archive/2026-11-26-remove-buttons-grid-selection-bar/proposal.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 按钮管理改为 4 列卡片网格：点击选中、底部操作条、右键重命名/上移/下移/删除；长按 0.5 秒进入拖动准备态，拖动期间只本地预览、松手一次落盘，组内排序并同步菜单栏与手机面板：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/proposal.md) · [设计](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/design.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 副屏控制条改到顶部显示，显示后 5 秒自动隐藏（含触屏），点屏幕任意处可再次唤出，不再常驻挡屏：[OpenSpec 变更](openspec/changes/archive/2026-11-26-screen-chrome-top-auto-hide/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
