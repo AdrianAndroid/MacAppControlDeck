@@ -48,4 +48,26 @@ final class CalendarStoreTests: XCTestCase {
         XCTAssertFalse(text.isEmpty)
         XCTAssertFalse(text == "暂无节假日数据")
     }
+
+    func testTodayIsMarkedForPopoverHighlight() {
+        let now = Date()
+        let day = CalendarDayBuilder.make(date: now, currentMonth: now, calendar: calendar())
+
+        // 下拉面板的今日高亮只依赖 isToday，不读取任何日程数据。
+        XCTAssertTrue(day.isToday)
+        XCTAssertFalse(day.subtitle.isEmpty)
+    }
+
+    func testPopoverDayDataHasNoEventFields() {
+        let target = date(2026, 11, 25)
+        let day = CalendarDayBuilder.make(date: target, currentMonth: target, calendar: calendar())
+
+        // 纯日历契约：下拉面板只消费这些字段，不显示事件圆点/日程。
+        XCTAssertFalse(day.day <= 0)
+        XCTAssertFalse(day.subtitle.isEmpty)
+        XCTAssertFalse(day.lunarFull.isEmpty)
+        XCTAssertFalse(day.weekText.isEmpty)
+        // 节假日徽标是公休标记，不是事件圆点。
+        XCTAssertTrue(day.holidayBadge == nil || day.holidayBadge == "休" || day.holidayBadge == "班")
+    }
 }

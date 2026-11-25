@@ -528,6 +528,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-25 状态栏新增日历图标项，点击弹深色玻璃月历面板（周日首列 / 农历节气 / 今日蓝框 / 节日休班标记，不读 EventKit）：[OpenSpec 变更](openspec/changes/archive/2026-11-25-add-menubar-calendar-popover/proposal.md) · [设计](openspec/changes/archive/2026-11-25-add-menubar-calendar-popover/design.md) · [能力规格](openspec/specs/status-bar/spec.md) · [开源调研](Docs/research/2026-11-25-menubar-calendar-ui-research.md)
 - 2026-11-25 **本机设为正式发版机**（`publish-local.sh` 一键发布、EdDSA 私钥固化到本机、CI 幂等兜底、签名指纹同步为 `E8357462…`）：[本机发布手册](Docs/releases/local-publish.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-25-make-local-machine-primary-release-publisher/proposal.md) · [能力规格](openspec/specs/local-release-publishing/spec.md)
 - 2026-11-25 修复 UI 草图资源缺失与阻塞式提示（资源定位兼容 SwiftPM `Contents/Resources/<bundle>/Sketch`；提示改非模态浮动窗，显示时不再阻塞菜单栏与 F1 截图）：[OpenSpec 变更](openspec/changes/archive/2026-11-25-fix-sketch-resource-and-blocking-alert/proposal.md) · [能力规格](openspec/specs/sketch-lazy-runtime/spec.md)
 - 2026-11-25 状态栏条目拆成独立状态项（CPU / MEM / 网速各自一条，点击各弹自己的菜单；去掉分段命中，位置各自 ⌘-拖持久）：[OpenSpec 变更](openspec/changes/archive/2026-11-25-split-statusbar-items/proposal.md) · [设计](openspec/changes/archive/2026-11-25-split-statusbar-items/design.md) · [能力规格](openspec/specs/status-bar/spec.md)

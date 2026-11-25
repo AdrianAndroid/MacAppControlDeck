@@ -16,6 +16,38 @@
 - 适配层：`Sources/MacShotKit/OverlayCoordinator.swift`、`Sources/MacShotKit/MacShotController.swift`
 - 集成方法与验收标准见 `Docs/architecture/UPSTREAM_PORTING.md`。
 
+## Mijick/CalendarView
+
+- 上游：https://github.com/Mijick/CalendarView
+- 版本：`1.1.1`（SwiftPM `exact` 锁定）
+- 许可证：MIT License
+- 引入方式：SwiftPM 依赖，仅用于状态栏日历下拉面板的月历网格；农历/节气/宜忌数据仍由本项目现有的 `lunar-swift` 提供。
+- 自定义部分：`DayView` / `MonthLabel` / `WeekdaysView` 在本项目 `Sources/MacAppControlDeck/Modules/Calendar/CalendarPopoverView.swift` 中实现，用于中文农历显示；不修改上游源码。
+
+```
+MIT License
+
+Copyright ©2023 Mijick. Licensed under MIT License.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## 说明
 
 - `remote`（电脑遥控）模块不包含 macshot 代码，也不依赖 `MacShotKit`。

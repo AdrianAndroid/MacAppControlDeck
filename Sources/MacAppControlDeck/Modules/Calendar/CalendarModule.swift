@@ -21,6 +21,7 @@ final class CalendarModule: FeatureModule {
     static let shared = CalendarModule()
 
     private var runtime: CalendarRuntime?
+    private var statusEntry: CalendarStatusBarEntry?
 
     var id: String { Self.id }
     var title: String { "万年历" }
@@ -33,12 +34,18 @@ final class CalendarModule: FeatureModule {
     var isRuntimeLoaded: Bool { runtime != nil }
 
     func start() {
+        if statusEntry == nil {
+            let entry = CalendarStatusBarEntry()
+            statusEntry = entry
+            StatusBarRegistry.shared.register(entry)
+        }
         if isResident {
             _ = ensureRuntime()
         }
     }
 
     func stop() {
+        statusEntry?.closePanel()
         releaseRuntime()
     }
 
