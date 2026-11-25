@@ -41,9 +41,9 @@ struct PetDockView: View {
                 }
             }
             .padding(.horizontal, padding)
-            .frame(width: contentWidth, alignment: .leading)
+            .frame(width: contentWidth, height: metrics.height, alignment: .leading)
             .offset(x: clampedOffset(maxScroll))
-            .frame(width: geo.size.width, alignment: .leading)
+            .frame(width: geo.size.width, height: metrics.height, alignment: .leading)
             .clipped()
             .mask(
                 HStack(spacing: 0) {

@@ -244,8 +244,8 @@ struct PetDockMetrics {
     let size: PetSize
     let width: CGFloat
 
-    /// 上下内边距，决定条高。
-    var paddingY: CGFloat { 6 }
+    /// 上下内边距，决定条高；留够 8pt 让运行圆点（略微溢出图标 1pt）完整显示。
+    var paddingY: CGFloat { 8 }
     /// 左右内边距，比上下略小一点，贴边更紧凑。
     var paddingX: CGFloat { 4 }
     var tile: CGFloat {
