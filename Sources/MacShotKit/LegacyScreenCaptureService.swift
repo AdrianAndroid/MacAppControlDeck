@@ -59,7 +59,7 @@ enum LegacyScreenCaptureService {
     }
 
     static func capture(window: WindowCaptureTarget) -> CGImage? {
-        let image = CGWindowListCreateImage(
+        let image = CGWindowListCreateImageCompat(
             .null,
             .optionIncludingWindow,
             window.windowID,

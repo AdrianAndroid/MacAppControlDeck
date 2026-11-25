@@ -96,7 +96,7 @@ class ScreenCaptureManager {
                 height: screen.frame.height)
             timing?("CGWindowListCreateImage begin screen=\(index)")
             guard
-                let image = CGWindowListCreateImage(
+                let image = CGWindowListCreateImageCompat(
                     cgRect, .optionAll, kCGNullWindowID, .bestResolution
                 )
             else {
@@ -496,29 +496,6 @@ class ScreenCaptureManager {
                                 }
                                 timing?("SCScreenshotManager capture end display=\(index) pixels=\(image.width)x\(image.height)")
                                 return ScreenCapture(screen: screen, image: image)
-                            } else {
-                                // macOS 12.3–13.x: use CGWindowListCreateImage which returns
-                                // a CGImage directly — no pixel buffer format ambiguity.
-                                // Convert the AppKit screen frame (bottom-left origin) to the
-                                // CGDisplay coordinate space (top-left origin) for the capture rect.
-                                let mainHeight =
-                                    NSScreen.screens.first?.frame.height ?? screen.frame.height
-                                let cgRect = CGRect(
-                                    x: screen.frame.origin.x,
-                                    y: mainHeight - screen.frame.origin.y - screen.frame.height,
-                                    width: screen.frame.width,
-                                    height: screen.frame.height)
-                                timing?("fallback CGWindowListCreateImage begin display=\(index)")
-                                guard
-                                    let image = CGWindowListCreateImage(
-                                        cgRect, .optionAll, kCGNullWindowID, .bestResolution
-                                    )
-                                else {
-                                    timing?("fallback CGWindowListCreateImage failed display=\(index)")
-                                    return nil
-                                }
-                                timing?("fallback CGWindowListCreateImage end display=\(index) pixels=\(image.width)x\(image.height)")
-                                return ScreenCapture(screen: screen, image: image)
                             }
                         }
                     }
@@ -550,7 +527,7 @@ class ScreenCaptureManager {
     /// On macOS 12–13, uses `CGWindowListCreateImage` targeting the specific window.
     static func captureWindow(windowID: CGWindowID, screen: NSScreen) async -> CGImage? {
         func captureViaWindowList() -> CGImage? {
-            CGWindowListCreateImage(.null, .optionIncludingWindow, windowID, .bestResolution)
+            CGWindowListCreateImageCompat(.null, .optionIncludingWindow, windowID, .bestResolution)
         }
 
         if #available(macOS 14.0, *) {

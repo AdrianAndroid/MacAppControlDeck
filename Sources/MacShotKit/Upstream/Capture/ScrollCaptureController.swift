@@ -303,7 +303,7 @@ final class ScrollCaptureController {
 
         let imageOption: CGWindowImageOption = [.boundsIgnoreFraming]
 
-        guard let image = CGWindowListCreateImage(
+        guard let image = CGWindowListCreateImageCompat(
             captureRectCG, listOption, windowID, imageOption
         ) else { return nil }
 

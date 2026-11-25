@@ -76,15 +76,26 @@ deck_assert_stable_signature() {
 
 deck_sparkle_framework() {
   local bin_dir="$1"
-  local artifacts
-  artifacts="$(cd "$(dirname "$bin_dir")/.." && pwd)/artifacts/sparkle/Sparkle/Sparkle.xcframework"
-  local framework="$artifacts/macos-arm64_x86_64/Sparkle.framework"
-  if [[ ! -d "$framework" ]]; then
-    print -u2 -- "错误：找不到 Sparkle.framework：$framework"
-    print -u2 -- "请先执行 swift package resolve 下载 Sparkle 二进制产物。"
-    return 1
-  fi
-  print -r -- "$framework"
+  local candidates=(
+    "$(cd "$(dirname "$bin_dir")/.." && pwd)/artifacts/sparkle/Sparkle/Sparkle.xcframework"
+    "$ROOT/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework"
+    "$ROOT/.build-arm64/artifacts/sparkle/Sparkle/Sparkle.xcframework"
+    "$ROOT/.build-x86_64/artifacts/sparkle/Sparkle/Sparkle.xcframework"
+  )
+  local root
+  for root in "${candidates[@]}"; do
+    if [[ -d "$root/macos-arm64_x86_64/Sparkle.framework" ]]; then
+      print -r -- "$root/macos-arm64_x86_64/Sparkle.framework"
+      return 0
+    fi
+  done
+  print -u2 -- "错误：找不到 Sparkle.framework（已尝试）："
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    print -u2 -- "  $candidate"
+  done
+  print -u2 -- "请先执行 swift package resolve 下载 Sparkle 二进制产物。"
+  return 1
 }
 
 deck_embed_sparkle() {
