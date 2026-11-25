@@ -459,8 +459,8 @@
   .chrome {
     position: fixed;
     left: 50%;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--u) * 4);
-    transform: translate(-50%, calc(var(--u) * 2));
+    top: calc(env(safe-area-inset-top, 0px) + var(--u) * 2);
+    transform: translate(-50%, calc(var(--u) * -2));
     display: flex; align-items: center; gap: calc(var(--u) * 1.4);
     padding: calc(var(--u) * 1.6) calc(var(--u) * 2);
     border-radius: 999px;
@@ -983,8 +983,8 @@
 
   // ---- 控制条 ----
   var hideTimer = null;
-  // 手机/平板等触屏设备：控制条常驻，避免 5 秒自动隐藏后点不到刷新/全屏。
-  var coarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  // 控制条点屏幕任意处唤出，5 秒后自动隐藏，避免一直挡在副屏上。
+  // 触屏同样自动隐藏：用户轻点屏幕即可再次唤出。
   function showUI() {
     frame.classList.add('ui');
     keepUIVisible();
@@ -992,7 +992,6 @@
   function keepUIVisible() {
     frame.classList.add('ui');
     if (hideTimer) { clearTimeout(hideTimer); }
-    if (coarsePointer) { return; }
     hideTimer = setTimeout(function () { frame.classList.remove('ui'); }, 5000);
   }
   frame.addEventListener('pointerdown', function (event) {

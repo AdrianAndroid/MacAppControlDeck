@@ -57,18 +57,21 @@ class PinWindowController {
     /// A new pin never covers more than this much of its screen.
     private nonisolated static let maxScreenFraction: CGFloat = 0.8
 
-    /// `source` is only honored when the user chose `PinPlacement.captureLocation`.
+    /// A pin straight from a capture selection falls back onto that exact
+    /// region (`source`). Pins with no on-screen origin (history, clipboard,
+    /// thumbnails, editor) use the placement preference / screen center.
     init(image: NSImage, source: PinSource? = nil) {
         self.image = image
 
         let size = image.size
+        let placement = Self.placement(for: source)
         // An initializer can't bail, and a pin is worth showing even if macOS
         // reports no display right now (it will land on one when a display
         // returns), so fall back to a plausible frame.
         let frame = Self.initialFrame(
             imageSize: size,
             source: source,
-            placement: PinPlacement.current,
+            placement: placement,
             screenFrames: NSScreen.screens.map(\.frame),
             preferredVisibleFrame: NSScreen.preferredVisibleFrame
         )
@@ -112,6 +115,12 @@ class PinWindowController {
         panel.contentView = view
         self.window = panel
         self.pinView = view
+    }
+
+    /// 区域截图（带 source）必须落在原框选位置，不受偏好开关干扰；
+    /// 无来源的 pin（历史 / 剪贴板 / 缩略图 / 编辑器）沿用偏好 / 居中。
+    nonisolated static func placement(for source: PinSource?) -> PinPlacement {
+        source == nil ? PinPlacement.current : .captureLocation
     }
 
     /// The pin's first window frame: centered on the preferred screen, or with

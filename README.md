@@ -528,8 +528,10 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-26 副屏控制条改到顶部显示，显示后 5 秒自动隐藏（含触屏），点屏幕任意处可再次唤出，不再常驻挡屏：[OpenSpec 变更](openspec/changes/archive/2026-11-26-screen-chrome-top-auto-hide/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-25 区域截图钉图落在原截图位置：接通 `PinSource`，有来源强制原位（大图围绕选区中心缩放、跨屏保持原尺寸、来源屏缺失回退居中），无来源（历史/剪贴板/缩略图/编辑器）仍居中：[OpenSpec 变更](openspec/changes/archive/2026-11-25-pin-at-capture-location/proposal.md) · [能力规格](openspec/specs/capture-overlay-parity/spec.md)
 - 2026-11-25 去掉桌宠卡片内层背景与内层边框，只保留 `.pet-dock` 一层外框，消除「两个边框」：[OpenSpec 变更](openspec/changes/archive/2026-11-25-remove-pet-inner-background/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-pet/screen-pet-no-bg.png)
-- 2026-11-25 副屏刷新真正生效：点「↻」执行整页重载；Mac 端设置变更约 1 秒内触发一次整页重载并带 `rev` 基线防循环；手机等触屏设备控制条常驻：[OpenSpec 变更](openspec/changes/archive/2026-11-25-screen-real-reload/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-25 副屏刷新真正生效：点「↻」执行整页重载；Mac 端设置变更约 1 秒内触发一次整页重载并带 `rev` 基线防循环：[OpenSpec 变更](openspec/changes/archive/2026-11-25-screen-real-reload/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-25 副屏底栏卡片等高对齐：桌宠框与倒计时卡片撑满同一 120px 底栏、顶边底边齐平，主区与底栏间留统一间距且主区 `flex:1` 填满剩余高度：[OpenSpec 变更](openspec/changes/archive/2026-11-25-align-screen-dock-cards/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-pet/screen-layout-aligned.png)
 - 2026-11-25 副屏设置统一到 Mac 端：控制条只保留强制刷新与全屏；尺寸 / 桌宠 / 常亮改在「设置 → 副屏」配置并经 `/api/screen/display` 下发；副屏 HTML 抽为资源文件，改页面从 6.5 分钟降到约 4 秒：[OpenSpec 变更](openspec/changes/archive/2026-11-25-centralize-screen-settings/proposal.md) · [设计](openspec/changes/archive/2026-11-25-centralize-screen-settings/design.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-pet/screen-controlbar-final.png)
 - 2026-11-25 副屏三栏改为竖向撑满 + 固定底栏（桌宠框 / 下班倒计时 / 天气信息同高同基线），移除顶部标题并把城市名下移；桌宠支持像素猫/小狗/机器人本地换宠、固定或随机切换，修复刷新按钮并显示「已刷新」：[OpenSpec 变更](openspec/changes/archive/2026-11-25-refine-screen-pet-and-layout/proposal.md) · [设计](openspec/changes/archive/2026-11-25-refine-screen-pet-and-layout/design.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-pet/)

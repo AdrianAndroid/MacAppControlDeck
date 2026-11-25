@@ -129,7 +129,8 @@ final class OverlayCoordinator: NSObject, OverlayWindowControllerDelegate, PinWi
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage,
                               annotationData: CaptureAnnotationData?, source: PinSource?) {
         finishOverlay(controller)
-        showPin(image: image)
+        // 把框选的原始屏幕位置交给钉图窗口，让它落在「在哪里截图的就钉在哪里」。
+        showPin(image: image, source: source)
     }
 
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?) {
@@ -512,7 +513,12 @@ final class OverlayCoordinator: NSObject, OverlayWindowControllerDelegate, PinWi
     }
 
     func showPin(image: NSImage) {
-        let pin = PinWindowController(image: image)
+        showPin(image: image, source: nil)
+    }
+
+    /// 区域截图钉图带上原始框选位置；其他来源（历史、编辑器、缩略图）没有来源位置，居中显示。
+    func showPin(image: NSImage, source: PinSource?) {
+        let pin = PinWindowController(image: image, source: source)
         pin.delegate = self
         pin.show()
         pins.append(pin)
