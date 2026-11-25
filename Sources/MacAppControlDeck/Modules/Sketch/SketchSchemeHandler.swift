@@ -12,19 +12,38 @@ final class SketchSchemeHandler: NSObject, WKURLSchemeHandler {
         self.root = root.standardizedFileURL
     }
 
+    /// 找 `index.html` 所在的目录。
+    /// SwiftPM 生成的资源 bundle 是真正的 .bundle：`.bundle/Contents/Resources/Sketch`；
+    /// 早期构建也出现过资源直接摊在 `Contents/Resources/Sketch` 的情况，两种都查。
     static func resourceRoot() -> URL? {
-        let bundleName = "MacAppControlDeck_MacAppControlDeck.bundle"
+        let fm = FileManager.default
         var candidates: [URL] = []
-        if let resources = Bundle.main.resourceURL {
-            candidates.append(resources.appendingPathComponent(bundleName).appendingPathComponent("Sketch"))
-            candidates.append(resources.appendingPathComponent("Sketch"))
+
+        func appendBundleCandidates(_ container: URL) {
+            guard let items = try? fm.contentsOfDirectory(at: container,
+                                                          includingPropertiesForKeys: nil) else { return }
+            for item in items where item.pathExtension == "bundle" {
+                if let bundle = Bundle(url: item),
+                   let url = bundle.url(forResource: "Sketch", withExtension: nil) {
+                    candidates.append(url)
+                }
+                candidates.append(item.appendingPathComponent("Contents/Resources/Sketch"))
+                candidates.append(item.appendingPathComponent("Sketch"))
+            }
+            candidates.append(container.appendingPathComponent("Sketch"))
         }
-        candidates.append(
-            Bundle.main.bundleURL.appendingPathComponent(bundleName).appendingPathComponent("Sketch")
-        )
+
+        if let resources = Bundle.main.resourceURL {
+            appendBundleCandidates(resources)
+        }
+        appendBundleCandidates(Bundle.main.bundleURL)
+
+        var seen = Set<String>()
         for url in candidates {
-            if FileManager.default.fileExists(atPath: url.appendingPathComponent("index.html").path) {
-                return url
+            let path = url.standardizedFileURL.path
+            guard seen.insert(path).inserted else { continue }
+            if fm.fileExists(atPath: path + "/index.html") {
+                return url.standardizedFileURL
             }
         }
         return nil

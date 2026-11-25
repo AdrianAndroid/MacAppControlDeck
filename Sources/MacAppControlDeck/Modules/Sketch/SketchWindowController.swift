@@ -603,12 +603,9 @@ final class SketchWindowController: NSObject, NSWindowDelegate, WKNavigationDele
         return text
     }
 
+    /// 非模态提示：`runModal()` 会让菜单栏、全局快捷键（含 F1 截图）全部失效。
     private func showAlert(title: String, message: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.addButton(withTitle: "好")
-        alert.runModal()
+        NonModalAlert.shared.show(title: title, message: message)
     }
 
     // MARK: - 窗口代理

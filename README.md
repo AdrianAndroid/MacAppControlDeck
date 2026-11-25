@@ -529,6 +529,7 @@ Docs/archive/                    # 历史归档
 ## 归档
 
 - 2026-11-25 **本机设为正式发版机**（`publish-local.sh` 一键发布、EdDSA 私钥固化到本机、CI 幂等兜底、签名指纹同步为 `E8357462…`）：[本机发布手册](Docs/releases/local-publish.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-25-make-local-machine-primary-release-publisher/proposal.md) · [能力规格](openspec/specs/local-release-publishing/spec.md)
+- 2026-11-25 修复 UI 草图资源缺失与阻塞式提示（资源定位兼容 SwiftPM `Contents/Resources/<bundle>/Sketch`；提示改非模态浮动窗，显示时不再阻塞菜单栏与 F1 截图）：[OpenSpec 变更](openspec/changes/archive/2026-11-25-fix-sketch-resource-and-blocking-alert/proposal.md) · [能力规格](openspec/specs/sketch-lazy-runtime/spec.md)
 - 2026-11-25 状态栏条目拆成独立状态项（CPU / MEM / 网速各自一条，点击各弹自己的菜单；去掉分段命中，位置各自 ⌘-拖持久）：[OpenSpec 变更](openspec/changes/archive/2026-11-25-split-statusbar-items/proposal.md) · [设计](openspec/changes/archive/2026-11-25-split-statusbar-items/design.md) · [能力规格](openspec/specs/status-bar/spec.md)
 - 2026-11-24 **v0.4.1 发布**（自动升级 universal 单包 + PureMac 柠檬式 UI v3 + 菜单栏三状态项 + 实时网速 + MEM 内存占用菜单）：[发布说明](Docs/releases/v0.4.1.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
 - 2026-11-24 PureMac 菜单栏拆成 CPU/MEM/网速三个独立状态项、新增实时网速（getifaddrs 差分采样、定宽不抖、上下同色同字号、零 TCC 权限）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-netspeed/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [柠檬网速调研](Docs/research/2026-11-24-lemon-netspeed-research.md)
