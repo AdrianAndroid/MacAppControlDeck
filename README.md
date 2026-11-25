@@ -312,7 +312,7 @@ open /Applications/MacAppControlDeck.app
 - **布局**：横屏为严格等宽的三栏「时钟 | 月历 | 天气」，三栏共用「小标题 + 分隔线」头部节奏；月历独占整列高度，5 行不挤压；天气栏自上而下是「当前 → 现在+4 小时 → 5 天」；竖屏为「时钟 → 天气（含小时条与 5 天预报）→ 月历」；未配置天气时回到「时钟 + 月历」两栏；整页不滚动
 - **天气内容**：右对齐城市、湿度与降水概率、单色大图标 + 48px 温度、体感；下方两行紧凑小时条显示「现在 + 4 小时」（时间 / 图标+温度，按 Mac 时区）；再下方「WEATHER FORECAST」四列表格展示 5 天；底部显示更新时间和「和风天气」署名；点按屏幕可唤出「↻」强制刷新
 - **三档尺寸**：点按屏幕唤出控制条，选「小 / 中 / 大」，选择会记住；5 秒后控制条自动隐藏
-- **状态栏公共层**：模块不再各自创建状态项；PureMac 的 CPU / MEM / 网速合并成**一条**状态项、内部三格各自可点（顺序固定），模块关闭时自动消失；设置 →「状态栏」统一管理勾选（模块关闭时置灰保留）
+- **状态栏公共层**：模块不再各自创建状态项；PureMac 的 CPU / MEM / 网速各自是**独立状态项**，点哪个弹哪个的菜单（CPU 看占用最高的应用、MEM 看内存排行、网速看 ↑/↓ 速率，含「打开 PureMac…」），模块关闭时自动消失；设置 →「状态栏」统一管理勾选（模块关闭时置灰保留）
 - **上班/下班主题**：月历栏底部显示「距下班 04:33:12 / 还剩 72%」，上班前「距上班」、下班后转绿正计时；只有一种布局，放不下时整卡等比缩小（480×320 约 0.70）；左侧 14 个内联动图（工作中 12 个每 5 分钟轮播、每小时错位，剩余 50%/25%/10% 插播对应场景，45 秒一次速度微变化；未上班咖啡、已下班小人各 1 个不轮播）；上班/下班时间在 设置 → 副屏 → 下班倒计时 设置（每天同一套时间，暂不区分工作日与节假日）
 
 - **保持常亮**：浏览器支持 Wake Lock 时自动申请，并在回到前台后重新申请；不支持时如实显示「不可用」
@@ -529,6 +529,7 @@ Docs/archive/                    # 历史归档
 ## 归档
 
 - 2026-11-25 **本机设为正式发版机**（`publish-local.sh` 一键发布、EdDSA 私钥固化到本机、CI 幂等兜底、签名指纹同步为 `E8357462…`）：[本机发布手册](Docs/releases/local-publish.md) · [OpenSpec 变更](openspec/changes/archive/2026-11-25-make-local-machine-primary-release-publisher/proposal.md) · [能力规格](openspec/specs/local-release-publishing/spec.md)
+- 2026-11-25 状态栏条目拆成独立状态项（CPU / MEM / 网速各自一条，点击各弹自己的菜单；去掉分段命中，位置各自 ⌘-拖持久）：[OpenSpec 变更](openspec/changes/archive/2026-11-25-split-statusbar-items/proposal.md) · [设计](openspec/changes/archive/2026-11-25-split-statusbar-items/design.md) · [能力规格](openspec/specs/status-bar/spec.md)
 - 2026-11-24 **v0.4.1 发布**（自动升级 universal 单包 + PureMac 柠檬式 UI v3 + 菜单栏三状态项 + 实时网速 + MEM 内存占用菜单）：[发布说明](Docs/releases/v0.4.1.md) · [能力规格](openspec/specs/system-cleaner/spec.md)
 - 2026-11-24 PureMac 菜单栏拆成 CPU/MEM/网速三个独立状态项、新增实时网速（getifaddrs 差分采样、定宽不抖、上下同色同字号、零 TCC 权限）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-netspeed/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md) · [柠檬网速调研](Docs/research/2026-11-24-lemon-netspeed-research.md)
 - 2026-11-24 MEM 状态项点击弹出柠檬式内存占用菜单（即时采样、按内存降序、应用行一键正常退出、系统进程禁用）：[OpenSpec 变更](openspec/changes/archive/2026-11-24-add-menubar-memory-menu/proposal.md) · [能力规格](openspec/specs/system-cleaner/spec.md)

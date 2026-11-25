@@ -12,6 +12,7 @@ struct StatusBarEntryInfo: Identifiable {
     let available: Bool
 }
 
+/// 设置页分组快照：`groupID` 只用于设置页归类，不再合并成同一条状态项。
 struct StatusBarGroupSnapshot: Identifiable {
     let id: String          // groupID
     let moduleID: String
@@ -19,8 +20,8 @@ struct StatusBarGroupSnapshot: Identifiable {
     let entries: [StatusBarEntryInfo]
 }
 
-/// 状态栏公共注册中心：模块注册条目，这里统一决定分组、顺序、开关与渲染。
-/// 一个 group 对应一个 NSStatusItem，组内每个条目是一格，各自可点、可各自弹菜单。
+/// 状态栏公共注册中心：模块只注册条目，这里统一决定顺序、开关与渲染。
+/// 每个条目一个独立 `NSStatusItem`，各自可点、各自弹自己的菜单。
 @MainActor
 final class StatusBarRegistry: ObservableObject {
     static let shared = StatusBarRegistry()
@@ -28,7 +29,7 @@ final class StatusBarRegistry: ObservableObject {
     @Published private(set) var snapshots: [StatusBarGroupSnapshot] = []
 
     private var entries: [StatusBarEntry] = []
-    private var controls: [String: StatusBarGroupControl] = [:]
+    private var controls: [String: StatusBarItemControl] = [:]
     private var bag = Set<AnyCancellable>()
 
     private init() {
@@ -60,21 +61,27 @@ final class StatusBarRegistry: ObservableObject {
         StatusBarStore.shared.setVisible(visible, for: entry)
     }
 
-    /// 重建所有分组：先算出每组应显示的条目，再让分组控件刷新。
+    /// 每个可见条目一条状态项，按 `order` 顺序创建；不再出现的条目拆掉自己的状态项。
     func reload() {
-        var grouped: [String: [StatusBarEntry]] = [:]
-        for entry in entries where entry.isAvailable && StatusBarStore.shared.isVisible(entry) {
-            grouped[entry.groupID, default: []].append(entry)
-        }
-        for (groupID, list) in grouped {
-            list.sorted { $0.order < $1.order }
-            let control = controls[groupID] ?? StatusBarGroupControl(groupID: groupID)
-            controls[groupID] = control
-            control.rebuild(entries: list.sorted { $0.order < $1.order })
-        }
-        for (groupID, control) in controls where grouped[groupID] == nil {
+        let visible = entries
+            .filter { $0.isAvailable && StatusBarStore.shared.isVisible($0) }
+            .sorted { lhs, rhs in
+                if lhs.order == rhs.order { return lhs.id < rhs.id }
+                return lhs.order < rhs.order
+            }
+
+        let wanted = Set(visible.map(\.id))
+        for (id, control) in controls where !wanted.contains(id) {
             control.teardown()
-            controls.removeValue(forKey: groupID)
+            controls.removeValue(forKey: id)
+        }
+        // 创建顺序不影响最终左→右位置：系统按 autosaveName 记住的位置摆放，
+        // 只有新名字的条目才会排到默认位置。
+        for entry in visible {
+            if let control = controls[entry.id], control.isBuilt { continue }
+            let control = controls[entry.id] ?? StatusBarItemControl(entryID: entry.id)
+            controls[entry.id] = control
+            control.rebuild(entry: entry)
         }
         publishSnapshots()
     }
@@ -102,104 +109,81 @@ final class StatusBarRegistry: ObservableObject {
     }
 }
 
-/// 分组控件：一个 NSStatusItem，内部横向摆放各条目的格子。
+/// 单条目状态项：一个 `NSStatusItem` 只承载一个条目，点击由该条目自己决定弹什么菜单。
 @MainActor
-final class StatusBarGroupControl {
-    private let groupID: String
+final class StatusBarItemControl {
+    /// 格子与按钮边缘的内缩。保持 0：和最初的独立状态项一致，`variableLength`
+    /// 会把状态项收到内容宽度，三条指标之间只留下系统本身的窄间距。
+    private static let horizontalPadding: CGFloat = 0
+
+    let entryID: String
     private var item: NSStatusItem?
-    private var cells: [StatusBarCellView] = []
+    private var cell: StatusBarCellView?
 
-    init(groupID: String) { self.groupID = groupID }
+    var isBuilt: Bool { item != nil }
 
-    func rebuild(entries: [StatusBarEntry]) {
+    init(entryID: String) { self.entryID = entryID }
+
+    func rebuild(entry: StatusBarEntry) {
         teardown()
-        guard !entries.isEmpty else { return }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.autosaveName = "MacAppControlDeck.group.\(groupID)"
-        item.button?.title = ""
-        item.button?.attributedTitle = NSAttributedString(string: "")
+        // 每个条目各自持久化位置，⌘-拖动排位后重启仍保持。
+        // v3：分组/首版 length 时代的位置都作废，按当前顺序重新落位一次。
+        item.autosaveName = "MacAppControlDeck.status.v3.\(entry.id)"
+        guard let button = item.button else { return }
         self.item = item
 
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.alignment = .centerY
-        stack.spacing = 6
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        for entry in entries {
-            let cell = StatusBarCellView(entry: entry)
-            cells.append(cell)
-            stack.addArrangedSubview(cell)
-        }
-
-        guard let button = item.button else { return }
+        button.title = ""
         button.target = self
-        button.action = #selector(statusButtonClicked(_:))
+        button.action = #selector(statusButtonClicked)
         button.sendAction(on: [.leftMouseUp])
-        button.addSubview(stack)
+
+        let cell = StatusBarCellView(entry: entry)
+        cell.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(cell)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 6),
-            stack.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -6),
-            stack.centerYAnchor.constraint(equalTo: button.centerYAnchor)
+            cell.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: Self.horizontalPadding),
+            cell.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -Self.horizontalPadding),
+            cell.centerYAnchor.constraint(equalTo: button.centerYAnchor)
         ])
-        item.length = max(24, stack.fittingSize.width + 12)
+        self.cell = cell
+
+        // 不写死 length：`variableLength` 让状态项收到内容宽度，条目之间才挨得紧；
+        // 显式赋 length 会给每一项加上自己的留白，三条看起来就散了。
     }
 
-    /// NSStatusBarButton 会吞掉子视图的 mouseDown，这里统一在按钮层做分段命中。
-    @objc private func statusButtonClicked(_ sender: NSStatusBarButton) {
-        // currentEvent 在部分系统版本里拿不到，回退到屏幕坐标换算，保证分段命中可用。
-        var point: NSPoint?
-        if let event = NSApp.currentEvent, event.window === sender.window {
-            point = sender.convert(event.locationInWindow, from: nil)
-        } else if let window = sender.window {
-            point = sender.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
-        }
-        guard let location = point else { return }
-        let hit = cells.first { cell in
-            cell.convert(cell.bounds, to: sender).contains(location)
-        }
-        hit?.activateEntry()
+    /// 一个状态项只有一格，直接在按钮层转发给条目，不再做分段命中。
+    @objc private func statusButtonClicked() {
+        cell?.activateEntry()
     }
 
     func teardown() {
         if let item { NSStatusBar.system.removeStatusItem(item) }
         item = nil
-        cells.forEach { $0.removeFromSuperview() }
-        cells = []
+        cell?.removeFromSuperview()
+        cell = nil
     }
-}
-
-/// 只做布局、不参与命中测试的容器：把点击让给外层格子。
-private final class PassthroughView: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// 单个格子：承载条目自己的视图，点击交给条目决定弹菜单还是开窗口。
 @MainActor
 final class StatusBarCellView: NSView {
     private let entry: StatusBarEntry
-    private let content: NSView
+    let content: NSView
 
     init(entry: StatusBarEntry) {
         self.entry = entry
         self.content = entry.makeView()
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        let host = PassthroughView()
-        host.translatesAutoresizingMaskIntoConstraints = false
         content.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(content)
-        addSubview(host)
+        addSubview(content)
         NSLayoutConstraint.activate([
-            host.leadingAnchor.constraint(equalTo: leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: trailingAnchor),
-            host.topAnchor.constraint(equalTo: topAnchor),
-            host.bottomAnchor.constraint(equalTo: bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            content.topAnchor.constraint(equalTo: host.topAnchor),
-            content.bottomAnchor.constraint(equalTo: host.bottomAnchor)
+            content.leadingAnchor.constraint(equalTo: leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            content.topAnchor.constraint(equalTo: topAnchor),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
 
@@ -212,7 +196,6 @@ final class StatusBarCellView: NSView {
     var entryID: String { entry.id }
 
     func activateEntry() {
-        NSLog("StatusBar click: %@", entry.id)
         entry.activate(from: self)
     }
 

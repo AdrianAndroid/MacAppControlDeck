@@ -219,6 +219,16 @@ final class ProcessResourceMonitor: ObservableObject {
         return Array(ProcessResourceMath.sorted(sample.consumers, by: .memory).prefix(max(0, limit)))
     }
 
+    /// 一次性采样：按 CPU 占用降序返回占用最高的应用，供菜单栏 CPU 菜单点击时使用。
+    /// CPU 占用需要两次采样做差分，这里先用同一个采样器打一次基线再隔 400ms 采样一次。
+    func sampleCPUTop(limit: Int) async -> [ProcessResourceConsumer] {
+        let sampler = ProcessResourceSampler()
+        _ = await sampler.sample()
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        let sample = await sampler.sample()
+        return Array(ProcessResourceMath.sorted(sample.consumers, by: .cpu).prefix(max(0, limit)))
+    }
+
     func setActive(_ active: Bool) {
         guard active != isSampling else { return }
         isSampling = active

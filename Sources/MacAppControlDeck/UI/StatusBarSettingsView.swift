@@ -10,7 +10,7 @@ struct StatusBarSettingsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("状态栏")
                     .font(.title2).fontWeight(.semibold)
-                Text("同一组的条目渲染成一条状态项，组内顺序固定；点击每格可打开不同菜单或窗口。模块关闭时该模块的条目置灰并从状态栏移除，重新启用后按原勾选恢复。")
+                Text("每个条目都是独立的状态项，点击各自弹自己的菜单；状态栏先后按固定顺序创建，可用 ⌘-拖动调整，位置会被记住。模块关闭时该模块的条目置灰并从状态栏移除，重新启用后按原勾选恢复。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

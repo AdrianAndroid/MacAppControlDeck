@@ -8,7 +8,7 @@ protocol StatusBarEntry: AnyObject {
     var id: String { get }
     /// 归属模块 id；模块关闭时该条目在设置里置灰且不出现在状态栏。
     var moduleID: String { get }
-    /// 同一组的条目会渲染进同一个 NSStatusItem，组内顺序由 order 决定。
+    /// 仅用于设置页归类；每个条目各自渲染成独立 NSStatusItem，状态栏先后由 order 决定。
     var groupID: String { get }
     var order: Int { get }
     /// 设置页展示文案。

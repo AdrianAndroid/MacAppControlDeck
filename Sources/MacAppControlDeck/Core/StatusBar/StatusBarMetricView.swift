@@ -27,6 +27,15 @@ final class StatusBarMetricView: NSView {
 
     /// 网速列：等宽数字字体，上下两行同字号（9pt），避免位数变化抖动、上下字号不一。
     static let netSpeedFont = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
+    /// CPU / 内存百分比列固定宽度：按最宽模板 "100%" 计算，避免 9% → 10% 时状态项宽度抖动。
+    static let percentColumnWidth: CGFloat = {
+        let value = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let label = NSFont.systemFont(ofSize: 8, weight: .regular)
+        let valueWidth = ("100%" as NSString).size(withAttributes: [.font: value]).width
+        let labelWidth = ("CPU" as NSString).size(withAttributes: [.font: label]).width
+        return max(valueWidth, labelWidth) + 3 * 2
+    }()
+
     /// 网速列固定宽度，按最宽模板 "↑ 999.9 M/s" 计算一次，之后恒定。
     static let netSpeedColumnWidth: CGFloat = {
         let w = ("↑ 999.9 M/s" as NSString).size(withAttributes: [.font: netSpeedFont]).width
