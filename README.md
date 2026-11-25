@@ -528,6 +528,7 @@ Docs/archive/                    # 历史归档
 
 ## 归档
 
+- 2026-11-26 按钮管理改为 4 列卡片网格：点击选中、底部操作条、右键重命名/上移/下移/删除；长按 0.5 秒进入拖动准备态，拖动期间只本地预览、松手一次落盘，组内排序并同步菜单栏与手机面板：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/proposal.md) · [设计](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/design.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 副屏控制条改到顶部显示，显示后 5 秒自动隐藏（含触屏），点屏幕任意处可再次唤出，不再常驻挡屏：[OpenSpec 变更](openspec/changes/archive/2026-11-26-screen-chrome-top-auto-hide/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-25 区域截图钉图落在原截图位置：接通 `PinSource`，有来源强制原位（大图围绕选区中心缩放、跨屏保持原尺寸、来源屏缺失回退居中），无来源（历史/剪贴板/缩略图/编辑器）仍居中：[OpenSpec 变更](openspec/changes/archive/2026-11-25-pin-at-capture-location/proposal.md) · [能力规格](openspec/specs/capture-overlay-parity/spec.md)
 - 2026-11-25 去掉桌宠卡片内层背景与内层边框，只保留 `.pet-dock` 一层外框，消除「两个边框」：[OpenSpec 变更](openspec/changes/archive/2026-11-25-remove-pet-inner-background/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-pet/screen-pet-no-bg.png)
