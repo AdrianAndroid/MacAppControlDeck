@@ -281,6 +281,7 @@ struct ButtonsSettingsView: View {
                             }
                         }
                     }
+                    .highPriorityGesture(gridPressGesture(for: group))
                     .padding(.horizontal, 4)
                     .padding(.bottom, 4)
                 }
@@ -352,7 +353,6 @@ struct ButtonsSettingsView: View {
             }
         )
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .gesture(pressGesture(for: button))
         .onHover { hovering in
             if hovering {
                 hoveredID = button.id
@@ -381,29 +381,33 @@ struct ButtonsSettingsView: View {
         .zIndex(armed ? 2 : 0)
     }
 
-    private func pressGesture(for button: ButtonConfig) -> some Gesture {
+    /// 手势挂在网格容器上，而不是单张卡片上。
+    /// 拖动时卡片会被替换成占位视图；如果手势属于卡片，卡片一消失手势就会被取消，
+    /// 浮层会停在原地。容器在整段拖动中始终存在，才能持续收到 onChanged。
+    private func gridPressGesture(for group: ButtonGridGroup) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .named(coordinateSpaceName))
             .onChanged { value in
-                handlePressChanged(button, value: value)
+                handleGridPressChanged(group: group, value: value)
             }
             .onEnded { value in
-                handlePressEnded(button, value: value)
+                handleGridPressEnded(group: group, value: value)
             }
     }
 
-    private func handlePressChanged(_ button: ButtonConfig, value: DragGesture.Value) {
-        if dragButton?.id == button.id {
+    private func handleGridPressChanged(group: ButtonGridGroup, value: DragGesture.Value) {
+        if dragButton?.id != nil {
             updateDrag(value.location)
             return
         }
-        if invalidatedPressID == button.id {
-            return
+
+        if pressingID == nil {
+            guard let hit = hitButton(at: value.startLocation, in: group) else { return }
+            beginPress(hit, value: value)
         }
 
-        if pressingID != button.id {
-            beginPress(button, value: value)
-        }
-        guard pressingID == button.id else { return }
+        guard let pressingID,
+              let button = state.buttons.first(where: { $0.id == pressingID }),
+              invalidatedPressID != button.id else { return }
 
         let distance = hypot(value.translation.width, value.translation.height)
         if armedID == button.id {
@@ -413,6 +417,26 @@ struct ButtonsSettingsView: View {
         } else if distance > 8 {
             invalidatePress()
         }
+    }
+
+    private func hitButton(at point: CGPoint, in group: ButtonGridGroup) -> ButtonConfig? {
+        let ordered = groupButtons(for: group)
+        for button in ordered {
+            if let frame = frames[button.id], frame.contains(point) {
+                return button
+            }
+        }
+        // 卡片有圆角与阴影，边缘 6pt 内仍按最近卡片处理，避免点在间隙时完全不响应。
+        return ordered
+            .compactMap { button -> (ButtonConfig, CGFloat)? in
+                guard let frame = frames[button.id] else { return nil }
+                let dx = max(0, max(frame.minX - point.x, point.x - frame.maxX))
+                let dy = max(0, max(frame.minY - point.y, point.y - frame.maxY))
+                let distance = hypot(dx, dy)
+                return distance <= 6 ? (button, distance) : nil
+            }
+            .min { $0.1 < $1.1 }?
+            .0
     }
 
     private func beginPress(_ button: ButtonConfig, value: DragGesture.Value) {
@@ -499,9 +523,15 @@ struct ButtonsSettingsView: View {
                                                   order: order)
     }
 
-    private func handlePressEnded(_ button: ButtonConfig, value: DragGesture.Value) {
+    private func handleGridPressEnded(group: ButtonGridGroup, value: DragGesture.Value) {
         longPressTask?.cancel()
         longPressTask = nil
+
+        guard let pressingID,
+              let button = state.buttons.first(where: { $0.id == pressingID }) else {
+            resetPressState()
+            return
+        }
 
         if dragButton?.id == button.id {
             updateDrag(value.location)
