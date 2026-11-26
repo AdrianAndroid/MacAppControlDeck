@@ -12,19 +12,8 @@ final class ScreenDisplaySettingsTests: XCTestCase {
         XCTAssertEqual(config.petSwitchNonce, 0)
         XCTAssertTrue(config.petVisible)
         XCTAssertTrue(config.petLive)
-        XCTAssertTrue(config.petChase)
-        XCTAssertEqual(config.petChaseInterval, 90)
     }
 
-    func testChaseIntervalNormalizes() {
-        var config = ScreenDisplayConfig.default
-        config.petChaseInterval = 7
-        XCTAssertEqual(config.normalized.petChaseInterval, 90)
-        config.petChaseInterval = 180
-        XCTAssertEqual(config.normalized.petChaseInterval, 180)
-        XCTAssertTrue(ScreenDisplayConfig.validChaseIntervals.contains(30))
-        XCTAssertTrue(ScreenDisplayConfig.validChaseIntervals.contains(60))
-    }
 
     func testNormalizedClampsInvalidValues() {
         let config = ScreenDisplayConfig(size: "xl", petMode: "weird", petId: "bird",

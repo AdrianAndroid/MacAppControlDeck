@@ -21,9 +21,6 @@
     --accent: #ff3b30;
     --second: #ff9f0a;
     --frame: rgba(255, 255, 255, .14);
-    /* 猫追老鼠帧条：内联 base64，重建脚本 Docs/design/pet-chase-candidates/build_assets.py */
-    --chase-cat: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAAQCAYAAADdw7vlAAAB7ElEQVR4nO2YMW7DMAxFZaMH8Dk6euqQA+QQHTL0HB16jgwdcggfoEOnjDmHTtAUDMBCYUSJFGnHBULASODIT1/6pOQohJVF/Hw9w3VvHY+YIVJjHyb7xJMVgEYMu0MXVhgxSZq1alx0adQskXNVnNcyHQnDi/mftpFLBVOx98x0zxVhSBhe5lKmVSe3wrR6Qnkd3ngff8LHsQ8WqFQg95vFXEl/g8MEcswWHpcwFnMp7wZWilxHmsmT9MUNRpMwNW5U6qOapOZqjKJtcwVX05XjiSc+By6ZKxEoFeyZMNGgr6RBwyslTMtWUuKxFWmFt0RphfBKmGjciz3Hy3E9mMgzQaUVZ+F5J4z3WFt5c3Epj13qvr+OYbs/qfYmqbhaFXhUifQlJ6yYN709n18249UzWi962giMTc3F+5o3OSoCmXDlODU29s+1Q93aGBgt3jzJPYm58JnTVeL1GgPTNtL2cKXJUmur+buCSQMBfaSDl1bTkPSHz8PkSjXkNFF2S7JwGuk41UeVNTMADpnF/cnP3cMJkxitPRSgZqC+1pgy5rYeZoBeaob1YITqq/HMZ9FLhcTcvwTan9TcYXfoaCLGzaiuZHh2CuFqecXvGnMvGhTjcDO4pWNr5S51jLolOlv7onPUkihFtoL5CzRmA5MSVYDyAAAAAElFTkSuQmCC");
-    --chase-rat: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEsAAAAOCAYAAABn2+E1AAAB20lEQVR4nMWWv0vDQBTHXyQuDoE0KIqcKE4SLG5SBMGpS0cR6trBxdHJRVycuvgHdLV/gy4dxVWQjhYz6BILXRUiL+bFI8ldLj+ufpc+Lun3vc+717saAADM2Qggkue/GaBZbM756pKJhQ+6zXihN4RAJwArkY+ai+/xsUouiutgMnjTiyMGO6s29IbPhcyZIgw1avwxhf7IiyF4KF70jJqLdbVdJ4zvX3xpjelNyWfK4zD5hf4IgkHXFprkw0DwByOeGGwUPcPv03eSQg+KscG/az601hZBpuqbks0RNisvcd0wIu/NLRZ+Tl69MG5HfjgV6Kk6Vbo2xfwvGJZRPPryMeWYfc7AaljwNP2GfdsM88gmVxfHQlGYSQQUJ3KdMAHBoHBNNPJJUeFZolzojcJGXd2cFspRJ0eqWTiGeNDrghlz/ujNT5NIOFmk68u7OMYzRtQwHRyZNxbFZ509ZRgrSsTrpLmeuoV4f9EZkvR+fP+Kd520u7KUOpd0c0ivXt0wLYWLAL1lKnM2luWQNksVxsu5lrO88SdC17pMZf/76eAwq+wqr6Igh+52bhOwcHxn2WlAFenkiAu9PT4IHs47QbLbTPKsiL/qbVY2xzw4lAplFSHmqbo4fgD5sNf9Y7ELcgAAAABJRU5ErkJggg==");
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -338,33 +335,6 @@
   }
   .pet-caption #petName { color: rgba(255, 255, 255, .82); }
   .pet-caption #petNext:empty { display: none; }
-
-  /* ---- 猫追老鼠：独立一层，只在 idle 短暂出现 ---- */
-  .pet-chase { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-  .pet-chase[hidden] { display: none; }
-  .pet-chase .chase-cat, .pet-chase .chase-mouse {
-    position: absolute; left: 0; bottom: calc(var(--u) * 1.6);
-    background-repeat: no-repeat; background-position: 0 0;
-    will-change: transform;
-  }
-  /* 猫 20×16 格 × 6 帧：宽 10.3u 高 8.25u，与单只宠物同一高度框 */
-  .pet-chase .chase-cat {
-    width: calc(var(--u) * 10.3); height: calc(var(--u) * 8.25);
-    background-image: var(--chase-cat);
-    background-size: 600% 100%;
-    animation: chase-run .66s steps(6) infinite;
-  }
-  /* 鼠 25×14 格 × 3 帧 */
-  .pet-chase .chase-mouse {
-    width: calc(var(--u) * 6.9); height: calc(var(--u) * 3.85);
-    background-image: var(--chase-rat);
-    background-size: 300% 100%;
-    animation: chase-run .36s steps(3) infinite;
-  }
-  @keyframes chase-run {
-    from { background-position-x: 0%; }
-    to { background-position-x: 100%; }
-  }
 
   /* ---- 动图：14 个场景共用的一组 keyframes ---- */
   .cd-icon .sweep { animation: cd-sweep 8s linear infinite; transform-origin: 16px 12px; }
@@ -694,10 +664,6 @@
           <div class="pet-walker" id="petWalker">
             <div class="pet-sprite" id="petSprite"></div>
           </div>
-          <div class="pet-chase" id="petChase" hidden>
-            <div class="chase-mouse" id="chaseMouse"></div>
-            <div class="chase-cat" id="chaseCat"></div>
-          </div>
           <div class="pet-caption">
             <span id="petName">像素猫</span><span id="petNext"></span>
           </div>
@@ -855,7 +821,7 @@
   // ---- 副屏显示配置：尺寸 / 桌宠 / 常亮，全部由 Mac 端下发 ----
   var displayConfig = { size: 'm', petMode: 'fixed', petId: 'cat', petInterval: 60,
                         keepAwake: true, petSwitchNonce: 0, petVisible: true,
-                        petLive: true, petChase: true, petChaseInterval: 90 };
+                        petLive: true };
   var displayApplied = false;
   var lastConfigPetId = 'cat';
   var lastPetSwitchNonce = 0;
@@ -875,10 +841,6 @@
     frame.dataset.pet = data.petVisible === false ? 'off' : 'on';
     // 是否随环境变化；关闭后恒为 idle（等价于旧行为）。
     petState.live = data.petLive !== false;
-    displayConfig.petChase = data.petChase !== false;
-    var chaseInterval = Number(data.petChaseInterval);
-    displayConfig.petChaseInterval = chaseInterval > 0 ? chaseInterval : 90;
-    if (!displayConfig.petChase) { petChaseStop(); }
     petEvaluateBehavior();
     var newMode = data.petMode === 'random' ? 'random' : 'fixed';
     var newId = PET_NAMES[data.petId] ? data.petId : 'cat';
@@ -1094,7 +1056,6 @@
   }
 
   function petSetBehavior(next, text) {
-    if (next !== 'idle' && chase.on) { petChaseStop(); }
     if (petState.behavior !== next) {
       petState.behavior = next;
       petSprite.dataset.state = next;
@@ -1133,7 +1094,6 @@
     petName.textContent = PET_NAMES[petState.id];
     petRenderSprite();
     petMeasure();
-    if (!chase.nextAt) { chase.nextAt = Date.now() + CHASE_FIRST_DELAY; }
     petEvaluateBehavior();
   }
 
@@ -1192,7 +1152,6 @@
 
   // 每帧只写 transform，且值不变就不写；不做任何 DOM 读取。
   function petStep(ts) {
-    if (chase.on) { petChaseMove(ts); return; }
     var elapsed = petState.lastStep ? Math.min(80, ts - petState.lastStep) : 16;
     petState.lastStep = ts;
     var speed = PET_SPEED[petState.behavior] != null ? PET_SPEED[petState.behavior] : 0;
@@ -1214,105 +1173,12 @@
       petState.lastDir = petState.dir;
       petSprite.style.transform = 'scaleX(' + petState.dir + ')';
     }
-    if (displayConfig.petChase && petState.behavior === 'idle' && Date.now() >= chase.nextAt) {
-      petChaseStart();
-    }
-  }
-
-  // ---- 猫追老鼠：一对刚体（鼠在猫头前方），触边镜像后继续跑 ----
-  // 素材：猫 CC0《Cat sprites》6 帧、鼠 CC-BY 3.0《Rodents – rat rework》3 帧，
-  // 帧条以 base64 内联，重建见 Docs/design/pet-chase-candidates/build_assets.py。
-  var petChaseEl = document.getElementById('petChase');
-  var chaseCatEl = document.getElementById('chaseCat');
-  var chaseMouseEl = document.getElementById('chaseMouse');
-  var CHASE_SPEED = 0.09;       // px/ms，约为待机 0.035 的 2.6 倍
-  var CHASE_GAP = 6;            // 鼠与猫头之间的空隙（中档 px）
-  var CHASE_PAD = 8;            // 触边留白（中档 px）
-  var CHASE_DURATION = 7200;    // 一次追逐的时长
-  var CHASE_FIRST_DELAY = 8000; // 页面加载后多久第一次追
-  var chase = {
-    on: false, x: 0, dir: 1, until: 0, lastStep: 0, nextAt: 0,
-    W: 0, catW: 0, mouseW: 0, gap: CHASE_GAP, pad: CHASE_PAD,
-    catT: '', mouseT: ''
-  };
-  var reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-
-  // 只在进入/退出追逐和尺寸变化时量 DOM，逐帧不读。
-  function petChaseMeasure() {
-    chase.W = petBox ? petBox.clientWidth : 0;
-    chase.catW = chaseCatEl ? chaseCatEl.offsetWidth : 0;
-    chase.mouseW = chaseMouseEl ? chaseMouseEl.offsetWidth : 0;
-    var k = chase.catW > 0 ? chase.catW / 62 : 1;
-    chase.gap = Math.round(CHASE_GAP * k);
-    chase.pad = Math.round(CHASE_PAD * k);
-  }
-
-  function petChasePlace() {
-    var mouseX = chase.dir > 0 ? chase.x + chase.catW + chase.gap
-                               : chase.x - chase.mouseW - chase.gap;
-    // 猫素材朝左（right = scaleX(-1)），鼠素材朝右。
-    var catT = 'translate3d(' + chase.x.toFixed(1) + 'px,0,0) scaleX(' + (-chase.dir) + ')';
-    var mouseT = 'translate3d(' + mouseX.toFixed(1) + 'px,0,0) scaleX(' + chase.dir + ')';
-    if (chase.catT !== catT) { chase.catT = catT; chaseCatEl.style.transform = catT; }
-    if (chase.mouseT !== mouseT) { chase.mouseT = mouseT; chaseMouseEl.style.transform = mouseT; }
-  }
-
-  function petChaseStart() {
-    if (!petChaseEl || !chaseCatEl || !chaseMouseEl) { return; }
-    if (reduceMotion && reduceMotion.matches) { return; }
-    if (frame.dataset.pet === 'off' || !displayConfig.petChase) { return; }
-    if (!petChaseEl.hidden) { return; }
-    petChaseEl.hidden = false;
-    petChaseMeasure();
-    if (chase.W <= chase.catW + chase.mouseW + chase.gap * 2) {
-      petChaseEl.hidden = true;
-      return;
-    }
-    chase.on = true;
-    chase.x = chase.pad + chase.gap;
-    chase.dir = 1;
-    chase.lastStep = 0;
-    chase.catT = '';
-    chase.mouseT = '';
-    chase.until = Date.now() + CHASE_DURATION;
-    if (petWalker) { petWalker.style.visibility = 'hidden'; }
-    petChasePlace();
-  }
-
-  function petChaseStop() {
-    if (!chase.on) {
-      if (petChaseEl) { petChaseEl.hidden = true; }
-      return;
-    }
-    chase.on = false;
-    chase.nextAt = Date.now() + (displayConfig.petChaseInterval || 60) * 1000;
-    if (petChaseEl) { petChaseEl.hidden = true; }
-    if (petWalker) { petWalker.style.visibility = ''; }
-    petMeasure();
-  }
-
-  function petChaseMove(ts) {
-    var elapsed = chase.lastStep ? Math.min(80, ts - chase.lastStep) : 16;
-    chase.lastStep = ts;
-    if (Date.now() >= chase.until) { petChaseStop(); return; }
-    chase.x += chase.dir * CHASE_SPEED * elapsed;
-
-    var mouseX = chase.dir > 0 ? chase.x + chase.catW + chase.gap
-                               : chase.x - chase.mouseW - chase.gap;
-    var front = chase.dir > 0 ? mouseX + chase.mouseW : mouseX;
-    if ((chase.dir > 0 && front >= chase.W - chase.pad) ||
-        (chase.dir < 0 && front <= chase.pad)) {
-      chase.dir = -chase.dir;
-      chase.x = chase.W - chase.catW - chase.x;
-      chase.x = Math.max(0, Math.min(chase.W - chase.catW, chase.x));
-    }
-    petChasePlace();
   }
 
   petApply(petState.id);
   setInterval(petRenderCaption, 1000);
   if (window.ResizeObserver) {
-    new ResizeObserver(function () { petMeasure(); if (chase.on) { petChaseMeasure(); } }).observe(petBox);
+    new ResizeObserver(function () { petMeasure(); }).observe(petBox);
   } else {
     window.addEventListener('resize', petMeasure);
   }

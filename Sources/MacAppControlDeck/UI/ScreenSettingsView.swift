@@ -121,19 +121,6 @@ struct ScreenSettingsView: View {
                         .disabled(!display.petVisible)
                     Spacer(minLength: 0)
                 }
-                settingRow("猫追老鼠") {
-                    Toggle("待机时在宠物卡播放猫追老鼠", isOn: $display.petChase)
-                        .disabled(!display.petVisible)
-                    Spacer(minLength: 0)
-                }
-                settingRow("追逐间隔") {
-                    segmented([("30", "30 秒"), ("60", "1 分钟"), ("180", "3 分钟")],
-                              selection: Binding(
-                                get: { String(display.petChaseInterval) },
-                                set: { display.petChaseInterval = Int($0) ?? 90 }
-                              ))
-                    .disabled(!display.petVisible || !display.petChase)
-                }
                 settingRow("桌宠模式") {
                     segmented([("fixed", "固定"), ("random", "随机切换")], selection: $display.petMode)
                 }
@@ -154,7 +141,7 @@ struct ScreenSettingsView: View {
                     Toggle("副屏常亮", isOn: $display.keepAwake)
                     Spacer()
                 }
-                Text("副屏控制条只保留刷新与全屏；尺寸、桌宠、猫追老鼠与常亮都在这里设置。修改后立即下发到副屏，无需在副屏操作。")
+                Text("副屏控制条只保留刷新与全屏；尺寸、桌宠与常亮都在这里设置。修改后立即下发到副屏，无需在副屏操作。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
