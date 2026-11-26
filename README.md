@@ -319,6 +319,7 @@ open /Applications/MacAppControlDeck.app
 - **月份浏览**：`‹ ›` 查看前后月份，点月份名回到当月；浏览他月 60 秒无操作会自动回到当月
 - **内置操作**：从「按钮管理 → 添加内置操作」添加「打开副屏」后，可从菜单栏快捷操作与手机面板快捷操作触发（在 Mac 浏览器打开）
 - **视口外边框（走查）**：设置 → 副屏 → 外观 →「视口外边框（走查）」默认关闭；打开后整个副屏视口四边各出现 1px 亮青色内描边，**不占任何 margin / padding**、不触发滚动、不吃点击，用来检查内容有没有贴边或溢出
+- **视口内边距**：副屏默认铺满整个视口（去掉大屏浮动外边距与固定留白）；设置 → 副屏 → 外观可分别调节上 / 右 / 下 / 左内边距（0–120px，步长 2px），「归零」一键铺满；页面不再自动叠加刘海 / 安全区留白，需要避让时用内边距手动补
 
 <p align="center"><img src="Docs/images/readme/screen-clock-calendar-portrait.png" width="300" alt="手机副屏竖屏"><br><sub>竖屏：时钟 → 天气（含 5 天预报）→ 月历（500×800 视口）</sub></p>
 
@@ -537,6 +538,8 @@ Docs/archive/                    # 历史归档
 - 2026-11-26 **v0.4.2 发布**（按钮管理 4 列卡片网格 + 长按拖动排序 + 右键菜单；副屏桌宠/控制条自动隐藏；区域截图钉图原位；状态栏日历；桌宠快捷栏）：[发布说明](Docs/releases/v0.4.2.md) · [按钮能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 XP-Pen Deco 640 自定义手写板驱动预研（非需求，未建 OpenSpec 变更）：用户态 `IOHIDManager` 方案、三条 HID 通道、私有 12 字节报文与初始化序列、8+2 可配置按键、等比例画布限制与鼠标光标仲裁、只读映射到完整接管的分阶段路线：[预研报告](Docs/research/2026-11-26-deco640-driver-research.md) · [HID 探针](Tools/DecoProbe.swift)
 - 2026-11-26 副屏「猫追老鼠」上线后即回退：真机移动时角色边缘持续闪烁（帧条放大缺 `image-rendering: pixelated`、亚像素位移插值），整体移除、恢复单只游走；素材、帧条脚本与设计文档保留，后续另开变更修复：[实现](openspec/changes/archive/2026-11-26-add-screen-pet-cat-chase-loop/proposal.md) · [回退](openspec/changes/archive/2026-11-26-revert-screen-pet-cat-chase/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-26 修复副屏内边距被 safe-area 二次放大：`#frame` 改为纯 `--vp-*` 内边距，设置 0 即真正贴边（含刘海设备横屏），控制条跟随上内边距；页面版本 `2026-11-27.10`：[OpenSpec 变更](openspec/changes/archive/2026-11-26-fix-screen-safe-area-padding/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-26 副屏默认铺满视口 + 四边内边距可调：去掉大屏 `inset: 2.6u` 浮动外框与固定 `3u` 留白，改为四边 CSS 变量（默认 0）；设置 → 副屏 → 外观新增上 / 右 / 下 / 左步进器与「归零」：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-screen-viewport-padding/proposal.md) · [设计](openspec/changes/archive/2026-11-26-add-screen-viewport-padding/design.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-viewport-padding/)
 - 2026-11-26 副屏新增走查用视口外边框：设置 → 副屏 → 外观 打开后四边各 1px 亮青内描边，`inset` 阴影实现、不占 margin/padding、不吃点击，默认关闭：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-screen-viewport-border/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-26 副屏宠物补水豚（第 4 只）、宠物卡片显隐开关（关闭后时钟区变高）、宠物状态化（睡觉 / 打伞 / 围巾 / 看表 / 庆祝，按真实时间与天气切换）、时钟卡四边等距留白、天气底栏合并单行署名：[变更](openspec/changes/archive/2026-11-26-add-screen-capybara-pet/proposal.md) · [宠物卡片开关](openspec/changes/archive/2026-11-26-add-screen-pet-card-toggle/proposal.md) · [状态化](openspec/changes/archive/2026-11-26-add-screen-pet-states/proposal.md) · [时钟留白](openspec/changes/archive/2026-11-26-polish-screen-clock-padding/proposal.md) · [天气底栏](openspec/changes/archive/2026-11-26-polish-screen-weather-footer/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-26 移除按钮管理底部选中操作条：点击卡片仅高亮选中，不再弹出「已选 xxx / 重命名 / 删除」底栏，重命名、删除、编辑组合、上移、下移统一走右键菜单：[OpenSpec 变更](openspec/changes/archive/2026-11-26-remove-buttons-grid-selection-bar/proposal.md) · [能力规格](openspec/specs/button-panel-config/spec.md)

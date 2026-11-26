@@ -96,4 +96,42 @@ final class ScreenFrameConfigTests: XCTestCase {
         let reloaded = ScreenAppearanceSettings(defaults: defaults)
         XCTAssertTrue(reloaded.viewportBorder)
     }
+
+    func testPaddingDefaultsToZero() {
+        let config = ScreenFrameConfig.default
+        XCTAssertEqual(config.paddingTop, 0)
+        XCTAssertEqual(config.paddingRight, 0)
+        XCTAssertEqual(config.paddingBottom, 0)
+        XCTAssertEqual(config.paddingLeft, 0)
+    }
+
+    func testPaddingSurvivesSettingsRoundTrip() {
+        let suiteName = "deck-screen-frame-padding-test-\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            XCTFail("无法创建测试 UserDefaults")
+            return
+        }
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let settings = ScreenAppearanceSettings(defaults: defaults)
+        settings.paddingTop = 8
+        settings.paddingRight = 12
+        settings.paddingBottom = 16
+        settings.paddingLeft = 20
+        let config = settings.config
+        XCTAssertEqual([config.paddingTop, config.paddingRight, config.paddingBottom, config.paddingLeft],
+                       [8, 12, 16, 20])
+
+        let reloaded = ScreenAppearanceSettings(defaults: defaults)
+        XCTAssertEqual([reloaded.paddingTop, reloaded.paddingRight, reloaded.paddingBottom, reloaded.paddingLeft],
+                       [8, 12, 16, 20])
+    }
+
+    func testPaddingIsClamped() {
+        let negative = ScreenFrameConfig(enabled: true, strength: 0.16,
+                                         paddingTop: -10, paddingRight: 999, paddingBottom: 0, paddingLeft: 30)
+        XCTAssertEqual(negative.normalized.paddingTop, 0)
+        XCTAssertEqual(negative.normalized.paddingRight, ScreenFrameConfig.paddingRange.upperBound)
+        XCTAssertEqual(negative.normalized.paddingLeft, 30)
+    }
 }

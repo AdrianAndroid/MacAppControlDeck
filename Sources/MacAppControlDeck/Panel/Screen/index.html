@@ -20,7 +20,6 @@
     --muted: #8e8e93;
     --accent: #ff3b30;
     --second: #ff9f0a;
-    --frame: rgba(255, 255, 255, .14);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -39,11 +38,11 @@
     --scale: 1;
     --dock-h: 120px;
     --u: calc(clamp(3.2px, 1.55vmin, 6.4px) * var(--scale));
+    /* 视口内边距：Mac 端可分别设置上 / 右 / 下 / 左，默认 0 即铺满视口。
+       不再自动叠加 safe-area：刘海/圆角留白用内边距手动加，0 就是真正的 0。 */
+    --vp-top: 0px; --vp-right: 0px; --vp-bottom: 0px; --vp-left: 0px;
     position: fixed; inset: 0;
-    padding: calc(env(safe-area-inset-top, 0px) + var(--u) * 3)
-             calc(env(safe-area-inset-right, 0px) + var(--u) * 3)
-             calc(env(safe-area-inset-bottom, 0px) + var(--u) * 3)
-             calc(env(safe-area-inset-left, 0px) + var(--u) * 3);
+    padding: var(--vp-top) var(--vp-right) var(--vp-bottom) var(--vp-left);
     display: flex;
     cursor: default;
   }
@@ -522,7 +521,7 @@
   .chrome {
     position: fixed;
     left: 50%;
-    top: calc(env(safe-area-inset-top, 0px) + var(--u) * 2);
+    top: calc(var(--vp-top) + var(--u) * 2);
     transform: translate(-50%, calc(var(--u) * -2));
     display: flex; align-items: center; gap: calc(var(--u) * 1.4);
     padding: calc(var(--u) * 1.6) calc(var(--u) * 2);
@@ -631,9 +630,6 @@
   /* 平板/桌面窗口等大屏上，别让月历网格无限拉伸；保持接近方形单元格并整体居中。 */
   @media (min-height: 700px) {
     .grid { max-height: max(calc(var(--u) * 34), 46vh); }
-  }
-  @media (min-width: 640px) and (min-height: 520px) {
-    #frame { inset: calc(var(--u) * 2.6); border-radius: calc(var(--u) * 6); border: 1px solid var(--frame); }
   }
   @media (max-height: 430px) {
     #frame { --dock-h: 92px; }
@@ -1459,6 +1455,13 @@
     document.documentElement.style.setProperty('--frame-strength', String(strength));
     frame.dataset.frames = data && data.enabled ? 'on' : 'off';
     frame.dataset.border = data && data.viewportBorder ? 'on' : 'off';
+    // 视口内边距：Mac 端分别设置四边（px），0 = 铺满视口；缺字段时保持当前值。
+    ['top', 'right', 'bottom', 'left'].forEach(function (edge) {
+      var key = 'padding' + edge.charAt(0).toUpperCase() + edge.slice(1);
+      if (!data || typeof data[key] !== 'number') { return; }
+      var value = Math.max(0, Math.min(200, Math.round(data[key])));
+      frame.style.setProperty('--vp-' + edge, value + 'px');
+    });
   }
 
   function loadScreenFrame() {

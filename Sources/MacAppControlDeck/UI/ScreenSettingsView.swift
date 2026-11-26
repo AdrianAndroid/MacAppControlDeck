@@ -93,7 +93,28 @@ struct ScreenSettingsView: View {
                         .frame(width: 38, alignment: .trailing)
                 }
                 .disabled(!appearance.enabled)
-                Text("拖动滑块时副屏即时更新；模块边框只作用于横屏（时钟 / 月历 / 倒计时 / 天气各自成框），竖屏不画。视口外边框紧贴屏幕四边、不占任何留白，只用于 UI 走查，默认关闭。")
+                Divider()
+                HStack(alignment: .top, spacing: 10) {
+                    Text("视口内边距").frame(width: 72, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 18) {
+                            paddingStepper("上", value: $appearance.paddingTop)
+                            paddingStepper("下", value: $appearance.paddingBottom)
+                        }
+                        HStack(spacing: 18) {
+                            paddingStepper("左", value: $appearance.paddingLeft)
+                            paddingStepper("右", value: $appearance.paddingRight)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Button("归零") {
+                        appearance.paddingTop = 0
+                        appearance.paddingRight = 0
+                        appearance.paddingBottom = 0
+                        appearance.paddingLeft = 0
+                    }
+                }
+                Text("修改后副屏即时更新；模块边框只作用于横屏（时钟 / 月历 / 倒计时 / 天气各自成框），竖屏不画。视口外边框紧贴屏幕四边、不占任何留白，只用于 UI 走查，默认关闭。内边距四边独立设置，默认 0 表示内容铺满整个视口；页面不再自动叠加刘海 / 安全区留白，需要时用内边距手动补。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -157,6 +178,14 @@ struct ScreenSettingsView: View {
             Text(title).frame(width: 72, alignment: .leading)
             content()
             Spacer(minLength: 0)
+        }
+    }
+
+    private func paddingStepper(_ title: String, value: Binding<Int>) -> some View {
+        Stepper(value: value, in: ScreenFrameConfig.paddingRange, step: 2) {
+            Text("\(title) \(value.wrappedValue) px")
+                .font(.system(size: 12, design: .monospaced))
+                .frame(width: 62, alignment: .leading)
         }
     }
 
