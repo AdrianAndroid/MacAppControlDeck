@@ -21,6 +21,7 @@ cp "$BIN_DIR/KeySender" "$APP/Contents/MacOS/KeySender"
 cp "$ROOT/Build/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
+cp -R "$ROOT/Resources/Licenses" "$APP/Contents/Resources/Licenses"
 
 echo "==> 嵌入 Sparkle.framework（自动升级）"
 source "$ROOT/Build/signing.sh"

@@ -375,6 +375,18 @@ final class APIRouter {
             response.rawHeaders["Cache-Control"] = "no-store, must-revalidate"
             return response
         }
+        if route.hasPrefix("/screen/icons/") {
+            let name = String(route.dropFirst("/screen/icons/".count))
+            guard name.hasSuffix(".svg") else {
+                return .error("not-found", message: "图标不存在", status: 404)
+            }
+            let base = String(name.dropLast(4))
+            guard let data = ScreenHTML.iconData(named: base) else {
+                return .error("not-found", message: "图标不存在", status: 404)
+            }
+            return HTTPResponse(status: 200, contentType: "image/svg+xml", body: data,
+                                headers: ["Cache-Control": "public, max-age=86400"])
+        }
         if route.hasPrefix("/icons/") {
             let name = String(route.dropFirst("/icons/".count))
             let fileURL = iconDirectory.appendingPathComponent(name)

@@ -197,3 +197,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Meteocons（副屏天气主图标）
+
+- 上游：https://github.com/basmilius/meteocons · https://meteocons.com/
+- 版本：`@meteocons/svg` `0.1.0`（动画 SVG，Monochrome 风格）
+- 许可证：MIT License, Copyright (c) 2020-present Bas Milius（许可全文见 `Resources/Licenses/Meteocons-LICENSE.txt`）。
+- 引入方式：只 vendor 副屏天气主图标用到的 28 个 Monochrome 动画 SVG 与 28 个静态 SVG，放在
+  `Sources/MacAppControlDeck/Panel/Screen/icons/`；图标由页面按需加载并内联，动画为 SVG SMIL，无额外运行时。
+- 用法：和风天气 icon code 命中映射时使用；未命中或加载失败回退到本项目原有的静态线性图标。
+- 未修改图标几何与动画参数，仅通过 CSS `filter: invert(1)` 适配黑底。

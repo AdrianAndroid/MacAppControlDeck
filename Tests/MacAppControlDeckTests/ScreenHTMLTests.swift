@@ -17,4 +17,34 @@ final class ScreenHTMLTests: XCTestCase {
             "<meta name=\"screen-version\" content=\"\(ScreenHTML.version)\">"
         ))
     }
+
+    func testHeroIconAssetsLoadFromResource() {
+        guard let data = ScreenHTML.iconData(named: "clear-day") else {
+            return XCTFail("Meteocons 动画图标未打进资源 bundle")
+        }
+        let svg = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(svg.contains("viewBox=\"0 0 128 128\""))
+        XCTAssertTrue(svg.contains("<animate"), "主图标应为 SMIL 动画 SVG")
+    }
+
+    func testStaticHeroIconVariantHasNoAnimation() {
+        guard let data = ScreenHTML.iconData(named: "static-clear-day") else {
+            return XCTFail("Meteocons 静态图标未打进资源 bundle")
+        }
+        let svg = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(svg.contains("viewBox=\"0 0 128 128\""))
+        XCTAssertFalse(svg.contains("<animate"), "静态版本不应包含 SMIL 动画")
+    }
+
+    func testHeroIconAssetNamesAreValidated() {
+        XCTAssertNil(ScreenHTML.iconData(named: "../index"))
+        XCTAssertNil(ScreenHTML.iconData(named: "Clear-Day"))
+        XCTAssertNil(ScreenHTML.iconData(named: "not-a-real-icon"))
+    }
+
+    func testPageUsesAssetLoaderAndKeepsStaticSmallIcons() {
+        XCTAssertTrue(ScreenHTML.content.contains("/screen/icons/"))
+        XCTAssertTrue(ScreenHTML.content.contains("WX_HERO_ASSETS"))
+        XCTAssertFalse(ScreenHTML.content.contains("wxa-"), "自写动画样式应已移除")
+    }
 }

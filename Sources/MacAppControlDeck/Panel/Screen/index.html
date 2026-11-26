@@ -426,6 +426,10 @@
     color: var(--ink);
   }
   .wx-icon svg { width: 100%; height: 100%; display: block; }
+
+  /* 主天气图标：Meteocons Monochrome 动画 SVG；小图标仍用静态 weatherIcon()。 */
+  .wx-icon svg.wx-asset { filter: invert(1); }
+  .wx-icon svg.wx-asset-static { color: var(--ink); }
   .wx-temp {
     margin-left: auto;
     font-size: calc(var(--u) * 7.4);
@@ -751,6 +755,7 @@
   var wxStatus = document.getElementById('wxStatus');
   var wxMeta = document.getElementById('wxMeta');
   var wxIcon = document.getElementById('wxIcon');
+  var lastHeroIconCode = null;
   var wxTemp = document.getElementById('wxTemp');
   var wxFeels = document.getElementById('wxFeels');
   var wxHours = document.getElementById('wxHours');
@@ -1438,6 +1443,7 @@
   }
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') { startClock(); } else { stopClock(); }
+    applyHeroMotion();
   });
   if (window.ResizeObserver) {
     new ResizeObserver(function () { drawDial(macWall()); }).observe(canvas);
@@ -1746,15 +1752,19 @@
   var weatherErrorTimer = null;
   var lastWeatherFetch = 0;
 
-  function weatherIcon(code) {
+  function weatherKind(code) {
     var c = String(code == null ? '' : code).toLowerCase();
     var n = parseInt(c, 10);
-    var kind = 'cloud';
-    if (/thunder|storm/.test(c) || (n >= 200 && n < 300)) { kind = 'thunder'; }
-    else if (/snow/.test(c) || (n >= 400 && n < 500)) { kind = 'snow'; }
-    else if (/rain/.test(c) || (n >= 300 && n < 400)) { kind = 'rain'; }
-    else if (/fog|haze|mist|smoke/.test(c) || (n >= 500 && n < 600)) { kind = 'fog'; }
-    else if (/clear|sun/.test(c) || n === 100 || n === 150) { kind = 'sun'; }
+    if (/thunder|storm/.test(c) || (n >= 200 && n < 300)) { return 'thunder'; }
+    if (/snow/.test(c) || (n >= 400 && n < 500)) { return 'snow'; }
+    if (/rain/.test(c) || (n >= 300 && n < 400)) { return 'rain'; }
+    if (/fog|haze|mist|smoke/.test(c) || (n >= 500 && n < 600)) { return 'fog'; }
+    if (/clear|sun/.test(c) || n === 100 || n === 150) { return 'sun'; }
+    return 'cloud';
+  }
+
+  function weatherIcon(code) {
+    var kind = weatherKind(code);
     var open = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
     var cloud = '<path d="M7 16.5h9.1a3.7 3.7 0 0 0 .2-7.4A5 5 0 0 0 6.8 10.6 3.5 3.5 0 0 0 7 16.5Z"/>';
     if (kind === 'sun') {
@@ -1773,6 +1783,110 @@
       return open + cloud + '<path d="M12.6 17.5l-1.8 3.2h2.4l-1.1 2.3 3.4-3.6h-2.2l1-1.9Z"/>' + '</svg>';
     }
     return open + cloud + '</svg>';
+  }
+
+  // 主图标资源：Meteocons Monochrome 动画 SVG。命中则加载，未命中/失败回退 weatherIcon()。
+  var WX_HERO_ASSETS = {
+    '100': 'clear-day', '150': 'clear-night',
+    '101': 'partly-cloudy-day', '151': 'partly-cloudy-night',
+    '102': 'mostly-clear-day', '152': 'mostly-clear-night',
+    '103': 'partly-cloudy-day', '153': 'partly-cloudy-night',
+    '104': 'overcast', '154': 'overcast-night',
+    '300': 'partly-cloudy-day-rain', '350': 'partly-cloudy-night-rain',
+    '301': 'overcast-day-rain', '351': 'overcast-night-rain',
+    '302': 'thunderstorms-day-rain', '352': 'thunderstorms-night-rain',
+    '303': 'thunderstorms-day-rain', '353': 'thunderstorms-night-rain',
+    '304': 'thunderstorms-day-hail', '354': 'thunderstorms-night-hail',
+    '305': 'drizzle', '309': 'drizzle',
+    '306': 'rain', '314': 'rain',
+    '307': 'extreme-rain', '308': 'extreme-rain',
+    '310': 'extreme-rain', '311': 'extreme-rain',
+    '312': 'extreme-rain', '315': 'extreme-rain',
+    '316': 'extreme-rain', '317': 'extreme-rain', '318': 'extreme-rain',
+    '313': 'sleet', '399': 'rain',
+    '400': 'snow', '401': 'snow', '402': 'snow',
+    '408': 'snow', '409': 'snow', '410': 'snow', '499': 'snow',
+    '403': 'extreme-snow',
+    '450': 'snow', '451': 'snow', '452': 'snow', '453': 'extreme-snow',
+    '404': 'sleet', '405': 'sleet', '406': 'sleet',
+    '454': 'sleet', '455': 'sleet', '456': 'sleet',
+    '407': 'partly-cloudy-day-snow', '457': 'partly-cloudy-night-snow',
+    '500': 'mist',
+    '501': 'fog', '509': 'fog', '514': 'fog', '515': 'fog',
+    '502': 'haze', '511': 'haze', '512': 'haze', '513': 'haze',
+    '503': 'wind-dust', '504': 'wind-dust', '507': 'wind-dust', '508': 'wind-dust'
+  };
+
+  function weatherHeroAsset(code) {
+    return WX_HERO_ASSETS[String(code == null ? '' : code)] || null;
+  }
+
+  var heroIconToken = 0;
+  var heroSvg = null;
+  var heroCode = '';
+  var reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+  function applyHeroMotion() {
+    if (!heroSvg) { return; }
+    try {
+      if ((reduceMotion && reduceMotion.matches) || document.visibilityState === 'hidden') {
+        heroSvg.pauseAnimations();
+      } else {
+        heroSvg.unpauseAnimations();
+      }
+    } catch (e) {}
+  }
+
+  function adoptHeroSvg(isStatic) {
+    heroSvg = wxIcon.querySelector('svg');
+    if (!heroSvg) { return; }
+    heroSvg.classList.add(isStatic ? 'wx-asset-static' : 'wx-asset');
+    applyHeroMotion();
+  }
+
+  function renderHeroFallback(code) {
+    heroSvg = null;
+    wxIcon.innerHTML = code ? weatherIcon(code) : '';
+  }
+
+  // 同一个 icon code 的轮询刷新不重建 DOM，避免动画每 30 秒从头播放。
+  function renderHeroIcon(code) {
+    var next = code == null ? '' : String(code);
+    if (next === lastHeroIconCode) { return; }
+    lastHeroIconCode = next;
+    heroCode = next;
+    var asset = weatherHeroAsset(next);
+    var token = ++heroIconToken;
+    if (!asset) { renderHeroFallback(next); return; }
+    var isStatic = !!(reduceMotion && reduceMotion.matches);
+    var variant = isStatic ? 'static-' : '';
+    var url = '/screen/icons/' + variant + asset + '.svg?v=' + encodeURIComponent(screenVersion || '0');
+    fetch(url, { cache: 'force-cache' }).then(function (response) {
+      if (!response.ok) { throw new Error('HTTP ' + response.status); }
+      return response.text();
+    }).then(function (markup) {
+      if (token !== heroIconToken || lastHeroIconCode !== next) { return; }
+      wxIcon.innerHTML = markup;
+      adoptHeroSvg(isStatic);
+    }).catch(function () {
+      if (token !== heroIconToken || lastHeroIconCode !== next) { return; }
+      renderHeroFallback(next);
+    });
+  }
+
+  // 减少动态开关变化时重载静态 / 动画版本，避免停在动画的透明帧。
+  function reloadHeroForMotionPreference() {
+    if (lastHeroIconCode === null) { return; }
+    lastHeroIconCode = null;
+    renderHeroIcon(heroCode);
+  }
+
+  if (reduceMotion) {
+    if (reduceMotion.addEventListener) {
+      reduceMotion.addEventListener('change', reloadHeroForMotionPreference);
+    } else if (reduceMotion.addListener) {
+      reduceMotion.addListener(reloadHeroForMotionPreference);
+    }
   }
 
   function dayLabel(dateString) {
@@ -1818,7 +1932,7 @@
     var humidity = now.humidity == null ? '—' : now.humidity + '%';
     var rain = today.precipProbability == null ? '—' : today.precipProbability + '%';
     wxMeta.innerHTML = '<span>湿度 ' + humidity + '</span><span>降水 ' + rain + '</span>';
-    wxIcon.innerHTML = weatherIcon(now.icon);
+    renderHeroIcon(now.icon);
     petEnv.precip = today.precipProbability == null ? null : Number(today.precipProbability);
     petEnv.temp = now.temp == null ? null : Number(now.temp);
     petEvaluateBehavior();
@@ -1902,6 +2016,10 @@
     wxStatus.style.display = 'none';
     wxStatus.textContent = '';
     wxMeta.innerHTML = '';
+    lastHeroIconCode = null;
+    heroCode = '';
+    heroIconToken += 1;
+    heroSvg = null;
     wxIcon.innerHTML = '';
     wxTemp.textContent = '--°';
     wxFeels.innerHTML = '';
