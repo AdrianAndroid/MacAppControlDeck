@@ -146,6 +146,19 @@ https://github.com/excalidraw/excalidraw-libraries ，均标注 **MIT License**�
 - 上游未提供项目级许可证；其 README 声明项目仅供个人使用和内部交流，不用于商业分发。公开或商业分发前须向权利人取得明确授权。
 - KeyCat 所附 three.js 使用 MIT 许可证，原文保留于 `Modules/Pet/Resources/keycat/THREE_LICENSE`。
 
+## 副屏「猫追老鼠」像素素材
+
+- 猫：Shepardskin《Cat sprites》—— https://opengameart.org/content/cat-sprites
+  - 许可证：CC0 1.0（公共领域贡献，无署名要求）
+  - 使用：6 帧跑动；去紫底、缩回 20×16 逻辑像素，并把原深灰改为暖橙以适配纯黑背景
+- 鼠：AntumDeluge《Rodents – rat rework》—— https://opengameart.org/content/rodents-rat-rework
+  - 许可证：CC-BY 3.0 —— https://creativecommons.org/licenses/by/3.0/
+  - 使用：取 32×32 精灵表第 2 行 3 帧侧面朝右，未修改造型与配色
+- 引入位置：`Sources/MacAppControlDeck/Panel/Screen/index.html` 内联 base64 帧条
+  （`--chase-cat` / `--chase-rat`），不引入外部图片文件或网络请求
+- 帧条重建脚本：`Docs/design/pet-chase-candidates/build_assets.py`
+- 本段即满足鼠素材 CC-BY 3.0 的署名与许可证声明要求。
+
 ## PureMac（系统工具 / 清理模块）
 
 - 上游：https://github.com/momenbasel/PureMac

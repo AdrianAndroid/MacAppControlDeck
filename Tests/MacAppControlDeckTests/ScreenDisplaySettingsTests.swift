@@ -10,6 +10,20 @@ final class ScreenDisplaySettingsTests: XCTestCase {
         XCTAssertEqual(config.petInterval, 60)
         XCTAssertTrue(config.keepAwake)
         XCTAssertEqual(config.petSwitchNonce, 0)
+        XCTAssertTrue(config.petVisible)
+        XCTAssertTrue(config.petLive)
+        XCTAssertTrue(config.petChase)
+        XCTAssertEqual(config.petChaseInterval, 90)
+    }
+
+    func testChaseIntervalNormalizes() {
+        var config = ScreenDisplayConfig.default
+        config.petChaseInterval = 7
+        XCTAssertEqual(config.normalized.petChaseInterval, 90)
+        config.petChaseInterval = 180
+        XCTAssertEqual(config.normalized.petChaseInterval, 180)
+        XCTAssertTrue(ScreenDisplayConfig.validChaseIntervals.contains(30))
+        XCTAssertTrue(ScreenDisplayConfig.validChaseIntervals.contains(60))
     }
 
     func testNormalizedClampsInvalidValues() {
@@ -45,6 +59,8 @@ final class ScreenDisplaySettingsTests: XCTestCase {
         settings.requestPetSwitch()
         XCTAssertEqual(settings.petId, "robot")
         settings.requestPetSwitch()
+        XCTAssertEqual(settings.petId, "capybara")
+        settings.requestPetSwitch()
         XCTAssertEqual(settings.petId, "cat")
     }
 
@@ -64,5 +80,31 @@ final class ScreenDisplaySettingsTests: XCTestCase {
         settings.requestPetSwitch()
         XCTAssertEqual(settings.petId, "dog")
         XCTAssertEqual(settings.petSwitchNonce, nonceBefore + 1)
+    }
+}
+
+
+final class ScreenFrameConfigTests: XCTestCase {
+    func testViewportBorderDefaultsToOff() {
+        let config = ScreenFrameConfig.default
+        XCTAssertTrue(config.enabled)
+        XCTAssertFalse(config.viewportBorder)
+    }
+
+    func testViewportBorderSurvivesSettingsRoundTrip() {
+        let suiteName = "deck-screen-frame-test-\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            XCTFail("无法创建测试 UserDefaults")
+            return
+        }
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let settings = ScreenAppearanceSettings(defaults: defaults)
+        XCTAssertFalse(settings.viewportBorder)
+        settings.viewportBorder = true
+        XCTAssertTrue(settings.config.viewportBorder)
+
+        let reloaded = ScreenAppearanceSettings(defaults: defaults)
+        XCTAssertTrue(reloaded.viewportBorder)
     }
 }

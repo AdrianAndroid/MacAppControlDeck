@@ -11,17 +11,30 @@ struct ScreenDisplayConfig: Codable, Equatable {
     var keepAwake: Bool
     /// 递增计数：PC 端点「立即换一只」时 +1，副屏据此触发换宠。
     var petSwitchNonce: Int
+    /// 是否在副屏显示底部宠物卡片（横屏才出现；竖屏本来就隐藏）。
+    var petVisible: Bool = true
+    /// 宠物是否随环境变化（时间 / 天气 / 下班倒计时）；关闭后只有待机走路。
+    var petLive: Bool = true
+    /// 待机时是否播放「猫追老鼠」。
+    var petChase: Bool = true
+    /// 两次追逐之间的间隔（秒）。
+    var petChaseInterval: Int = 90
 
     static let `default` = ScreenDisplayConfig(size: "m",
                                                 petMode: "fixed",
                                                 petId: "cat",
                                                 petInterval: 60,
                                                 keepAwake: true,
-                                                petSwitchNonce: 0)
+                                                petSwitchNonce: 0,
+                                                petVisible: true,
+                                                petLive: true,
+                                                petChase: true,
+                                                petChaseInterval: 90)
 
     static let validSizes = ["s", "m", "l"]
-    static let validPetIDs = ["cat", "dog", "robot"]
+    static let validPetIDs = ["cat", "dog", "robot", "capybara"]
     static let validIntervals = [30, 60, 300, 900]
+    static let validChaseIntervals = [30, 60, 180]
 
     var normalized: ScreenDisplayConfig {
         var value = self
@@ -29,6 +42,7 @@ struct ScreenDisplayConfig: Codable, Equatable {
         if value.petMode != "random" { value.petMode = "fixed" }
         if !Self.validPetIDs.contains(value.petId) { value.petId = "cat" }
         if !Self.validIntervals.contains(value.petInterval) { value.petInterval = 60 }
+        if !Self.validChaseIntervals.contains(value.petChaseInterval) { value.petChaseInterval = 90 }
         return value
     }
 }
@@ -43,6 +57,10 @@ final class ScreenDisplaySettings: ObservableObject {
         static let petInterval = "screen.display.pet.interval"
         static let keepAwake = "screen.display.keepAwake"
         static let petSwitchNonce = "screen.display.petSwitchNonce"
+        static let petVisible = "screen.display.pet.visible"
+        static let petLive = "screen.display.pet.live"
+        static let petChase = "screen.display.pet.chase"
+        static let petChaseInterval = "screen.display.pet.chaseInterval"
     }
 
     private let defaults: UserDefaults
@@ -54,6 +72,10 @@ final class ScreenDisplaySettings: ObservableObject {
     @Published var petInterval: Int { didSet { save(Key.petInterval, petInterval) } }
     @Published var keepAwake: Bool { didSet { save(Key.keepAwake, keepAwake) } }
     @Published var petSwitchNonce: Int { didSet { save(Key.petSwitchNonce, petSwitchNonce) } }
+    @Published var petVisible: Bool { didSet { save(Key.petVisible, petVisible) } }
+    @Published var petLive: Bool { didSet { save(Key.petLive, petLive) } }
+    @Published var petChase: Bool { didSet { save(Key.petChase, petChase) } }
+    @Published var petChaseInterval: Int { didSet { save(Key.petChaseInterval, petChaseInterval) } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -65,6 +87,11 @@ final class ScreenDisplaySettings: ObservableObject {
         petInterval = storedInterval == 0 ? fallback.petInterval : storedInterval
         keepAwake = defaults.object(forKey: Key.keepAwake) as? Bool ?? fallback.keepAwake
         petSwitchNonce = defaults.integer(forKey: Key.petSwitchNonce)
+        petVisible = defaults.object(forKey: Key.petVisible) as? Bool ?? fallback.petVisible
+        petLive = defaults.object(forKey: Key.petLive) as? Bool ?? fallback.petLive
+        petChase = defaults.object(forKey: Key.petChase) as? Bool ?? fallback.petChase
+        let storedChase = defaults.integer(forKey: Key.petChaseInterval)
+        petChaseInterval = storedChase == 0 ? fallback.petChaseInterval : storedChase
         loading = false
     }
 
@@ -74,7 +101,11 @@ final class ScreenDisplaySettings: ObservableObject {
                             petId: petId,
                             petInterval: petInterval,
                             keepAwake: keepAwake,
-                            petSwitchNonce: petSwitchNonce).normalized
+                            petSwitchNonce: petSwitchNonce,
+                            petVisible: petVisible,
+                            petLive: petLive,
+                            petChase: petChase,
+                            petChaseInterval: petChaseInterval).normalized
     }
 
     /// PC 端「立即换一只」：固定模式下直接切到下一只；随机模式下递增 nonce 让副屏换一只。

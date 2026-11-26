@@ -21,6 +21,9 @@
     --accent: #ff3b30;
     --second: #ff9f0a;
     --frame: rgba(255, 255, 255, .14);
+    /* 猫追老鼠帧条：内联 base64，重建脚本 Docs/design/pet-chase-candidates/build_assets.py */
+    --chase-cat: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAAQCAYAAADdw7vlAAAB7ElEQVR4nO2YMW7DMAxFZaMH8Dk6euqQA+QQHTL0HB16jgwdcggfoEOnjDmHTtAUDMBCYUSJFGnHBULASODIT1/6pOQohJVF/Hw9w3VvHY+YIVJjHyb7xJMVgEYMu0MXVhgxSZq1alx0adQskXNVnNcyHQnDi/mftpFLBVOx98x0zxVhSBhe5lKmVSe3wrR6Qnkd3ngff8LHsQ8WqFQg95vFXEl/g8MEcswWHpcwFnMp7wZWilxHmsmT9MUNRpMwNW5U6qOapOZqjKJtcwVX05XjiSc+By6ZKxEoFeyZMNGgr6RBwyslTMtWUuKxFWmFt0RphfBKmGjciz3Hy3E9mMgzQaUVZ+F5J4z3WFt5c3Epj13qvr+OYbs/qfYmqbhaFXhUifQlJ6yYN709n18249UzWi962giMTc3F+5o3OSoCmXDlODU29s+1Q93aGBgt3jzJPYm58JnTVeL1GgPTNtL2cKXJUmur+buCSQMBfaSDl1bTkPSHz8PkSjXkNFF2S7JwGuk41UeVNTMADpnF/cnP3cMJkxitPRSgZqC+1pgy5rYeZoBeaob1YITqq/HMZ9FLhcTcvwTan9TcYXfoaCLGzaiuZHh2CuFqecXvGnMvGhTjcDO4pWNr5S51jLolOlv7onPUkihFtoL5CzRmA5MSVYDyAAAAAElFTkSuQmCC");
+    --chase-rat: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEsAAAAOCAYAAABn2+E1AAAB20lEQVR4nMWWv0vDQBTHXyQuDoE0KIqcKE4SLG5SBMGpS0cR6trBxdHJRVycuvgHdLV/gy4dxVWQjhYz6BILXRUiL+bFI8ldLj+ufpc+Lun3vc+717saAADM2Qggkue/GaBZbM756pKJhQ+6zXihN4RAJwArkY+ai+/xsUouiutgMnjTiyMGO6s29IbPhcyZIgw1avwxhf7IiyF4KF70jJqLdbVdJ4zvX3xpjelNyWfK4zD5hf4IgkHXFprkw0DwByOeGGwUPcPv03eSQg+KscG/az601hZBpuqbks0RNisvcd0wIu/NLRZ+Tl69MG5HfjgV6Kk6Vbo2xfwvGJZRPPryMeWYfc7AaljwNP2GfdsM88gmVxfHQlGYSQQUJ3KdMAHBoHBNNPJJUeFZolzojcJGXd2cFspRJ0eqWTiGeNDrghlz/ujNT5NIOFmk68u7OMYzRtQwHRyZNxbFZ509ZRgrSsTrpLmeuoV4f9EZkvR+fP+Kd520u7KUOpd0c0ivXt0wLYWLAL1lKnM2luWQNksVxsu5lrO88SdC17pMZf/76eAwq+wqr6Igh+52bhOwcHxn2WlAFenkiAu9PT4IHs47QbLbTPKsiL/qbVY2xzw4lAplFSHmqbo4fgD5sNf9Y7ELcgAAAABJRU5ErkJggg==");
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -50,6 +53,15 @@
   #frame[data-size="s"] { --scale: .82; }
   #frame[data-size="m"] { --scale: 1; }
   #frame[data-size="l"] { --scale: 1.18; }
+
+  /* 走查用视口外框：绝对定位 + inset 阴影，不占 margin/padding、不改布局、不吃点击 */
+  #frame[data-border="on"]::after {
+    content: '';
+    position: absolute; inset: 0;
+    box-shadow: inset 0 0 0 1px #00e5ff;
+    pointer-events: none;
+    z-index: 9999;
+  }
 
   .stage {
     flex: 1 1 auto;
@@ -96,28 +108,17 @@
     margin: calc(var(--u) * 1.1) 0 calc(var(--u) * 1.7);
   }
 
+  /* 表盘铺满主区，四周留白在 canvas 里按 --u 计算（见 drawDial），
+     这样任何宽高比下圆盘都不会贴到卡片边框。 */
   .clock {
     flex: 1 1 auto;
-    min-height: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: calc(var(--u) * .8);
+    min-width: 0; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
   }
   .clock canvas {
     display: block;
     width: 100%;
-    max-height: 100%;
-    aspect-ratio: 1 / 1;
-    height: auto;
-  }
-  .date-line {
-    flex: 0 0 auto;
-    text-align: center;
-    color: var(--muted);
-    font-size: calc(var(--u) * 2.3);
-    letter-spacing: .12em;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+    height: 100%;
   }
 
   /* 月历主区贴顶填充；倒计时独立放入固定底栏。 */
@@ -130,9 +131,10 @@
   }
   .cal {
     flex: 1 1 auto;
+    height: 100%;
     min-height: 0; min-width: 0;
     display: flex; flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center;
     padding: calc(var(--u) * 1.2) 0 calc(var(--u) * .2);
   }
   .mon {
@@ -178,7 +180,7 @@
   }
   .grid {
     grid-template-rows: repeat(5, minmax(0, 1fr));
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
   }
   .cell {
@@ -202,7 +204,8 @@
   .cell.blank span { visibility: hidden; }
 
   /* ---- 下班倒计时：月历底部，单一结构；放不下只等比缩小 ---- */
-  .grid { max-height: max(calc(var(--u) * 30), 42vh); row-gap: calc(var(--u) * .9); }
+  /* 月历网格铺满卡片高度：原来 42vh 的封顶会在 5 行的月份下面留出一大块空白。 */
+  .grid { row-gap: calc(var(--u) * .9); }
   .cd-dock { --cd-scale: 1; }
   .cd {
     flex: 0 0 auto; display: none; align-items: center;
@@ -248,6 +251,7 @@
   .cd-dock { display: flex; align-items: stretch; }
   .cd-dock .cd { width: 100%; align-self: stretch; }
   .pet-dock { display: flex; align-items: stretch; }
+  #frame[data-pet="off"] .pet-dock { display: none; }
   .pet-box {
     position: relative; flex: 1 1 auto; overflow: hidden;
     /* 不画自己的背景和边框，只保留外框（.pet-dock），避免双层边框 */
@@ -259,6 +263,73 @@
   }
   .pet-sprite { width: 100%; height: 100%; transform-origin: center; }
   .pet-sprite svg { width: 100%; height: 100%; display: block; }
+  /* 肢体与道具常驻 DOM：只切 data-frame / data-state，绝不重建 SVG（手机端重建会掉帧） */
+  .pet-sprite .legs-b { display: none; }
+  .pet-sprite[data-frame="1"] .legs-a { display: none; }
+  .pet-sprite[data-frame="1"] .legs-b { display: block; }
+  .pet-sprite .prop { display: none; }
+  .pet-sprite[data-state="sleep"] .prop-sleep,
+  .pet-sprite[data-state="rain"] .prop-rain,
+  .pet-sprite[data-state="cold"] .prop-cold,
+  .pet-sprite[data-state="hot"] .prop-hot,
+  .pet-sprite[data-state="packup"] .prop-packup,
+  .pet-sprite[data-state="celebrate"] .prop-celebrate { display: block; }
+  /* 全部动效只用 transform / opacity，交给合成器，不触发布局 */
+  .pet-sprite .zzz { animation: pet-zzz 2.1s ease-out infinite; }
+  .pet-sprite .zzz.z2 { animation-delay: .7s; }
+  .pet-sprite .zzz.z3 { animation-delay: 1.4s; }
+  .pet-sprite .drop { animation: pet-drop .9s linear infinite; }
+  .pet-sprite .drop.d2 { animation-delay: .22s; }
+  .pet-sprite .drop.d3 { animation-delay: .44s; }
+  .pet-sprite .drop.d4 { animation-delay: .66s; }
+  .pet-sprite .umbrella { animation: pet-umbrella 3s ease-in-out infinite; transform-box: view-box; }
+  .pet-sprite .umbrella { rotate: -16deg; }
+  .pet-sprite .watch-hand { animation: pet-watch 6s linear infinite; }
+  .pet-sprite .star { animation: pet-star 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .pet-sprite .star.s2 { animation-delay: .3s; }
+  .pet-sprite .star.s3 { animation-delay: .6s; }
+  .pet-sprite .star.s4 { animation-delay: .9s; }
+  .pet-sprite .sweat { opacity: .55; animation: pet-sweat 2s ease-in-out infinite; }
+  .pet-sprite .pet-body { transform-box: fill-box; transform-origin: center bottom; }
+  .pet-sprite[data-state="sleep"] .pet-body { transform: translateY(1.5px) scaleY(.9); }
+  .pet-sprite[data-state="cold"] .pet-body { animation: pet-shiver .18s steps(2, end) infinite; }
+  .pet-sprite[data-state="celebrate"] .pet-body { animation: pet-jump .6s ease-in-out infinite; }
+  @keyframes pet-zzz {
+    0% { opacity: 0; transform: translate(0, 3px); }
+    25% { opacity: .95; }
+    60% { opacity: .8; }
+    100% { opacity: 0; transform: translate(2px, -4px); }
+  }
+  @keyframes pet-drop {
+    0% { opacity: 0; transform: translateY(-3px); }
+    30% { opacity: .75; }
+    100% { opacity: 0; transform: translateY(9px); }
+  }
+  @keyframes pet-umbrella {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+  @keyframes pet-watch { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes pet-star {
+    0%, 100% { opacity: 0; transform: scale(.6); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes pet-sweat {
+    0% { opacity: .55; transform: translateY(-1px); }
+    50% { opacity: .95; transform: translateY(3px); }
+    100% { opacity: .55; transform: translateY(-1px); }
+  }
+  @keyframes pet-shiver {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(.7px); }
+  }
+  @keyframes pet-jump {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pet-sprite .pet-body, .pet-sprite .prop, .pet-sprite .prop * { animation: none !important; }
+  }
   .pet-caption {
     position: absolute; right: calc(var(--u) * 1.4); bottom: calc(var(--u) * .8);
     display: flex; gap: calc(var(--u) * .9); align-items: baseline;
@@ -267,6 +338,33 @@
   }
   .pet-caption #petName { color: rgba(255, 255, 255, .82); }
   .pet-caption #petNext:empty { display: none; }
+
+  /* ---- 猫追老鼠：独立一层，只在 idle 短暂出现 ---- */
+  .pet-chase { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .pet-chase[hidden] { display: none; }
+  .pet-chase .chase-cat, .pet-chase .chase-mouse {
+    position: absolute; left: 0; bottom: calc(var(--u) * 1.6);
+    background-repeat: no-repeat; background-position: 0 0;
+    will-change: transform;
+  }
+  /* 猫 20×16 格 × 6 帧：宽 10.3u 高 8.25u，与单只宠物同一高度框 */
+  .pet-chase .chase-cat {
+    width: calc(var(--u) * 10.3); height: calc(var(--u) * 8.25);
+    background-image: var(--chase-cat);
+    background-size: 600% 100%;
+    animation: chase-run .66s steps(6) infinite;
+  }
+  /* 鼠 25×14 格 × 3 帧 */
+  .pet-chase .chase-mouse {
+    width: calc(var(--u) * 6.9); height: calc(var(--u) * 3.85);
+    background-image: var(--chase-rat);
+    background-size: 300% 100%;
+    animation: chase-run .36s steps(3) infinite;
+  }
+  @keyframes chase-run {
+    from { background-position-x: 0%; }
+    to { background-position-x: 100%; }
+  }
 
   /* ---- 动图：14 个场景共用的一组 keyframes ---- */
   .cd-icon .sweep { animation: cd-sweep 8s linear infinite; transform-origin: 16px 12px; }
@@ -433,9 +531,9 @@
   .wx-day .i svg { width: 100%; height: 100%; display: block; }
   .wx-day .hi { text-align: right; min-width: 2.5em; }
   .wx-day .lo { text-align: right; min-width: 2.5em; color: var(--muted); }
+  /* 天气卡底栏只有一行：城市 · 更新时间 · 数据源，同字号同色，像一句署名。 */
   .wx-foot {
     flex: 0 0 auto;
-    margin-top: calc(var(--u) * 1.2);
     color: var(--muted);
     font-size: calc(var(--u) * 2.05);
     white-space: nowrap;
@@ -445,16 +543,11 @@
   .wx-foot a { color: inherit; text-decoration: none; }
   .wx-foot b { color: #ff9f0a; font-weight: 500; }
   .wx-dock {
-    display: flex; flex-direction: column; justify-content: flex-end;
-    gap: calc(var(--u) * .6); overflow: hidden;
+    flex: 0 0 auto; height: auto;
+    display: flex; align-items: baseline;
+    margin-top: calc(var(--u) * .9);
+    overflow: hidden;
   }
-  .wx-city {
-    color: var(--ink); text-align: right;
-    font-size: calc(var(--u) * 2.7); font-weight: 500;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  #frame[data-weather="error"] .wx-city,
-  #frame[data-weather="off"] .wx-city { color: var(--muted); }
 
   .chrome {
     position: fixed;
@@ -523,6 +616,8 @@
     #frame[data-frames="on"] .cal-panel {
       padding: calc(var(--u) * .9) calc(var(--u) * 1.3);
     }
+    /* 时钟卡不留内边距：四周留白统一由表盘自身 margin（2.4u）决定，保证四边等距。 */
+    #frame[data-frames="on"] .clock-main { padding: 0; }
     #frame[data-frames="on"] .pet-dock { padding: calc(var(--u) * .5); }
     /* 加框后天气列少 20px 左右，收紧内部行距避免压出框外。 */
     #frame[data-frames="on"] .wx-hours { margin-top: calc(var(--u) * .4); padding-top: calc(var(--u) * .4); }
@@ -592,13 +687,16 @@
       <div class="col-main clock-main">
         <div class="clock">
           <canvas id="dial" aria-label="模拟时钟"></canvas>
-          <div class="date-line" id="dateLine">—</div>
         </div>
       </div>
       <section class="col-dock pet-dock" id="petDock">
         <div class="pet-box" id="petBox">
           <div class="pet-walker" id="petWalker">
             <div class="pet-sprite" id="petSprite"></div>
+          </div>
+          <div class="pet-chase" id="petChase" hidden>
+            <div class="chase-mouse" id="chaseMouse"></div>
+            <div class="chase-cat" id="chaseCat"></div>
           </div>
           <div class="pet-caption">
             <span id="petName">像素猫</span><span id="petNext"></span>
@@ -626,7 +724,6 @@
         </div>
       </div>
       <section class="col-dock wx-dock">
-        <div class="wx-city" id="wxCity">WEATHER</div>
         <div class="wx-foot" id="wxFoot"></div>
       </section>
     </section>
@@ -689,8 +786,6 @@
   var fullscreenBtn = document.getElementById('fullscreen');
   var refreshBtn = document.getElementById('refresh');
   var refreshHint = document.getElementById('refreshHint');
-  var dateLine = document.getElementById('dateLine');
-  var wxCity = document.getElementById('wxCity');
   var wxStatus = document.getElementById('wxStatus');
   var wxMeta = document.getElementById('wxMeta');
   var wxIcon = document.getElementById('wxIcon');
@@ -728,12 +823,6 @@
     return new Date(ms);
   }
 
-  function updateDateLine(wall) {
-    var date = wall || macWall();
-    dateLine.textContent = WEEKDAYS[date.getUTCDay()] + ' ' + date.getUTCDate() + ' ' +
-      MONTHS_SHORT[date.getUTCMonth()];
-  }
-
   function loadMacTime() {
     fetch('/api/time', { cache: 'no-store' }).then(function (response) {
       if (!response.ok) { throw new Error('HTTP ' + response.status); }
@@ -755,15 +844,18 @@
         viewYear = current.getUTCFullYear();
         viewMonth = current.getUTCMonth();
       }
-      updateDateLine(current);
       drawDial(current);
       renderCalendar();
+      petEnv.hour = current.getUTCHours();
+      petEnv.weekday = current.getUTCDay();
+      petEvaluateBehavior();
     }).catch(function () {});
   }
 
   // ---- 副屏显示配置：尺寸 / 桌宠 / 常亮，全部由 Mac 端下发 ----
   var displayConfig = { size: 'm', petMode: 'fixed', petId: 'cat', petInterval: 60,
-                        keepAwake: true, petSwitchNonce: 0 };
+                        keepAwake: true, petSwitchNonce: 0, petVisible: true,
+                        petLive: true, petChase: true, petChaseInterval: 90 };
   var displayApplied = false;
   var lastConfigPetId = 'cat';
   var lastPetSwitchNonce = 0;
@@ -773,11 +865,21 @@
     if (frame.dataset.size === size) { return; }
     frame.dataset.size = size;
     drawDial(macWall());
+    petMeasure();
   }
 
   function applyDisplay(data) {
     if (!data) { return; }
     setSize(data.size);
+    // 宠物卡片开关：关闭时连底部 dock 一起收起，时钟区顺势变高。
+    frame.dataset.pet = data.petVisible === false ? 'off' : 'on';
+    // 是否随环境变化；关闭后恒为 idle（等价于旧行为）。
+    petState.live = data.petLive !== false;
+    displayConfig.petChase = data.petChase !== false;
+    var chaseInterval = Number(data.petChaseInterval);
+    displayConfig.petChaseInterval = chaseInterval > 0 ? chaseInterval : 90;
+    if (!displayConfig.petChase) { petChaseStop(); }
+    petEvaluateBehavior();
     var newMode = data.petMode === 'random' ? 'random' : 'fixed';
     var newId = PET_NAMES[data.petId] ? data.petId : 'cat';
     var newInterval = PET_INTERVALS.indexOf(Number(data.petInterval)) >= 0
@@ -823,20 +925,36 @@
       .catch(function () {});
   }
 
-  // ---- 桌宠：本地 SVG 帧 + 左右游走 + 换宠设置 ----
+  // ---- 桌宠：状态化 + 单次渲染（肢体/道具常驻 DOM，只切 data-*）----
   var petBox = document.getElementById('petBox');
   var petWalker = document.getElementById('petWalker');
   var petSprite = document.getElementById('petSprite');
   var petName = document.getElementById('petName');
   var petNext = document.getElementById('petNext');
-  var PET_KEYS = ['cat', 'dog', 'robot'];
-  var PET_NAMES = { cat: '像素猫', dog: '小狗', robot: '机器人' };
+  var PET_KEYS = ['cat', 'dog', 'robot', 'capybara'];
+  var PET_NAMES = { cat: '像素猫', dog: '小狗', robot: '机器人', capybara: '水豚' };
   var PET_INTERVALS = [30, 60, 300, 900];
+  // 每种状态的移动速度（px/ms），0 = 原地。
+  var PET_SPEED = { idle: .035, packup: .03, hot: .02, rain: 0, cold: 0, sleep: 0, celebrate: 0 };
+  // 三个锚点（viewBox 64×48）：head 头顶中心、top 右上方（Zzz）、neck 颈部、watch 身侧（表）。
+  var PET_ANCHORS = {
+    cat:   { head: [32, 4], top: [45, 7],  neck: [26, 24], watch: [52, 25] },
+    dog:   { head: [33, 4], top: [46, 7],  neck: [25, 24], watch: [53, 26] },
+    robot: { head: [32, 5], top: [44, 6],  neck: [25, 22], watch: [52, 24] },
+    capybara: { head: [32, 6], top: [46, 8], neck: [27, 26], watch: [52, 26] }
+  };
   var petRandomTimer = null;
   var petState = {
     mode: 'fixed', id: 'cat', interval: 60, nextAt: 0, queue: [],
-    dir: 1, x: 0, frame: 0, lastMove: 0, lastFrame: 0
+    dir: 1, x: 0, frame: 0, lastStep: 0, lastFrame: 0,
+    maxX: 0, lastX: null, lastDir: null, walkerW: 0,
+    behavior: 'idle', behaviorText: '', live: true
   };
+  // 环境数据：由 /api/time、/api/weather、/api/screen/countdown 各自写入，不额外发请求。
+  var petEnv = { hour: 0, weekday: 0, precip: null, temp: null, cdPhase: null, cdRemainMin: null };
+  // QA：本地副屏截图核对用，只读、不写回 Mac。
+  var petForced = queryParam('petState');
+  var petForcedId = queryParam('petId');
 
   function petLegs(frame, color) {
     if (frame === 0) {
@@ -847,60 +965,176 @@
            '<rect x="33" y="30" width="5" height="12" rx="2" fill="' + color + '"/>';
   }
 
-  function petSvg(kind, frame) {
-    var open = '<svg viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">';
-    var legs;
+  function petBody(kind) {
     if (kind === 'dog') {
-      legs = petLegs(frame, '#c8a27a');
-      return open +
-        '<g fill="#d7b18a">' +
+      return '<g fill="#d7b18a">' +
           '<rect x="18" y="11" width="28" height="22" rx="7"/>' +
           '<rect x="17" y="21" width="7" height="15" rx="3"/>' +
           '<rect x="40" y="21" width="7" height="15" rx="3"/>' +
           '<rect x="44" y="18" width="12" height="6" rx="3"/>' +
-        '</g>' + legs +
+        '</g>' +
         '<circle cx="40" cy="19" r="1.7" fill="#1c1c1e"/>' +
         '<circle cx="51" cy="20" r="2.4" fill="#1c1c1e"/>' +
-        '<path d="M20 15c1.8-3.2 4.4-4.8 7.6-4.8" stroke="rgba(255,255,255,.7)" stroke-width="2" fill="none"/>' +
-        '</svg>';
+        '<path d="M20 15c1.8-3.2 4.4-4.8 7.6-4.8" stroke="rgba(255,255,255,.7)" stroke-width="2" fill="none"/>';
+    }
+    if (kind === 'capybara') {
+      // 水豚：大圆身 + 小圆耳 + 方鼻，头顶一颗橘子（松弛感名场面）。
+      return '<g fill="#b98a5e">' +
+          '<rect x="17" y="12" width="30" height="21" rx="10"/>' +
+          '<rect x="22" y="6" width="21" height="15" rx="7"/>' +
+          '<circle cx="24" cy="8" r="2.6"/>' +
+          '<circle cx="41" cy="8" r="2.6"/>' +
+          '<circle cx="48" cy="20" r="2.2"/>' +
+        '</g>' +
+        '<rect x="34" y="15" width="12" height="8" rx="4" fill="#a3764e"/>' +
+        '<circle cx="45" cy="17.4" r="1" fill="#3a2a1c"/>' +
+        '<circle cx="45" cy="20.6" r="1" fill="#3a2a1c"/>' +
+        '<circle cx="29" cy="15" r="1.7" fill="#241a12"/>' +
+        '<circle cx="37" cy="14" r="1.5" fill="#241a12"/>' +
+        '<circle cx="33" cy="5" r="3.1" fill="#ff9f0a"/>' +
+        '<path d="M33 2.2c.9-1 2-1 2.4 0" stroke="#8e5a00" stroke-width="1" fill="none"/>';
     }
     if (kind === 'robot') {
-      legs = petLegs(frame, '#8e8e93');
-      return open +
-        '<rect x="19" y="8" width="27" height="27" rx="5" fill="#a7b0bb"/>' +
+      return '<rect x="19" y="8" width="27" height="27" rx="5" fill="#a7b0bb"/>' +
         '<rect x="23" y="13" width="19" height="11" rx="2" fill="#1c1c1e"/>' +
         '<circle cx="29" cy="18.5" r="1.7" fill="#64d2ff"/>' +
         '<circle cx="36" cy="18.5" r="1.7" fill="#64d2ff"/>' +
         '<path d="M32.5 8V4" stroke="#8e8e93" stroke-width="2"/>' +
         '<circle cx="32.5" cy="3" r="2" fill="#ff453a"/>' +
-        '<rect x="44" y="17" width="10" height="7" rx="3" fill="#8e8e93"/>' + legs +
-        '</svg>';
+        '<rect x="44" y="17" width="10" height="7" rx="3" fill="#8e8e93"/>';
     }
-    legs = petLegs(frame, '#d9d9dc');
-    return open +
-      '<g fill="#f2f2f7">' +
+    return '<g fill="#f2f2f7">' +
         '<rect x="18" y="11" width="28" height="22" rx="7"/>' +
         '<rect x="19" y="4" width="9" height="12" rx="2"/>' +
         '<rect x="36" y="4" width="9" height="12" rx="2"/>' +
         '<rect x="44" y="19" width="12" height="5" rx="2.5"/>' +
-      '</g>' + legs +
+      '</g>' +
       '<circle cx="40" cy="19" r="1.6" fill="#1c1c1e"/>' +
       '<path d="M50 20.5h5M50 22.5h4" stroke="#1c1c1e" stroke-width="1" stroke-linecap="round"/>' +
-      '<path d="M24 15c1.8-2.6 4.2-4 7-4" stroke="#fff" stroke-width="2" fill="none" opacity=".7"/>' +
-      '</svg>';
+      '<path d="M24 15c1.8-2.6 4.2-4 7-4" stroke="#fff" stroke-width="2" fill="none" opacity=".7"/>';
+  }
+
+  function petSparkle(x, y, r) {
+    return 'M' + (x - r) + ' ' + y + 'h' + (r * 2) + 'M' + x + ' ' + (y - r) + 'v' + (r * 2);
+  }
+
+  // 道具层：每只宠物共用一套，按 data-state 显隐；不随状态重建。
+  // 尺寸只有 64×48 个单位（屏幕上约 44px 宽），所以只用最少笔画：伞面 + 一把小雨滴、
+  // 围巾、汗滴、手表、四角星。伞面画在两只耳朵之间的空档，保证不压住脸。
+  function petProps(anchors) {
+    var h = anchors.head, t = anchors.top, n = anchors.neck, w = anchors.watch;
+    var domeY = h[1] + 7;
+    return '' +
+      '<g class="prop prop-sleep" fill="#f2f2f7" font-family="-apple-system, Helvetica, Arial" font-weight="700">' +
+        '<text class="zzz z1" x="' + (t[0] - 3) + '" y="' + (t[1] + 6) + '" font-size="9">Z</text>' +
+        '<text class="zzz z2" x="' + (t[0] + 4) + '" y="' + (t[1] + 1) + '" font-size="7">Z</text>' +
+        '<text class="zzz z3" x="' + (t[0] + 10) + '" y="' + (t[1] - 4) + '" font-size="5.5">Z</text>' +
+      '</g>' +
+      '<g class="prop prop-rain">' +
+        '<g class="umbrella" style="transform-origin:' + (h[0] + 9) + 'px ' + (h[1] + 10) + 'px">' +
+          '<path d="M' + (h[0] + 2) + ' ' + (h[1] + 3) + 'a7.5 5.5 0 0 0 15 0z" fill="#e5e5ea"/>' +
+          '<path d="M' + (h[0] + 2) + ' ' + (h[1] + 3) + 'h15" stroke="#c7c7cc" stroke-width="1"/>' +
+          '<rect x="' + (h[0] + 9) + '" y="' + (h[1] + 3) + '" width="1.4" height="9" rx=".7" fill="#c7c7cc"/>' +
+        '</g>' +
+        '<g stroke="#d1d1d6" stroke-width="1.4" stroke-linecap="round">' +
+          '<line class="drop" x1="' + (h[0] - 13) + '" y1="' + (h[1] + 11) + '" x2="' + (h[0] - 13) + '" y2="' + (h[1] + 16) + '"/>' +
+          '<line class="drop d2" x1="' + (h[0] - 7) + '" y1="' + (h[1] + 15) + '" x2="' + (h[0] - 7) + '" y2="' + (h[1] + 20) + '"/>' +
+          '<line class="drop d3" x1="' + (h[0] + 7) + '" y1="' + (h[1] + 13) + '" x2="' + (h[0] + 7) + '" y2="' + (h[1] + 18) + '"/>' +
+          '<line class="drop d4" x1="' + (h[0] + 13) + '" y1="' + (h[1] + 17) + '" x2="' + (h[0] + 13) + '" y2="' + (h[1] + 22) + '"/>' +
+        '</g>' +
+      '</g>' +
+      '<g class="prop prop-cold">' +
+        '<rect x="' + (n[0] - 13) + '" y="' + (n[1] - 5) + '" width="26" height="4.4" rx="2.2" fill="#ff9f0a" opacity=".9"/>' +
+        '<rect x="' + (n[0] + 2) + '" y="' + (n[1] - 2) + '" width="4.6" height="10" rx="2.3" fill="#ff9f0a" opacity=".75"/>' +
+      '</g>' +
+      '<g class="prop prop-hot">' +
+        '<path class="sweat" d="M' + (h[0] + 9) + ' ' + (h[1] + 9) + 'c2 2.4 2 4.4 0 5.6c-2-1.2-2-3.2 0-5.6z" fill="#64d2ff" opacity=".9"/>' +
+      '</g>' +
+      '<g class="prop prop-packup">' +
+        '<circle cx="' + w[0] + '" cy="' + w[1] + '" r="5" fill="none" stroke="#f2f2f7" stroke-width="1.2" opacity=".9"/>' +
+        '<line class="watch-hand" x1="' + w[0] + '" y1="' + w[1] + '" x2="' + w[0] + '" y2="' + (w[1] - 3.4) + '" stroke="#ff9f0a" stroke-width="1.1" style="transform-origin:' + w[0] + 'px ' + w[1] + 'px"/>' +
+      '</g>' +
+      '<g class="prop prop-celebrate" stroke="#ff9f0a" stroke-width="1.6" stroke-linecap="round">' +
+        '<path class="star" d="' + petSparkle(13, 10, 2) + '"/>' +
+        '<path class="star s2" d="' + petSparkle(51, 9, 2) + '"/>' +
+        '<path class="star s3" d="' + petSparkle(14, 30, 1.4) + '"/>' +
+        '<path class="star s4" d="' + petSparkle(50, 29, 1.4) + '"/>' +
+      '</g>';
   }
 
   function petRenderSprite() {
-    petSprite.innerHTML = petSvg(petState.id, petState.frame);
+    var kind = petState.id;
+    var color = kind === 'dog' ? '#c8a27a'
+      : kind === 'robot' ? '#8e8e93'
+      : kind === 'capybara' ? '#a3764e'
+      : '#d9d9dc';
+    var anchors = PET_ANCHORS[kind] || PET_ANCHORS.cat;
+    petSprite.innerHTML =
+      '<svg viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+        '<g class="pet-body">' + petBody(kind) +
+          '<g class="legs legs-a">' + petLegs(0, color) + '</g>' +
+          '<g class="legs legs-b">' + petLegs(1, color) + '</g>' +
+        '</g>' +
+        petProps(anchors) +
+      '</svg>';
+    petSprite.dataset.frame = String(petState.frame);
+    petSprite.dataset.state = petState.behavior;
   }
 
+  // 尺寸只在布局变化时算一次，宠物每帧不再读 DOM（避免 60fps 强制布局）。
+  function petMeasure() {
+    var box = petBox ? petBox.clientWidth : 0;
+    var walker = petWalker ? petWalker.offsetWidth : 0;
+    petState.walkerW = walker;
+    petState.maxX = Math.max(0, box - walker - 2);
+    if (petState.x > petState.maxX) {
+      petState.x = petState.maxX;
+      petState.lastX = null;
+    }
+  }
+
+  function petSetBehavior(next, text) {
+    if (next !== 'idle' && chase.on) { petChaseStop(); }
+    if (petState.behavior !== next) {
+      petState.behavior = next;
+      petSprite.dataset.state = next;
+    }
+    if (petState.behaviorText !== text) {
+      petState.behaviorText = text || '';
+      petRenderCaption();
+    }
+  }
+
+  // 优先级：下班 > 收拾 > 睡觉 > 下雨 > 冷 > 热 > 待机
+  function petEvaluateBehavior() {
+    if (petForced) { petSetBehavior(petForced, PET_FORCED_TEXT[petForced] || ''); return; }
+    if (!petState.live) { petSetBehavior('idle', ''); return; }
+    // 页面拿不到法定节假日，这里按周末判定休息日。
+    var rest = petEnv.weekday === 0 || petEnv.weekday === 6;
+    if (!rest && petEnv.cdPhase === 'off') { petSetBehavior('celebrate', '已下班'); return; }
+    if (!rest && petEnv.cdPhase === 'working' &&
+        petEnv.cdRemainMin != null && petEnv.cdRemainMin <= 30) {
+      petSetBehavior('packup', '还有 ' + Math.max(1, Math.round(petEnv.cdRemainMin)) + ' 分钟下班');
+      return;
+    }
+    if (petEnv.hour < 6 || (rest && petEnv.hour >= 22)) { petSetBehavior('sleep', '睡了'); return; }
+    if (petEnv.precip != null && petEnv.precip >= 60) { petSetBehavior('rain', '打伞'); return; }
+    if (petEnv.temp != null && petEnv.temp <= 5) { petSetBehavior('cold', '好冷'); return; }
+    if (petEnv.temp != null && petEnv.temp >= 30) { petSetBehavior('hot', '好热'); return; }
+    petSetBehavior('idle', '');
+  }
+
+  var PET_FORCED_TEXT = { sleep: '睡了', rain: '打伞', cold: '好冷', hot: '好热', packup: '还有 20 分钟下班', celebrate: '已下班' };
+
   function petApply(id) {
+    if (petForcedId && PET_NAMES[petForcedId]) { id = petForcedId; }
     petState.id = PET_NAMES[id] ? id : 'cat';
     petState.frame = 0;
     petName.textContent = PET_NAMES[petState.id];
     petRenderSprite();
-    var max = Math.max(0, (petBox ? petBox.clientWidth : 0) - (petWalker ? petWalker.offsetWidth : 0) - 2);
-    if (petState.x > max) { petState.x = max; }
+    petMeasure();
+    if (!chase.nextAt) { chase.nextAt = Date.now() + CHASE_FIRST_DELAY; }
+    petEvaluateBehavior();
   }
 
   function petShuffle(list) {
@@ -921,6 +1155,10 @@
   }
 
   function petRenderCaption() {
+    if (petState.behaviorText) {
+      petNext.textContent = petState.behaviorText;
+      return;
+    }
     if (petState.mode !== 'random' || !petState.nextAt) {
       petNext.textContent = '';
       return;
@@ -952,34 +1190,132 @@
     petScheduleRandom();
   }
 
-  function petTick(now) {
-    var elapsed = petState.lastMove ? Math.min(64, now - petState.lastMove) : 16;
-    petState.lastMove = now;
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var max = Math.max(0, (petBox ? petBox.clientWidth : 0) - (petWalker ? petWalker.offsetWidth : 0) - 2);
-    if (document.visibilityState === 'visible') {
-      if (reduce) {
-        petState.x = max / 2;
-        petState.dir = 1;
-      } else {
-        petState.x += petState.dir * 0.035 * elapsed;
-        if (petState.x >= max) { petState.x = max; petState.dir = -1; }
-        if (petState.x <= 0) { petState.x = 0; petState.dir = 1; }
-        if (now - petState.lastFrame > 280) {
-          petState.frame = petState.frame === 0 ? 1 : 0;
-          petRenderSprite();
-          petState.lastFrame = now;
-        }
+  // 每帧只写 transform，且值不变就不写；不做任何 DOM 读取。
+  function petStep(ts) {
+    if (chase.on) { petChaseMove(ts); return; }
+    var elapsed = petState.lastStep ? Math.min(80, ts - petState.lastStep) : 16;
+    petState.lastStep = ts;
+    var speed = PET_SPEED[petState.behavior] != null ? PET_SPEED[petState.behavior] : 0;
+    if (document.visibilityState === 'visible' && speed > 0 && petState.maxX > 0) {
+      petState.x += petState.dir * speed * elapsed;
+      if (petState.x >= petState.maxX) { petState.x = petState.maxX; petState.dir = -1; }
+      if (petState.x <= 0) { petState.x = 0; petState.dir = 1; }
+      if (ts - petState.lastFrame > 280) {
+        petState.frame = petState.frame ? 0 : 1;
+        petSprite.dataset.frame = String(petState.frame);
+        petState.lastFrame = ts;
       }
-      if (petWalker) { petWalker.style.transform = 'translate3d(' + petState.x.toFixed(1) + 'px,0,0)'; }
-      if (petSprite) { petSprite.style.transform = 'scaleX(' + petState.dir + ')'; }
     }
-    requestAnimationFrame(petTick);
+    if (petState.lastX !== petState.x) {
+      petState.lastX = petState.x;
+      petWalker.style.transform = 'translate3d(' + petState.x.toFixed(1) + 'px,0,0)';
+    }
+    if (petState.lastDir !== petState.dir) {
+      petState.lastDir = petState.dir;
+      petSprite.style.transform = 'scaleX(' + petState.dir + ')';
+    }
+    if (displayConfig.petChase && petState.behavior === 'idle' && Date.now() >= chase.nextAt) {
+      petChaseStart();
+    }
+  }
+
+  // ---- 猫追老鼠：一对刚体（鼠在猫头前方），触边镜像后继续跑 ----
+  // 素材：猫 CC0《Cat sprites》6 帧、鼠 CC-BY 3.0《Rodents – rat rework》3 帧，
+  // 帧条以 base64 内联，重建见 Docs/design/pet-chase-candidates/build_assets.py。
+  var petChaseEl = document.getElementById('petChase');
+  var chaseCatEl = document.getElementById('chaseCat');
+  var chaseMouseEl = document.getElementById('chaseMouse');
+  var CHASE_SPEED = 0.09;       // px/ms，约为待机 0.035 的 2.6 倍
+  var CHASE_GAP = 6;            // 鼠与猫头之间的空隙（中档 px）
+  var CHASE_PAD = 8;            // 触边留白（中档 px）
+  var CHASE_DURATION = 7200;    // 一次追逐的时长
+  var CHASE_FIRST_DELAY = 8000; // 页面加载后多久第一次追
+  var chase = {
+    on: false, x: 0, dir: 1, until: 0, lastStep: 0, nextAt: 0,
+    W: 0, catW: 0, mouseW: 0, gap: CHASE_GAP, pad: CHASE_PAD,
+    catT: '', mouseT: ''
+  };
+  var reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+  // 只在进入/退出追逐和尺寸变化时量 DOM，逐帧不读。
+  function petChaseMeasure() {
+    chase.W = petBox ? petBox.clientWidth : 0;
+    chase.catW = chaseCatEl ? chaseCatEl.offsetWidth : 0;
+    chase.mouseW = chaseMouseEl ? chaseMouseEl.offsetWidth : 0;
+    var k = chase.catW > 0 ? chase.catW / 62 : 1;
+    chase.gap = Math.round(CHASE_GAP * k);
+    chase.pad = Math.round(CHASE_PAD * k);
+  }
+
+  function petChasePlace() {
+    var mouseX = chase.dir > 0 ? chase.x + chase.catW + chase.gap
+                               : chase.x - chase.mouseW - chase.gap;
+    // 猫素材朝左（right = scaleX(-1)），鼠素材朝右。
+    var catT = 'translate3d(' + chase.x.toFixed(1) + 'px,0,0) scaleX(' + (-chase.dir) + ')';
+    var mouseT = 'translate3d(' + mouseX.toFixed(1) + 'px,0,0) scaleX(' + chase.dir + ')';
+    if (chase.catT !== catT) { chase.catT = catT; chaseCatEl.style.transform = catT; }
+    if (chase.mouseT !== mouseT) { chase.mouseT = mouseT; chaseMouseEl.style.transform = mouseT; }
+  }
+
+  function petChaseStart() {
+    if (!petChaseEl || !chaseCatEl || !chaseMouseEl) { return; }
+    if (reduceMotion && reduceMotion.matches) { return; }
+    if (frame.dataset.pet === 'off' || !displayConfig.petChase) { return; }
+    if (!petChaseEl.hidden) { return; }
+    petChaseEl.hidden = false;
+    petChaseMeasure();
+    if (chase.W <= chase.catW + chase.mouseW + chase.gap * 2) {
+      petChaseEl.hidden = true;
+      return;
+    }
+    chase.on = true;
+    chase.x = chase.pad + chase.gap;
+    chase.dir = 1;
+    chase.lastStep = 0;
+    chase.catT = '';
+    chase.mouseT = '';
+    chase.until = Date.now() + CHASE_DURATION;
+    if (petWalker) { petWalker.style.visibility = 'hidden'; }
+    petChasePlace();
+  }
+
+  function petChaseStop() {
+    if (!chase.on) {
+      if (petChaseEl) { petChaseEl.hidden = true; }
+      return;
+    }
+    chase.on = false;
+    chase.nextAt = Date.now() + (displayConfig.petChaseInterval || 60) * 1000;
+    if (petChaseEl) { petChaseEl.hidden = true; }
+    if (petWalker) { petWalker.style.visibility = ''; }
+    petMeasure();
+  }
+
+  function petChaseMove(ts) {
+    var elapsed = chase.lastStep ? Math.min(80, ts - chase.lastStep) : 16;
+    chase.lastStep = ts;
+    if (Date.now() >= chase.until) { petChaseStop(); return; }
+    chase.x += chase.dir * CHASE_SPEED * elapsed;
+
+    var mouseX = chase.dir > 0 ? chase.x + chase.catW + chase.gap
+                               : chase.x - chase.mouseW - chase.gap;
+    var front = chase.dir > 0 ? mouseX + chase.mouseW : mouseX;
+    if ((chase.dir > 0 && front >= chase.W - chase.pad) ||
+        (chase.dir < 0 && front <= chase.pad)) {
+      chase.dir = -chase.dir;
+      chase.x = chase.W - chase.catW - chase.x;
+      chase.x = Math.max(0, Math.min(chase.W - chase.catW, chase.x));
+    }
+    petChasePlace();
   }
 
   petApply(petState.id);
-  requestAnimationFrame(petTick);
   setInterval(petRenderCaption, 1000);
+  if (window.ResizeObserver) {
+    new ResizeObserver(function () { petMeasure(); if (chase.on) { petChaseMeasure(); } }).observe(petBox);
+  } else {
+    window.addEventListener('resize', petMeasure);
+  }
 
   // ---- 控制条 ----
   var hideTimer = null;
@@ -1067,7 +1403,10 @@
     var first = new Date(viewYear, viewMonth, 1);
     var startDow = first.getDay();
     var days = new Date(viewYear, viewMonth + 1, 0).getDate();
-    var total = 42;
+    // 只生成需要的行数（4~6 行）：以前固定 42 格，多出来的第 6 行会把网格撑高、
+    // 在 5 行的月份下面留出一条空白。
+    var rows = Math.max(4, Math.ceil((startDow + days) / 7));
+    var total = rows * 7;
     var out = '';
     for (var i = 0; i < total; i++) {
       var day = i - startDow + 1;
@@ -1079,7 +1418,6 @@
       out += '<div class="' + cls + '" role="gridcell"><span>' + day + '</span></div>';
     }
     grid.innerHTML = out;
-    var rows = Math.max(4, Math.ceil((startDow + days) / 7));
     grid.style.gridTemplateRows = 'repeat(' + rows + ', minmax(0, 1fr))';
     monthLabel.textContent = MONTHS[viewMonth];
     yearLabel.textContent = String(viewYear);
@@ -1120,7 +1458,6 @@
   renderCalendar();
 
   // ---- 模拟时钟 ----
-  var lastDraw = 0;
   var pendingFrame = null;
 
   function hand(cx, cy, angleDeg, length, width, color) {
@@ -1132,6 +1469,15 @@
     ctx.moveTo(cx, cy);
     ctx.lineTo(cx + Math.cos(angle) * length, cy + Math.sin(angle) * length);
     ctx.stroke();
+  }
+
+  // 圆盘四周的留白（以 --u 为单位）：卡片多高多宽都保证同一个边距。
+  var DIAL_MARGIN_U = 2.4;
+
+  function dialUnit() {
+    var raw = getComputedStyle(frame).getPropertyValue('--u');
+    var value = parseFloat(raw);
+    return isFinite(value) && value > 0 ? value : 6.4;
   }
 
   function drawDial(now) {
@@ -1150,7 +1496,9 @@
 
     var cx = w / 2;
     var cy = h / 2;
-    var R = Math.min(w, h) / 2 * 0.96;
+    // 半径 = 短边的一半减去恒定留白，任何宽高比下圆盘都四周有边距且居中。
+    var margin = DIAL_MARGIN_U * dialUnit();
+    var R = Math.max(12, Math.min(w, h) / 2 - margin);
 
     for (var i = 0; i < 60; i++) {
       var major = i % 5 === 0;
@@ -1194,18 +1542,30 @@
     ctx.fill();
   }
 
-  function loop(timestamp) {
-    if (timestamp - lastDraw > 66) {
-      drawDial(macWall());
-      lastDraw = timestamp;
+  // 单一主循环：宠物 30fps、时钟只在「秒」变化时重绘（1fps）。
+  // 相比原来两个 60fps rAF + 15fps canvas 重绘，回调与绘制量都降到 1/4 以下。
+  var lastPetStep = 0;
+  var lastClockSecond = -1;
+  var PET_STEP_MS = 33;
+  function screenTick(timestamp) {
+    if (timestamp - lastPetStep >= PET_STEP_MS) {
+      lastPetStep = timestamp;
+      petStep(timestamp);
     }
-    pendingFrame = requestAnimationFrame(loop);
+    var wall = macWall();
+    var second = wall.getUTCSeconds();
+    if (second !== lastClockSecond) {
+      lastClockSecond = second;
+      drawDial(wall);
+    }
+    pendingFrame = requestAnimationFrame(screenTick);
   }
 
   function startClock() {
     if (pendingFrame === null) {
       drawDial(macWall());
-      pendingFrame = requestAnimationFrame(loop);
+      lastClockSecond = macWall().getUTCSeconds();
+      pendingFrame = requestAnimationFrame(screenTick);
     }
   }
   function stopClock() {
@@ -1232,6 +1592,7 @@
     var strength = data && typeof data.strength === 'number' ? data.strength : 0.16;
     document.documentElement.style.setProperty('--frame-strength', String(strength));
     frame.dataset.frames = data && data.enabled ? 'on' : 'off';
+    frame.dataset.border = data && data.viewportBorder ? 'on' : 'off';
   }
 
   function loadScreenFrame() {
@@ -1407,6 +1768,16 @@
     cdLastBucket = bucket;
   }
 
+  // 只读时间戳换算，不写回，供宠物判断「快下班了」。
+  function petUpdateCountdownRemain() {
+    if (cd && cd.phase === 'working' && cd.targetEpoch) {
+      petEnv.cdRemainMin = (cd.targetEpoch * 1000 - Date.now()) / 60000;
+    } else {
+      petEnv.cdRemainMin = null;
+    }
+    petEvaluateBehavior();
+  }
+
   function cdRenderTime() {
     if (!cd) { return; }
     var timeEl = document.getElementById('cdTime');
@@ -1416,6 +1787,7 @@
       : cd.targetEpoch - Date.now() / 1000;
     if (remaining < 0) { loadCountdown(); return; }
     timeEl.textContent = cdDuration(remaining, cd.showSeconds);
+    petUpdateCountdownRemain();
   }
 
   function cdRenderMeta() {
@@ -1470,6 +1842,8 @@
       return;
     }
     card.dataset.phase = cd.phase || 'working';
+    petEnv.cdPhase = cd.phase || 'working';
+    petUpdateCountdownRemain();
     cdOverride = { until: 0, index: -1 };
     cdLastBucket = cd.phase === 'working' ? Math.round(Math.min(1, Math.max(0, 1 - (cd.progress || 0))) * 100) : null;
     cdSceneKey = '';
@@ -1572,11 +1946,13 @@
     var now = data.now || {};
     var today = data.today || {};
 
-    wxCity.textContent = data.city || 'WEATHER';
     var humidity = now.humidity == null ? '—' : now.humidity + '%';
     var rain = today.precipProbability == null ? '—' : today.precipProbability + '%';
     wxMeta.innerHTML = '<span>湿度 ' + humidity + '</span><span>降水 ' + rain + '</span>';
     wxIcon.innerHTML = weatherIcon(now.icon);
+    petEnv.precip = today.precipProbability == null ? null : Number(today.precipProbability);
+    petEnv.temp = now.temp == null ? null : Number(now.temp);
+    petEvaluateBehavior();
     wxTemp.textContent = now.temp == null ? '—' : now.temp + '°';
     wxFeels.innerHTML = now.feelsLike == null ? '' : '体感 <b>' + now.feelsLike + '°</b>';
 
@@ -1600,9 +1976,31 @@
     }
 
     var updated = formatUpdated(data.updatedAt);
-    wxFoot.innerHTML = (updated ? '更新 ' + updated + ' · ' : '') +
-      '<a href="https://www.qweather.com" target="_blank" rel="noreferrer">' + (data.attribution || '和风天气') + '</a>' +
-      (data.stale ? ' · <b>已过期</b>' : '');
+    // 底栏单行：城市 · 更新时间 · 数据源（城市用 DOM 赋值，避免注入）。
+    wxFoot.innerHTML = '';
+    var city = data.city || '';
+    if (city) {
+      var cityNode = document.createElement('span');
+      cityNode.className = 'wx-city';
+      cityNode.textContent = city;
+      wxFoot.appendChild(cityNode);
+      wxFoot.appendChild(document.createTextNode(' · '));
+    }
+    if (updated) {
+      wxFoot.appendChild(document.createTextNode('更新 ' + updated + ' · '));
+    }
+    var sourceLink = document.createElement('a');
+    sourceLink.href = 'https://www.qweather.com';
+    sourceLink.target = '_blank';
+    sourceLink.rel = 'noreferrer';
+    sourceLink.textContent = data.attribution || '和风天气';
+    wxFoot.appendChild(sourceLink);
+    if (data.stale) {
+      wxFoot.appendChild(document.createTextNode(' · '));
+      var staleNode = document.createElement('b');
+      staleNode.textContent = '已过期';
+      wxFoot.appendChild(staleNode);
+    }
 
     var days = Array.isArray(data.daily) ? data.daily.slice(0, 5) : [];
     wxDays.innerHTML = days.map(function (day) {
@@ -1634,7 +2032,6 @@
     frame.dataset.weather = 'off';
     wxStatus.style.display = 'none';
     wxStatus.textContent = '';
-    wxCity.textContent = 'WEATHER';
     wxMeta.innerHTML = '';
     wxIcon.innerHTML = '';
     wxTemp.textContent = '--°';
@@ -1730,7 +2127,6 @@
   }
   refreshBtn.addEventListener('click', refreshAll);
 
-  updateDateLine(macWall());
   loadMacTime();
   watchScreenEvents();
   setInterval(function () {

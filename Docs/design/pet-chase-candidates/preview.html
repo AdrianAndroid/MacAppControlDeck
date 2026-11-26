@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>副屏宠物 · 猫追老鼠（现成素材预览）</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 24px 48px;
+    background: #101013; color: #e8e8ed;
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  }
+  h1 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
+  .sub { color: #8e8e93; margin: 0 0 22px; }
+  h2 { font-size: 12px; font-weight: 650; letter-spacing: .04em; color: #8e8e93;
+       text-transform: uppercase; margin: 26px 0 10px; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .box { display: flex; flex-direction: column; gap: 6px; }
+  .label { font-size: 11px; color: #8e8e93; }
+
+  /* 真实副屏：宠物区约 260×50，纯黑底，底部 1.6u 地面线 */
+  .card {
+    position: relative; overflow: hidden;
+    width: 264px; height: 52px;
+    background: #000; border: 1px solid #2a2a2e; border-radius: 9px;
+  }
+  .card.zoom { width: 528px; height: 104px; }
+  .sprite {
+    position: absolute; left: 0; bottom: 8px;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    will-change: transform;
+  }
+  .cat { width: 62px; height: 50px;
+         background-image: url(cat_strip.png); background-size: 372px 50px;
+         animation: catrun .66s steps(6) infinite; }
+  .rat { width: 40px; height: 22px;
+         background-image: url(rat_strip.png); background-size: 120px 22px;
+         animation: ratrun .36s steps(3) infinite; }
+  .zoom .cat { width: 124px; height: 100px; background-size: 744px 100px; }
+  .zoom .rat { width: 80px; height: 44px; background-size: 240px 44px; }
+  @keyframes catrun { from { background-position: 0 0 } to { background-position: -372px 0 } }
+  @keyframes ratrun { from { background-position: 0 0 } to { background-position: -120px 0 } }
+  .card.paused .sprite { animation-play-state: paused; }
+
+  .frames { display: flex; gap: 10px; flex-wrap: wrap; }
+  .frame { background-color: #000; border: 1px solid #2a2a2e; border-radius: 6px;
+           background-repeat: no-repeat; image-rendering: pixelated; }
+
+  table { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  td, th { border-bottom: 1px solid #232327; padding: 6px 14px 6px 0; text-align: left; vertical-align: top; }
+  th { color: #8e8e93; font-weight: 600; }
+  code { background: #1c1c21; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+  .note { color: #8e8e93; font-size: 12px; margin-top: 6px; }
+  .off { display: inline-block; margin-left: 8px; font-size: 11px; color: #0a0; }
+</style>
+</head>
+<body>
+
+<h1>副屏宠物 · 猫追老鼠（现成素材 + 调色）</h1>
+<p class="sub">黑底 = 副屏真实背景。尺寸按中档 <code>--u≈6px</code>：猫 62×50、鼠 40×22、卡片 264×52。</p>
+
+<h2>真实尺寸 · 循环追逐</h2>
+<div class="row">
+  <div class="box">
+    <div class="card" id="card1">
+      <div class="sprite cat"></div><div class="sprite rat"></div>
+    </div>
+    <div class="label">1× 实际像素（猫 62px）</div>
+  </div>
+  <div class="box">
+    <div class="card zoom" id="card2">
+      <div class="sprite cat"></div><div class="sprite rat"></div>
+    </div>
+    <div class="label">2× 放大看帧</div>
+  </div>
+</div>
+
+<h2>帧序列</h2>
+<div class="box">
+  <div class="label">猫 · 6 帧跑动</div>
+  <div class="frames" id="catFrames"></div>
+</div>
+<div class="box" style="margin-top:14px">
+  <div class="label">鼠 · 3 帧跑动</div>
+  <div class="frames" id="ratFrames"></div>
+</div>
+
+<h2>素材来源</h2>
+<table>
+  <tr><th>角色</th><th>出处</th><th>许可</th><th>处理</th></tr>
+  <tr>
+    <td>猫<br><span class="note">6 帧</span></td>
+    <td>Shepardskin《Cat sprites》<br><span class="note">opengameart.org/content/cat-sprites</span></td>
+    <td>CC0</td>
+    <td>去紫底 → 缩回 20×16 逻辑像素 → 深灰改暖橙</td>
+  </tr>
+  <tr>
+    <td>鼠<br><span class="note">3 帧</span></td>
+    <td>《Rodents – rat rework》<br><span class="note">opengameart.org/content/rodents-rat-rework</span></td>
+    <td>CC-BY 3.0<br><span class="note">需在 THIRD_PARTY_NOTICES 署名</span></td>
+    <td>从 96×128 精灵表取第 2 行侧面朝右</td>
+  </tr>
+</table>
+
+<p class="note">
+  猫原本是深灰（#383838）——贴纯黑背景几乎看不见，所以改成暖橙；绿眼保留。
+  鼠原本是深棕，也压暗；这里先按原色放，等确认后再决定是否提亮。
+</p>
+
+<script>
+  // 帧序列展示：用 background-position 切图
+  function frames(el, src, n, w, h, scale) {
+    for (var i = 0; i < n; i++) {
+      var d = document.createElement('div');
+      d.className = 'frame';
+      d.style.width = (w * scale) + 'px';
+      d.style.height = (h * scale) + 'px';
+      d.style.backgroundImage = 'url(' + src + ')';
+      d.style.backgroundSize = (w * n * scale) + 'px ' + (h * scale) + 'px';
+      d.style.backgroundPosition = (-i * w * scale) + 'px 0';
+      el.appendChild(d);
+    }
+  }
+  frames(document.getElementById('catFrames'), 'cat_strip.png', 6, 20, 16, 3);
+  frames(document.getElementById('ratFrames'), 'rat_strip.png', 3, 25, 14, 3);
+
+  // 追逐：一对刚体，鼠在前、猫在后，触边镜像
+  function chase(card) {
+    var cat = card.querySelector('.cat');
+    var rat = card.querySelector('.rat');
+    var CAT_W = card.classList.contains('zoom') ? 124 : 62;
+    var RAT_W = card.classList.contains('zoom') ? 80 : 40;
+    var GAP = card.classList.contains('zoom') ? 12 : 6;
+    var SPEED = card.classList.contains('zoom') ? 0.18 : 0.09;
+    var PAD = 8;
+
+    var x = PAD + 20, dir = 1, last = 0, W = 0, lastX = null, lastDir = null;
+
+    function measure() {
+      W = card.clientWidth;
+      if (W < CAT_W + RAT_W + GAP + PAD * 2) { return; }
+    }
+    measure();
+    if (window.ResizeObserver) { new ResizeObserver(measure).observe(card); }
+
+    function place() {
+      // 鼠在猫头前方，留 GAP 空隙（鼠不叠在猫身上）
+      var mouseX = dir > 0 ? x + CAT_W + GAP : x - RAT_W - GAP;
+      cat.style.transform = 'translate3d(' + x.toFixed(1) + 'px,0,0) scaleX(-1)';
+      rat.style.transform = 'translate3d(' + mouseX.toFixed(1) + 'px,0,0) scaleX(' + dir + ')';
+    }
+    place();
+
+    function step(ts) {
+      var dt = last ? Math.min(60, ts - last) : 16;
+      last = ts;
+      if (document.visibilityState === 'visible' && W > 0) {
+        x += dir * SPEED * dt;
+        var mouseX = dir > 0 ? x + CAT_W + GAP : x - RAT_W - GAP;
+        var mouseFront = dir > 0 ? mouseX + RAT_W : mouseX;
+        if (dir > 0 && mouseFront >= W - PAD) { mirror(); }
+        else if (dir < 0 && mouseFront <= PAD) { mirror(); }
+        else { place(); }
+      }
+      requestAnimationFrame(step);
+    }
+    function mirror() {
+      dir = -dir;
+      x = W - CAT_W - x;
+      if (x < 0) x = 0;
+      if (x > W - CAT_W) x = W - CAT_W;
+      place();
+    }
+    requestAnimationFrame(step);
+  }
+  chase(document.getElementById('card1'));
+  chase(document.getElementById('card2'));
+</script>
+</body>
+</html>

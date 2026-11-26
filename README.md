@@ -42,7 +42,7 @@
 - **自动升级**：菜单栏「检查更新…」/ 设置 →「通用 → 更新」从 GitHub Releases 拉新版本；默认每天后台检查一次、下载后由你确认重启，更新包需通过内置 EdDSA 公钥与固定签名身份双重校验，升级后不用重新授权
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
 - **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「左侧竖轨（标题/日期/时间/全屏/连接）+ 竖排标题 + 应用 4×3（12 个/页）+ 快捷 2×4（8 个/页）」；锁定视口，只保留横向翻页/页点与 `1/N` 页码，旋转保持当前页；明文局域网 HTTP
-- **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历（含下班倒计时） | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘
+- **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历（含下班倒计时） | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘；底部宠物卡支持「猫追老鼠」循环，设置里另有走查用视口外边框
 - **PureMac 系统工具（Mac 本机模块）**：单一模块承载垃圾/缓存清理、应用卸载与残留、大文件、重复文件、菜单栏 CPU/MEM/实时网速监控、运行中应用退出/强制退出；清理默认展示路径与大小、默认不选中、优先移废纸篓，永久删除需单独二次确认；菜单栏 CPU/MEM/网速三个独立状态项可分别勾选显示与点击（点 MEM 弹出内存占用菜单、可一键退出应用），模块禁用时一并消失；网速用公开 API 差分采样、定宽显示不抖动、零 TCC 权限；清理引擎移植自 PureMac（MIT，momenbasel，见 `THIRD_PARTY_NOTICES.md`）。详见变更 `add-system-cleaner`、`add-menubar-netspeed`、`add-menubar-memory-menu`
 
 ## 开发规则
@@ -318,6 +318,8 @@ open /Applications/MacAppControlDeck.app
 - **保持常亮**：浏览器支持 Wake Lock 时自动申请，并在回到前台后重新申请；不支持时如实显示「不可用」
 - **月份浏览**：`‹ ›` 查看前后月份，点月份名回到当月；浏览他月 60 秒无操作会自动回到当月
 - **内置操作**：从「按钮管理 → 添加内置操作」添加「打开副屏」后，可从菜单栏快捷操作与手机面板快捷操作触发（在 Mac 浏览器打开）
+- **底部宠物卡 · 猫追老鼠**：待机时每 90 秒（可改 30 秒 / 1 分钟 / 3 分钟）在底部宠物卡里播一次约 7 秒的追逐——橘猫在后、灰鼠在前，跑到卡片边缘同时掉头，鼠始终在前面、两只不重叠；睡觉 / 打伞 / 围巾 / 看表 / 庆祝等状态不出现老鼠；设置 → 副屏 →「猫追老鼠」可关闭。素材为内联帧条（猫 6 帧 CC0、鼠 3 帧 CC-BY 3.0），不产生额外网络请求
+- **视口外边框（走查）**：设置 → 副屏 → 外观 →「视口外边框（走查）」默认关闭；打开后整个副屏视口四边各出现 1px 亮青色内描边，**不占任何 margin / padding**、不触发滚动、不吃点击，用来检查内容有没有贴边或溢出
 
 <p align="center"><img src="Docs/images/readme/screen-clock-calendar-portrait.png" width="300" alt="手机副屏竖屏"><br><sub>竖屏：时钟 → 天气（含 5 天预报）→ 月历（500×800 视口）</sub></p>
 
@@ -535,6 +537,9 @@ Docs/archive/                    # 历史归档
 
 - 2026-11-26 **v0.4.2 发布**（按钮管理 4 列卡片网格 + 长按拖动排序 + 右键菜单；副屏桌宠/控制条自动隐藏；区域截图钉图原位；状态栏日历；桌宠快捷栏）：[发布说明](Docs/releases/v0.4.2.md) · [按钮能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 XP-Pen Deco 640 自定义手写板驱动预研（非需求，未建 OpenSpec 变更）：用户态 `IOHIDManager` 方案、三条 HID 通道、私有 12 字节报文与初始化序列、8+2 可配置按键、等比例画布限制与鼠标光标仲裁、只读映射到完整接管的分阶段路线：[预研报告](Docs/research/2026-11-26-deco640-driver-research.md) · [HID 探针](Tools/DecoProbe.swift)
+- 2026-11-26 副屏宠物卡新增「猫追老鼠」：待机时每 90 秒（可改 30 秒 / 1 分钟 / 3 分钟）播约 7 秒追逐，橘猫 6 帧 + 灰鼠 3 帧内联帧条（CC0 / CC-BY 3.0），一对刚体触边镜像、鼠始终在前；设置 → 副屏 可关闭：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-screen-pet-cat-chase-loop/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-26 副屏新增走查用视口外边框：设置 → 副屏 → 外观 打开后四边各 1px 亮青内描边，`inset` 阴影实现、不占 margin/padding、不吃点击，默认关闭：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-screen-viewport-border/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-26 副屏宠物补水豚（第 4 只）、宠物卡片显隐开关（关闭后时钟区变高）、宠物状态化（睡觉 / 打伞 / 围巾 / 看表 / 庆祝，按真实时间与天气切换）、时钟卡四边等距留白、天气底栏合并单行署名：[变更](openspec/changes/archive/2026-11-26-add-screen-capybara-pet/proposal.md) · [宠物卡片开关](openspec/changes/archive/2026-11-26-add-screen-pet-card-toggle/proposal.md) · [状态化](openspec/changes/archive/2026-11-26-add-screen-pet-states/proposal.md) · [时钟留白](openspec/changes/archive/2026-11-26-polish-screen-clock-padding/proposal.md) · [天气底栏](openspec/changes/archive/2026-11-26-polish-screen-weather-footer/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-26 移除按钮管理底部选中操作条：点击卡片仅高亮选中，不再弹出「已选 xxx / 重命名 / 删除」底栏，重命名、删除、编辑组合、上移、下移统一走右键菜单：[OpenSpec 变更](openspec/changes/archive/2026-11-26-remove-buttons-grid-selection-bar/proposal.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 按钮管理改为 4 列卡片网格：点击选中、底部操作条、右键重命名/上移/下移/删除；长按 0.5 秒进入拖动准备态，拖动期间只本地预览、松手一次落盘，组内排序并同步菜单栏与手机面板：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/proposal.md) · [设计](openspec/changes/archive/2026-11-26-add-buttons-grid-longpress-reorder/design.md) · [能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 副屏控制条改到顶部显示，显示后 5 秒自动隐藏（含触屏），点屏幕任意处可再次唤出，不再常驻挡屏：[OpenSpec 变更](openspec/changes/archive/2026-11-26-screen-chrome-top-auto-hide/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)

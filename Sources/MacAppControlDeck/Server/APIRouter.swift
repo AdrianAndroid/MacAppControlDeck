@@ -99,9 +99,11 @@ final class APIRouter {
             return resp
         }
 
-        // 副屏入口同样带版本参数；页面只读、免配对，缓存必须立即失效
+        // 副屏入口同样带版本参数；页面只读、免配对，缓存必须立即失效。
+        // 已经带正确版本时不再跳转，保留调用方附加的查询参数（如 QA 用的 petState）。
         if request.method == "GET",
-           request.path == "/screen" || request.path == "/screen/" || request.path == "/screen/index.html" {
+           (request.path == "/screen" || request.path == "/screen/" || request.path == "/screen/index.html"),
+           Self.queryValue(request.path, "v") != ScreenHTML.version {
             var resp = HTTPResponse(status: 302, contentType: "text/plain; charset=utf-8", body: Data())
             resp.headers["Location"] = "/screen/?v=\(ScreenHTML.version)"
             resp.headers["Cache-Control"] = "no-store, must-revalidate"
