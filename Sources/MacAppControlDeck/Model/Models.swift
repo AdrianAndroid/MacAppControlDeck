@@ -99,8 +99,39 @@ struct DeviceRecord: Codable, Identifiable, Equatable {
     var token: String
     var name: String
     var pairedAt: Date
+    var lastSeenAt: Date?
 
     var id: String { token }
+}
+
+/// 只读副屏的浏览器登记。没有 token，不能执行任何操作，仅用于「设备」页展示。
+struct ScreenClientRecord: Codable, Identifiable, Equatable {
+    var id: String
+    var name: String
+    var firstSeenAt: Date
+    var lastSeenAt: Date
+
+    static func displayName(userAgent: String) -> String {
+        let ua = userAgent.lowercased()
+        guard !ua.isEmpty else { return "未知设备" }
+
+        let device: String
+        if ua.contains("iphone") { device = "iPhone" }
+        else if ua.contains("ipad") { device = "iPad" }
+        else if ua.contains("android") { device = "Android" }
+        else if ua.contains("macintosh") || ua.contains("mac os x") { device = "Mac" }
+        else if ua.contains("windows") { device = "Windows" }
+        else { device = "设备" }
+
+        let browser: String
+        if ua.contains("edgios") || ua.contains("edg/") { browser = "Edge" }
+        else if ua.contains("crios") || ua.contains("chrome/") { browser = "Chrome" }
+        else if ua.contains("fxios") || ua.contains("firefox/") { browser = "Firefox" }
+        else if ua.contains("safari/") { browser = "Safari" }
+        else { browser = "浏览器" }
+
+        return "\(device) · \(browser)"
+    }
 }
 
 struct InstalledApp: Identifiable, Equatable, Hashable {

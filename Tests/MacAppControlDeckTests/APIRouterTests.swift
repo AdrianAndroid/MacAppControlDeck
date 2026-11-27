@@ -266,4 +266,26 @@ final class APIRouterTests: XCTestCase {
         XCTAssertTrue(ScreenDisplayConfig.validPetIDs.contains(display.petId))
         XCTAssertTrue(ScreenDisplayConfig.validIntervals.contains(display.petInterval))
     }
+
+    func testScreenPresenceRegistersReadOnlyClient() async {
+        let store = ConfigStore(directory: directory)
+        let router = makeRouter(store: store)
+        let body = try! JSONEncoder().encode(["id": "screen-test-1234"])
+        let response = await router.handle(makeRequest(
+            "POST", "/api/screen/presence",
+            headers: ["Host": "127.0.0.1", "User-Agent": "Mozilla/5.0 (iPhone) Version/17.0 Safari/605.1"],
+            body: body))
+        XCTAssertEqual(response.status, 204)
+        let clients = store.screenClientSnapshot()
+        XCTAssertEqual(clients.count, 1)
+        XCTAssertEqual(clients.first?.id, "screen-test-1234")
+        XCTAssertEqual(clients.first?.name, "iPhone · Safari")
+    }
+
+    func testScreenPresenceRejectsInvalidID() async {
+        let router = makeRouter()
+        let body = try! JSONEncoder().encode(["id": "../bad"])
+        let response = await router.handle(makeRequest("POST", "/api/screen/presence", body: body))
+        XCTAssertEqual(response.status, 400)
+    }
 }

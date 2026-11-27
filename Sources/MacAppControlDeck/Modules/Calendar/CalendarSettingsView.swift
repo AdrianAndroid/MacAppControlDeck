@@ -81,6 +81,18 @@ struct CalendarSettingsView: View {
                 Text("默认按中文日历习惯周一开头；关闭后改为周日开头。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Divider()
+
+                Picker("日期下方小字", selection: $preferences.festivalDisplay) {
+                    ForEach(CalendarFestivalDisplay.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("关：不显示农历/节气/节日；精简：只显示节气与节日；全显示：每格都显示农历。默认精简。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(6)
         } label: {

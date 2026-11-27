@@ -58,22 +58,63 @@ struct ScreenSettingsView: View {
 
     private var addressCard: some View {
         GroupBox {
-            HStack {
-                Text(state.screenURL?.absoluteString ?? "未获取到局域网地址")
-                    .font(.system(size: 13, design: .monospaced))
-                    .textSelection(.enabled)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 8)
-                Button("复制") { state.copyScreenURL() }
-                    .disabled(state.screenURL == nil)
-                Button("打开") { state.openScreenInBrowser() }
-                    .disabled(state.screenURL == nil)
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
+                    screenAddressRow("地址",
+                                     url: state.screenURL,
+                                     copy: { state.copyScreenURL() },
+                                     open: { state.openScreenInBrowser() })
+                    Text("副屏免配对；扫码直接打开并自动登记到「设备 → 副屏」。切换 Wi-Fi 后地址会自动更新。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    screenQRColumn("副屏地址", url: state.screenURL)
+                }
             }
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label("副屏地址", systemImage: "rectangle.on.rectangle")
+        }
+    }
+
+    private func screenAddressRow(_ title: String,
+                                  url: URL?,
+                                  copy: @escaping () -> Void,
+                                  open: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 56, alignment: .leading)
+            Text(url?.absoluteString ?? "未获取到地址")
+                .font(.system(size: 13, design: .monospaced))
+                .textSelection(.enabled)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 4)
+            Button("复制", action: copy).disabled(url == nil)
+            Button("打开", action: open).disabled(url == nil)
+        }
+    }
+
+    private func screenQRColumn(_ title: String, url: URL?) -> some View {
+        VStack(spacing: 4) {
+            if let text = url?.absoluteString, let image = QRCodeImage.make(text) {
+                Image(nsImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 82, height: 82)
+                    .padding(12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(width: 106, height: 106)
+            }
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 

@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import ApplicationServices
 import Carbon
+import Network
 
 /// 应用运行状态的唯一持有者：服务、按钮、设备、权限、配对。
 /// 菜单栏与设置窗口都观察同一个实例，避免两套状态。
@@ -14,6 +15,7 @@ final class DeckState: ObservableObject {
     @Published var pairingExpiryText: String = ""
     @Published var buttons: [ButtonConfig] = []
     @Published var devices: [DeviceRecord] = []
+    @Published var screenClients: [ScreenClientRecord] = []
     @Published var installedApps: [InstalledApp] = []
     @Published var accessibilityReady = AXIsProcessTrusted()
     @Published var inputMonitoringReady = CGPreflightListenEventAccess()
@@ -27,6 +29,9 @@ final class DeckState: ObservableObject {
     private let server: DeckHTTPServer
     private var expiryTimer: Timer?
     private var accessibilityTimer: Timer?
+    private let pathMonitor = NWPathMonitor()
+    private let pathQueue = DispatchQueue(label: "deck.networkpath")
+    private var networkMonitorStarted = false
 
     init(injectedServer: DeckHTTPServer? = nil) {
         store = ConfigStore()
@@ -38,10 +43,36 @@ final class DeckState: ObservableObject {
     func start() {
         guard !serverStatus.running else { return }
         serverStatus = server.start()
-        panelURL = LANAddress.panelURL(port: server.port)
-        screenURL = LANAddress.screenURL(port: server.port)
+        refreshAddresses()
+        startNetworkMonitor()
         refreshAll()
         pollAccessibility()
+    }
+
+    /// 重新计算当前 IP 与稳定 .local 地址。
+    /// Wi-Fi 切换、服务重启、菜单打开后都可安全重复调用。
+    func refreshAddresses() {
+        guard serverStatus.running, serverStatus.port > 0 else {
+            panelURL = nil
+            screenURL = nil
+            return
+        }
+        let port = serverStatus.port
+        panelURL = LANAddress.panelURL(port: port)
+        screenURL = LANAddress.screenURL(port: port)
+    }
+
+    /// 网络路径变化时自动刷新地址，避免菜单一直显示切换 Wi-Fi 前的旧 IP。
+    private func startNetworkMonitor() {
+        guard !networkMonitorStarted else { return }
+        networkMonitorStarted = true
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            guard path.status == .satisfied else { return }
+            DispatchQueue.main.async {
+                self?.refreshAddresses()
+            }
+        }
+        pathMonitor.start(queue: pathQueue)
     }
 
     /// 定期轮询辅助功能授权状态，用户在系统设置授权后面板状态自动变绿。
@@ -53,6 +84,8 @@ final class DeckState: ObservableObject {
                 self?.inputMonitoringReady = CGPreflightListenEventAccess()
                 self?.missionControlSpaceSwitchEnabled = DeckState.readSpaceSwitchSetting()
                 self?.automationReady = DeckState.readAutomationPermission()
+                self?.refreshScreenClients()
+                self?.refreshDevices()
             }
         }
     }
@@ -124,6 +157,7 @@ final class DeckState: ObservableObject {
     func stop() {
         server.stop()
         serverStatus = ServerStatus(running: false, port: 0, errorText: nil)
+        refreshAddresses()
     }
 
     func restart() {
@@ -133,7 +167,21 @@ final class DeckState: ObservableObject {
 
     func refreshAll() {
         buttons = store.sortedButtons()
+        refreshDevices()
+        refreshScreenClients()
+    }
+
+    func refreshDevices() {
         devices = store.devices
+    }
+
+    func refreshScreenClients() {
+        screenClients = store.screenClientSnapshot()
+    }
+
+    func removeScreenClient(_ client: ScreenClientRecord) {
+        store.removeScreenClient(id: client.id)
+        refreshScreenClients()
     }
 
     func generatePairingCode() {

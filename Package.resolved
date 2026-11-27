@@ -1,15 +1,6 @@
 {
-  "originHash" : "ea1ac9d1a064f30af7dc2dc42c2c6d68c4ce1d059c5eb7adadb9b806e1ac29fe",
+  "originHash" : "0e6392090c2ba2d29cb026b401fce968fc36ec4301041ad89c607426a707d63d",
   "pins" : [
-    {
-      "identity" : "calendarview",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Mijick/CalendarView.git",
-      "state" : {
-        "revision" : "168cf14a50d33684caa2a411bbd0b3f988e9dff6",
-        "version" : "1.1.1"
-      }
-    },
     {
       "identity" : "lunar-swift",
       "kind" : "remoteSourceControl",

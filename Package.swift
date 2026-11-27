@@ -6,8 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/6tail/lunar-swift.git", from: "1.1.9"),
-        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.10.1"),
-        .package(url: "https://github.com/Mijick/CalendarView.git", exact: "1.1.1")
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.10.1")
     ],
     targets: [
         .target(
@@ -19,8 +18,7 @@ let package = Package(
         .executableTarget(
             name: "MacAppControlDeck",
             dependencies: ["MacShotKit", .product(name: "LunarSwift", package: "lunar-swift"),
-                           .product(name: "Sparkle", package: "Sparkle"),
-                           .product(name: "MijickCalendarView", package: "CalendarView")],
+                           .product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/MacAppControlDeck",
             resources: [
                 .copy("Modules/Sketch/Resources/Sketch"),

@@ -172,6 +172,9 @@ struct PetSettingsView: View {
                     .pickerStyle(.segmented)
                     .frame(width: 300)
                 }
+                Text("同一排序同时作用于桌宠快捷栏与手机面板的应用区。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack {
                     Text("冷却时间")
                     Picker("", selection: $dockSettings.cooldownMinutes) {
@@ -200,9 +203,9 @@ struct PetSettingsView: View {
                 Toggle("显示运行中圆点", isOn: $dockSettings.showRunningDot)
                 Toggle("标记最近点击的图标（只标记最后一次）", isOn: $dockSettings.markLastClicked)
                 Button("清空点击统计") {
-                    PetDockStats.shared.reset()
+                    AppDockOrdering.shared.resetStats()
                 }
-                Text("排序只在「首次出现 / 点击后空闲 5 秒 / 改设置」时重算，不会在鼠标下方跳位。")
+                Text("两端共用点击统计；排序只在「首次出现 / 点击后空闲 5 秒 / 改设置」时重算，不会在鼠标或手指下方跳位。")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

@@ -28,20 +28,22 @@
 - **一键启动 / 切换应用**：手机点按钮 → 应用启动或切到前台；窗口在其他「桌面空间」时自动跳过去
 - **跨桌面切换**：通过「按下 Dock 图标」实现，与真人点击 Dock 完全等价，复用系统调度中心的跨空间规则
 - **按钮管理**：Mac 端 4 列卡片网格，应用与快捷操作分组；支持搜索、组内长按拖动排序、右键重命名/编辑组合/上移/下移/删除；点击只高亮选中，不执行按钮
-- **配对与撤销**：6 位一次性配对码（2 分钟、错 3 次作废），已配对设备可随时撤销
+- **地址自动更新**：切换 Wi-Fi 后通过 `NWPathMonitor` 自动重算面板 IP；菜单栏「电脑控制」可直接刷新/复制/显示二维码；设置 → 电脑控制 → 服务 提供当前地址二维码，手机扫码即可打开
+
+- **配对与撤销**：6 位一次性配对码（2 分钟、错 3 次作废），设置页可直接扫码配对（当前地址二维码，只含一次性码，不含长期 token）；「设备」页区分「主屏 · 已配对（可操作）」与「副屏 · 只读（无需配对）」两组
 - **菜单栏常驻**：应用只占菜单栏，不占 Dock；下拉菜单直接点应用 / 快捷操作 / 命令
 - **全局快捷键可管且默认关闭**：设置 →「快捷键」首次安装时全部为关闭状态，需要哪个就打开哪个；可一键停用全部，也能单独关闭、录制改键或恢复默认组合；被其他应用占用时如实显示状态并自动重试。可选入口：截图 `F1` / `⌘⇧X`，草图 `⌃⌥D`，桌宠 `⌃⌥P`
 - **截图与录屏（Mac 本机模块）**：全屏 / 区域 / 窗口 / 滚动截图，截图延时、快速保存、快速 OCR；标注编辑器（矩形、椭圆、直线、箭头、画笔、荧光笔、文字、序号、马赛克、模糊、聚光灯、测量、裁剪）；OCR、钉图、最近截图历史；PNG/JPEG/HEIC/WebP/AVIF 输出
 - **录屏（Mac 本机模块）**：区域 / 全屏 / 窗口 MP4（H.264 + 系统音频，真实帧时序），15/30/60/120 fps；区域 GIF（5/10/15 fps）；3-2-1 倒计时；顶部录制 HUD 与录制边框；磁盘不足/休眠自动停止
 - **视频剪辑**：多段剪切、0.5–4× 变速、字幕（可指定起止时间）、分轨音量、MP4 导出进度/取消、直接导出 GIF
 - **UI 草图（Mac 本机模块）**：离线 Excalidraw 画板，多画布独立保存；左上角「画布」下拉可新建、重命名、删除并顺滑切换，每张画布保留各自内容与视口；鼠标手绘 UI 意图，矩形、箭头、文字、便签、粘贴截图齐全；有选中复制选中、无选中复制整板，PNG 直接粘贴给 AI；也可「复制 JSON」，导出带 `isDiagram` / `ai.kind=diagram` 说明的场景文本 JSON，AI 能明确知道这是图；同时保存 PNG 与 `.excalidraw` 源文件到 `~/Pictures/MacAppControlDeck/Sketches`；内置 16 组离线精选素材库（285 个组件、1531 个元素，来自 Excalidraw 官方素材库，MIT），顶部「精选素材」可按类别载入，原生「素材库」按钮直接取用；全局快捷键 `⌃⌥D`（默认关闭，可在设置 → 快捷键打开）；默认打开画板才创建窗口与 WebView，关闭窗口释放，设置可开「常驻内存」
-- **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」
-- **桌宠底部快捷栏**：桌宠下方一条半透明胶囊，只放手机 Deck 的「应用」按钮；点一下直接切换/启动应用，运行中的应用带绿点，最后一次点击的图标变浅。图标少时条宽收缩并相对桌宠居中，图标多时撑满桌宠宽度、长按横向拖动滚动（松手即停）；默认按点击频率排序（半衰期 7 天、冷却 30 分钟），不点不跳位；可在 设置 → 桌面宠物 →「底部快捷栏」开关、改排序、清空统计
+- **万年历（Mac 本机模块）**：独立日历窗口，农历、干支生肖、节气、传统节日、宜忌与法定节假日 `休/班` 角标；默认打开才加载，关闭窗口释放；设置里可开启「常驻内存」。状态栏日历下拉改为「当月 + 下月」双月、滚轮/箭头整页翻月；日期下方小字支持「关 / 精简 / 全显示」，默认精简并以彩色胶囊呈现；点击面板外一次即关闭
+- **桌宠底部快捷栏**：桌宠下方一条半透明胶囊，只放手机 Deck 的「应用」按钮；点一下直接切换/启动应用，运行中的应用带绿点，最后一次点击的图标变浅。图标少时条宽收缩并相对桌宠居中，图标多时撑满桌宠宽度、长按横向拖动滚动（松手即停）；默认按点击频率排序（半衰期 7 天、冷却 30 分钟），不点不跳位；可在 设置 → 桌面宠物 →「底部快捷栏」开关、改排序、清空统计；图标上停留 0.7 秒显示应用名称气泡，移开即消失
 - **桌面宠物（Mac 本机模块）**：设置中使用标签切换 BongoCat 白猫和 KeyCat 黑猫。BongoCat standard 官方 Live2D 透明桌宠——白猫趴在圆角鼠标垫与完整键盘前，左爪响应真实键盘、右爪响应鼠标左右键；53 个键位图与组合键 overlay，真机光标归一化跟随；去掉官方白桌托板，保留透明键鼠层；三档尺寸、按轮廓点击穿透、隐藏即释放资源
 - **模块开关**：设置 →「模块」可独立启用/关闭电脑遥控、截图录屏、UI 草图、万年历与桌面宠物，关闭一个不影响另一个
 - **自动升级**：菜单栏「检查更新…」/ 设置 →「通用 → 更新」从 GitHub Releases 拉新版本；默认每天后台检查一次、下载后由你确认重启，更新包需通过内置 EdDSA 公钥与固定签名身份双重校验，升级后不用重新授权
 - **保存体验**：系统快门音、`{date}/{time}/{app}` 文件名模板（可分子文件夹）、保存后右下角悬浮缩略图（点击再编辑 / 拖出为文件）、缩略图网格截图历史
-- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「左侧竖轨（标题/日期/时间/全屏/连接）+ 竖排标题 + 应用 4×3（12 个/页）+ 快捷 2×4（8 个/页）」；锁定视口，只保留横向翻页/页点与 `1/N` 页码，旋转保持当前页；明文局域网 HTTP
+- **手机端面板**：静态单页 Web，可「添加到主屏幕」当 App 用；竖屏「应用 2 列 + 底部快捷 4×2」，横屏「左侧竖轨（标题/日期/时间/全屏/连接）+ 竖排标题 + 应用 4×3（12 个/页）+ 快捷 2×4（8 个/页）」；应用区与桌宠快捷栏共用「点击频率 / 手动 / 最近使用」排序，点击后 5 秒统一重排；锁定视口，只保留横向翻页/页点与 `1/N` 页码，旋转保持当前页；明文局域网 HTTP
 - **手机副屏**：独立地址 `/screen/` 的只读页面，横屏三栏「时钟 | 月历（含下班倒计时） | 天气」，天气栏按 MagicMirror 结构（城市、湿度/降水、大图标+温度、体感、现在+4 小时、5 天预报表）；免配对、不接触按钮与 token；横竖屏自适应、三档尺寸、屏幕常亮，适合把闲置手机当桌面表盘；设置里另有走查用视口外边框
 - **PureMac 系统工具（Mac 本机模块）**：单一模块承载垃圾/缓存清理、应用卸载与残留、大文件、重复文件、菜单栏 CPU/MEM/实时网速监控、运行中应用退出/强制退出；清理默认展示路径与大小、默认不选中、优先移废纸篓，永久删除需单独二次确认；菜单栏 CPU/MEM/网速三个独立状态项可分别勾选显示与点击（点 MEM 弹出内存占用菜单、可一键退出应用），模块禁用时一并消失；网速用公开 API 差分采样、定宽显示不抖动、零 TCC 权限；清理引擎移植自 PureMac（MIT，momenbasel，见 `THIRD_PARTY_NOTICES.md`）。详见变更 `add-system-cleaner`、`add-menubar-netspeed`、`add-menubar-memory-menu`
 
@@ -176,7 +178,7 @@ open /Applications/MacAppControlDeck.app
 
 ## 截图、录屏与视频剪辑
 
-截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。全局快捷键 **`F1`** 或 `⌘⇧X` 默认**关闭**；到 设置 → 快捷键 打开后，可直接唤起区域截图。
+截图/录屏是独立的 Mac 本机模块：不经过手机，也不占用遥控服务。菜单栏「截图与录屏」提供全屏、区域、窗口、滚动截图，以及 MP4 / GIF 录制和截图历史。全局快捷键 **`F1`** 或 `⌘⇧X` 默认**关闭**；到 设置 → 快捷键 打开后，可直接唤起区域截图。状态栏另有一个「区域截图」图标（`rectangle.dashed`），点一下直接框选，不需要展开菜单；可在 设置 → 状态栏 关闭。
 
 <table>
 <tr>
@@ -349,7 +351,7 @@ open /Applications/MacAppControlDeck.app
 - 右键卡片可「重命名…」「编辑组合…」（仅快捷操作）、「上移」「下移」「删除…」（删除有确认）
 - 「添加按钮」→「添加应用按钮…」搜索选择应用（按 Bundle ID 绑定）；也可添加「快捷操作」或「命令按钮」
 - 应用被删除/移动后按钮显示「应用缺失」，可回到 App 列表重新绑定
-- 「设备」标签页可撤销任意设备的配对（撤销后旧凭证立即失效）
+- 「设备」标签页上半区是主屏已配对设备，显示在线点/最近活动并可撤销（旧凭证立即失效）；下半区是打开过副屏的浏览器登记，显示设备/浏览器、最近活动与在线点，可清除记录；副屏设置与菜单也提供当前地址二维码，扫码直接打开副屏
 
 ## 设置界面
 
@@ -418,10 +420,10 @@ open /Applications/MacAppControlDeck.app
 ## 安全边界（务必阅读）
 
 - 手机只能执行白名单动作：列出按钮、激活某个已配置按钮；**不能**执行任意 shell / 任意应用
-- 所有接口要求配对换发的随机 token（配对码 2 分钟有效、错 3 次作废）
+- 主屏业务接口要求配对换发的随机 token（配对码 2 分钟有效、错 3 次作废）；只读副屏登记 `/api/screen/presence` 免 token，仅写展示记录，不能执行或读取任何业务数据
 - 通信为**明文 HTTP**：同网段设备理论上可嗅探到 token/配对码，请仅在可信家庭局域网使用；HTTPS 为后续评估项
 - 程序不修改系统设置、不默认开机自启；电脑遥控使用可选的辅助功能授权，截图/录屏使用屏幕录制授权（仅在使用 capture 模块时申请），两者互不影响
-- 数据存放在 `~/Library/Application Support/MacAppControlDeck/`（`buttons.json` / `devices.json` / `hotkeys.json` / `icons/`），程序重启后保留
+- 数据存放在 `~/Library/Application Support/MacAppControlDeck/`（`buttons.json` / `devices.json` / `screen_clients.json` / `hotkeys.json` / `icons/`），程序重启后保留
 
 ## 快捷操作与命令按钮
 
@@ -455,7 +457,7 @@ DECK_RUN_ACTIVATION_E2E=1 swift test    # 需要回归打开应用时显式启�
 - 无可见窗口的应用（菜单栏类）激活后不新建窗口（依应用自身行为）
 - 没有 Dock 图标的应用无法使用 Dock 点击路径，跨空间能力受限
 - iOS 主屏幕 Web App 与 Safari 的 localStorage 互相独立，两端需分别配对一次
-- Mac IP 变化后需重新扫码打开新地址（可能需重新配对）
+- Mac IP 变化后旧主屏幕快捷方式会失效；菜单栏「电脑控制」与设置 → 电脑控制 → 服务 会自动更新当前 IP 并提供二维码，重新扫码配对即可（每次换网需重新配对一次）
 - Mac 休眠/锁屏/退出后不可用，手机会显示「Mac 未连接」（属设计行为）
 - 滚动截图是自动向下滚动 + 重叠拼接；如果选区包含固定侧栏/固定工具栏，长图里会重复出现这些固定区域，建议只框选可滚动内容
 - 手机面板只支持横向翻页，不做纵向滚动；横屏应用固定 12 个/页（窄横屏 3×4）、快捷固定 8 个/页；极窄横屏（≤640px，例如 480×320）左侧竖轨收窄到 70px、时间字号下调，优先保证应用与快捷按钮可用
@@ -538,6 +540,15 @@ Docs/archive/                    # 历史归档
 - 2026-11-26 **v0.4.2 发布**（按钮管理 4 列卡片网格 + 长按拖动排序 + 右键菜单；副屏桌宠/控制条自动隐藏；区域截图钉图原位；状态栏日历；桌宠快捷栏）：[发布说明](Docs/releases/v0.4.2.md) · [按钮能力规格](openspec/specs/button-panel-config/spec.md)
 - 2026-11-26 XP-Pen Deco 640 自定义手写板驱动预研（非需求，未建 OpenSpec 变更）：用户态 `IOHIDManager` 方案、三条 HID 通道、私有 12 字节报文与初始化序列、8+2 可配置按键、等比例画布限制与鼠标光标仲裁、只读映射到完整接管的分阶段路线：[预研报告](Docs/research/2026-11-26-deco640-driver-research.md) · [HID 探针](Tools/DecoProbe.swift)
 - 2026-11-26 副屏「猫追老鼠」上线后即回退：真机移动时角色边缘持续闪烁（帧条放大缺 `image-rendering: pixelated`、亚像素位移插值），整体移除、恢复单只游走；素材、帧条脚本与设计文档保留，后续另开变更修复：[实现](openspec/changes/archive/2026-11-26-add-screen-pet-cat-chase-loop/proposal.md) · [回退](openspec/changes/archive/2026-11-26-revert-screen-pet-cat-chase/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-27 状态栏日历下拉改为双月整页视图：移除 Mijick 无限滚动列表，一次只构建当月+下月约 70 个日期格，首屏更快；滚轮/箭头整页翻月；日期下方小字新增「关 / 精简 / 全显示」，默认精简：[OpenSpec 变更](openspec/changes/archive/2026-11-27-add-calendar-two-month-popover/proposal.md) · [设计](openspec/changes/archive/2026-11-27-add-calendar-two-month-popover/design.md) · [能力规格](openspec/specs/status-bar/spec.md)
+- 2026-11-27 修复状态栏日历首次点击无响应、再次点击把设置窗口带前：状态项不再同时由子视图 mouseDown 与按钮 action 触发；日历 popover 先显示并成为 key window 再激活 App：[OpenSpec 变更](openspec/changes/archive/2026-11-27-fix-status-item-double-toggle/proposal.md) · [能力规格](openspec/specs/status-bar/spec.md)
+- 2026-11-27 状态栏日历面板观感打磨：节日小字改彩色胶囊、书签贴到数字右上角不再被今日描边遮挡、底部只留节日开关与「完整万年历 / 设置」；`NSPopover` 换成自绘无边框浮层，去掉系统箭头，点击外部 / Esc / 切换 App 立即关闭；右上角圆圈改为「今天」文字按钮：[OpenSpec 变更](openspec/changes/archive/2026-11-27-polish-calendar-popover/proposal.md) · [能力规格](openspec/specs/status-bar/spec.md)
+- 2026-11-27 状态栏新增「区域截图」图标：点击直接进入框选（复用 `capture.area`），归属截图与录屏模块，可在 设置 → 状态栏 开关，模块关闭时自动消失：[OpenSpec 变更](openspec/changes/archive/2026-11-27-add-capture-statusbar-entry/proposal.md) · [能力规格](openspec/specs/status-bar/spec.md)
+- 2026-11-27 桌宠快捷栏长悬停提示：图标上停留 0.7 秒弹出应用名称气泡，移开 / 拖动 / 点击 / 重排立即消失；独立非激活浮层，不挡点击，可在顶部放不下时翻到下方：[OpenSpec 变更](openspec/changes/archive/2026-11-27-add-pet-dock-hover-tooltip/proposal.md) · [能力规格](openspec/specs/desktop-pet/spec.md)
+- 2026-11-27 手机主屏应用顺序与桌宠快捷栏统一：抽出一份共享排序服务（点击频率 / 手动 / 最近使用、半衰期、冷却、5 秒冻结），手机 `/api/buttons` 与桌宠读同一份顺序，手机点击也计入同一份统计；界面与分页不变：[OpenSpec 变更](openspec/changes/archive/2026-11-27-unify-app-order-with-pet-dock/proposal.md) · [设计](openspec/changes/archive/2026-11-27-unify-app-order-with-pet-dock/design.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
+- 2026-11-27 设备页拆分主屏/副屏 + 扫码配对：主屏组保留 token 设备与撤销，副屏组展示打开过 `/screen/` 的浏览器（名称、最近活动、在线点、清除记录）；副屏每 30 秒免 token 上报，存 `screen_clients.json`；配对卡新增当前 IP 一次性配对码二维码，手机扫码自动配对并从地址栏清理；副屏设置与菜单新增当前 IP 副屏二维码：[OpenSpec 变更](openspec/changes/archive/2026-11-27-add-device-presence-and-pairing-qr/proposal.md) · [能力规格](openspec/specs/pairing-auth/spec.md)
+- 2026-11-27 切换 Wi-Fi 后自动更新面板地址：`NWPathMonitor` 自动刷新当前 IP，菜单新增「刷新网络地址」「显示面板二维码…」，设置 → 电脑控制 → 服务 展示当前 IP 二维码；新增内置操作「打开网络地址」📶。真机测试发现 `.local` 稳定地址在手机上无法解析，已只保留当前 IP：[OpenSpec 变更](openspec/changes/archive/2026-11-27-add-network-address-refresh/proposal.md) · [能力规格](openspec/specs/lan-api/spec.md)
+- 2026-11-27 副屏天气图标映射扩展：900 热 → `sun-hot`、901 冷 → `thermometer-mercury-cold`、沙尘 → `dust`；未列出的 1xx/3xx/4xx/5xx 按天气族动画兜底，只有 999 等无语义 code 回退静态；页面 `2026-11-27.15`：[OpenSpec 变更](openspec/changes/archive/2026-11-27-expand-screen-weather-icon-mapping/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-26 副屏主天气图标换用 Meteocons Monochrome 动画 SVG（Phase A）：28 组动画/静态资源本地内置，按和风 icon code 映射，`900/901/999` 与未知 code 回退旧细线图标；减少动态时自动加载静态版；小时条与 5 天预报保持现状；MIT 许可证与第三方声明已补齐：[OpenSpec 变更](openspec/changes/archive/2026-11-26-replace-screen-weather-hero-icons/proposal.md) · [调研](Docs/research/2026-11-26-animated-weather-icons.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-26 修复副屏内边距被 safe-area 二次放大：`#frame` 改为纯 `--vp-*` 内边距，设置 0 即真正贴边（含刘海设备横屏），控制条跟随上内边距；页面版本 `2026-11-27.10`：[OpenSpec 变更](openspec/changes/archive/2026-11-26-fix-screen-safe-area-padding/proposal.md) · [能力规格](openspec/specs/remote-web-panel/spec.md)
 - 2026-11-26 副屏默认铺满视口 + 四边内边距可调：去掉大屏 `inset: 2.6u` 浮动外框与固定 `3u` 留白，改为四边 CSS 变量（默认 0）；设置 → 副屏 → 外观新增上 / 右 / 下 / 左步进器与「归零」：[OpenSpec 变更](openspec/changes/archive/2026-11-26-add-screen-viewport-padding/proposal.md) · [设计](openspec/changes/archive/2026-11-26-add-screen-viewport-padding/design.md) · [能力规格](openspec/specs/remote-web-panel/spec.md) · [验收截图](Docs/verification/screen-viewport-padding/)

@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelHTML {
-    static let version = "2026-11-24.1"
+    static let version = "2026-11-27.2"
     static let content = """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -653,7 +653,20 @@ enum PanelHTML {
       (async function init(){
         checkPanelVersion();
         await checkHealth();
-        if(token){ mainEl.classList.add('show'); await loadButtons(); } else { showPair(); }
+        if(token){
+          mainEl.classList.add('show');
+          await loadButtons();
+          return;
+        }
+        showPair();
+        // 设置页二维码：/panel/?v=...&pair=123456 扫码后自动配对，免手输。
+        let autoCode='';
+        try { autoCode=new URLSearchParams(location.search).get('pair')||''; } catch(e) {}
+        if(/^\\d{6}$/.test(autoCode)){
+          try { history.replaceState(null,'',location.pathname); } catch(e) {}
+          $('#code').value=autoCode;
+          await doPair();
+        }
       })();
     </script>
     </body>

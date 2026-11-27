@@ -27,6 +27,8 @@ final class RemoteControlModule: FeatureModule {
 
         let submenu = NSMenu(title: title)
         let state = DeckState.shared
+        // 菜单打开时强制重算一次，NWPathMonitor 偶发延迟也不会显示旧 IP。
+        state.refreshAddresses()
 
         let address = NSMenuItem(title: "面板：\(state.panelAddressText)", action: nil, keyEquivalent: "")
         address.image = NSImage(systemSymbolName: "network", accessibilityDescription: nil)
@@ -38,6 +40,10 @@ final class RemoteControlModule: FeatureModule {
                                    image: "safari", id: "remote.openPanel"))
         submenu.addItem(actionItem("复制面板地址", #selector(copyPanel),
                                    image: "doc.on.doc", id: "remote.copyPanel"))
+        submenu.addItem(actionItem("刷新网络地址（切换 Wi-Fi 后）", #selector(refreshAddress),
+                                   image: "arrow.clockwise", id: "remote.refreshAddress"))
+        submenu.addItem(actionItem("显示面板二维码…", #selector(showPanelQR),
+                                   image: "qrcode", id: "remote.panelQR"))
         submenu.addItem(.separator())
 
         let screen = NSMenuItem(title: "副屏：\(state.screenAddressText)", action: nil, keyEquivalent: "")
@@ -50,6 +56,8 @@ final class RemoteControlModule: FeatureModule {
                                    image: "safari", id: "remote.openScreen"))
         submenu.addItem(actionItem("复制副屏地址", #selector(copyScreen),
                                    image: "doc.on.doc", id: "remote.copyScreen"))
+        submenu.addItem(actionItem("显示副屏二维码…", #selector(showScreenQR),
+                                   image: "qrcode", id: "remote.screenQR"))
         submenu.addItem(actionItem("副屏设置…", #selector(openScreenSettings),
                                    image: "gearshape", id: "remote.screenSettings"))
         submenu.addItem(.separator())
@@ -117,8 +125,17 @@ final class RemoteControlModule: FeatureModule {
 
     @objc private func openPanel() { DeckState.shared.openPanelInBrowser() }
     @objc private func copyPanel() { DeckState.shared.copyPanelURL() }
+    @objc private func refreshAddress() { DeckState.shared.refreshAddresses() }
+    @objc private func showPanelQR() {
+        DeckState.shared.refreshAddresses()
+        MenuBarController.shared.openSettings(tab: .remoteService)
+    }
     @objc private func openScreen() { DeckState.shared.openScreenInBrowser() }
     @objc private func copyScreen() { DeckState.shared.copyScreenURL() }
+    @objc private func showScreenQR() {
+        DeckState.shared.refreshAddresses()
+        MenuBarController.shared.openSettings(tab: .screen)
+    }
     @objc private func openScreenSettings() {
         MenuBarController.shared.openSettings(tab: .screen)
     }

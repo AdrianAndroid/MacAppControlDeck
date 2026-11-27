@@ -189,6 +189,13 @@ final class ShortcutActionsTests: XCTestCase {
         XCTAssertEqual(preset?.symbol, "🖥")
     }
 
+    func test_networkQuickOpenBuiltinPresetIsRegistered() {
+        let preset = BuiltinActions.preset(for: "network.open")
+        XCTAssertNotNil(preset)
+        XCTAssertEqual(preset?.name, "打开网络地址")
+        XCTAssertEqual(preset?.symbol, "📶")
+    }
+
     func test_routerDispatchesShortcutToInjector() async {
         let injector = FakeShortcutInjector()
         let router = makeRouter(injector: injector)

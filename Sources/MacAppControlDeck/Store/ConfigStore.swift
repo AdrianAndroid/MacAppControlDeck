@@ -4,17 +4,20 @@ final class ConfigStore {
     private let queue = DispatchQueue(label: "deck.configstore")
     private let buttonsURL: URL
     private let devicesURL: URL
+    private let screenClientsURL: URL
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
     private(set) var buttons: [ButtonConfig] = []
     private(set) var devices: [DeviceRecord] = []
+    private(set) var screenClients: [ScreenClientRecord] = []
 
     init(directory: URL? = nil) {
         let base = directory ?? Self.defaultDirectory()
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         buttonsURL = base.appendingPathComponent("buttons.json")
         devicesURL = base.appendingPathComponent("devices.json")
+        screenClientsURL = base.appendingPathComponent("screen_clients.json")
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -163,6 +166,7 @@ final class ConfigStore {
     private func load() {
         buttons = (try? decode([ButtonConfig].self, from: buttonsURL)) ?? []
         devices = (try? decode([DeviceRecord].self, from: devicesURL)) ?? []
+        screenClients = (try? decode([ScreenClientRecord].self, from: screenClientsURL)) ?? []
     }
 
     private func decode<T: Decodable>(_ type: T.Type, from url: URL) throws -> T {
@@ -375,6 +379,17 @@ final class ConfigStore {
         queue.sync { devices.first { $0.token == token } }
     }
 
+    /// 主屏面板每 2 秒轮询按钮列表；内存实时更新，最多每 2 分钟落盘一次。
+    func touchDevice(token: String, now: Date = Date()) {
+        queue.sync {
+            guard let index = devices.firstIndex(where: { $0.token == token }) else { return }
+            let shouldPersist = devices[index].lastSeenAt == nil
+                || now.timeIntervalSince(devices[index].lastSeenAt!) > 120
+            devices[index].lastSeenAt = now
+            if shouldPersist { saveDevices() }
+        }
+    }
+
     @discardableResult
     func revokeDevice(token: String) -> Bool {
         queue.sync {
@@ -389,6 +404,53 @@ final class ConfigStore {
     func saveDevices() {
         if let data = try? encoder.encode(devices) {
             try? atomicWrite(data, to: devicesURL)
+        }
+    }
+
+    // MARK: - 只读副屏客户端
+
+    @discardableResult
+    func touchScreenClient(id: String, name: String, now: Date = Date()) -> ScreenClientRecord {
+        queue.sync {
+            let cutoff = now.addingTimeInterval(-7 * 86400)
+            let existing = screenClients.first(where: { $0.id == id })
+            let existingFirstSeen = existing?.firstSeenAt
+            let shouldPersist = existing == nil || now.timeIntervalSince(existing!.lastSeenAt) > 120
+            screenClients.removeAll { $0.lastSeenAt < cutoff || $0.id == id }
+            let firstSeen = existingFirstSeen ?? now
+            let record = ScreenClientRecord(id: id, name: name,
+                                            firstSeenAt: firstSeen, lastSeenAt: now)
+            screenClients.append(record)
+            screenClients.sort { $0.lastSeenAt > $1.lastSeenAt }
+            if screenClients.count > 20 {
+                screenClients = Array(screenClients.prefix(20))
+            }
+            // 副屏 30 秒心跳常开；最多每 2 分钟落盘一次，减少无意义写盘。
+            if shouldPersist {
+                saveScreenClients()
+            }
+            return record
+        }
+    }
+
+    func screenClientSnapshot() -> [ScreenClientRecord] {
+        queue.sync { screenClients }
+    }
+
+    @discardableResult
+    func removeScreenClient(id: String) -> Bool {
+        queue.sync {
+            let before = screenClients.count
+            screenClients.removeAll { $0.id == id }
+            guard screenClients.count < before else { return false }
+            saveScreenClients()
+            return true
+        }
+    }
+
+    private func saveScreenClients() {
+        if let data = try? encoder.encode(screenClients) {
+            try? atomicWrite(data, to: screenClientsURL)
         }
     }
 }

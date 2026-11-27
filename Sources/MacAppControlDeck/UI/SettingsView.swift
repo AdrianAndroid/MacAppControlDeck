@@ -367,6 +367,7 @@ struct RemoteServiceSettingsView: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onAppear { state.refreshAddresses() }
     }
 
     private var serviceCard: some View {
@@ -386,23 +387,62 @@ struct RemoteServiceSettingsView: View {
                     }
                 }
 
-                HStack {
-                    Text(state.panelURL?.absoluteString ?? "未获取到局域网地址")
-                        .font(.system(size: 13, design: .monospaced))
-                        .textSelection(.enabled)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer(minLength: 8)
-                    Button("复制") { state.copyPanelURL() }
-                        .disabled(state.panelURL == nil)
-                    Button("打开") { state.openPanelInBrowser() }
-                        .disabled(state.panelURL == nil)
+                VStack(alignment: .leading, spacing: 8) {
+                    addressRow("地址",
+                               url: state.panelURL,
+                               copy: { state.copyPanelURL() },
+                               open: { state.openPanelInBrowser() })
+                    Text("切换 Wi-Fi 后地址会自动更新；用手机相机扫码即可在新设备上打开面板。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    qrColumn("面板地址", url: state.panelURL)
                 }
             }
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label("远程面板", systemImage: "network")
+        }
+    }
+
+    private func addressRow(_ title: String,
+                             url: URL?,
+                             copy: @escaping () -> Void,
+                             open: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 56, alignment: .leading)
+            Text(url?.absoluteString ?? "未获取到地址")
+                .font(.system(size: 13, design: .monospaced))
+                .textSelection(.enabled)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 4)
+            Button("复制", action: copy).disabled(url == nil)
+            Button("打开", action: open).disabled(url == nil)
+        }
+    }
+
+    private func qrColumn(_ title: String, url: URL?) -> some View {
+        VStack(spacing: 4) {
+            if let text = url?.absoluteString, let image = QRCodeImage.make(text) {
+                Image(nsImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 82, height: 82)
+                    .padding(12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(width: 106, height: 106)
+            }
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -475,6 +515,39 @@ struct RemoteServiceSettingsView: View {
         }
     }
 
+    private func pairingQRURL(_ code: String) -> URL? {
+        guard let base = state.panelURL,
+              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        components.queryItems = [
+            URLQueryItem(name: "v", value: PanelHTML.version),
+            URLQueryItem(name: "pair", value: code)
+        ]
+        return components.url
+    }
+
+    private func pairingQRColumn(_ title: String, url: URL?) -> some View {
+        VStack(spacing: 3) {
+            if let text = url?.absoluteString, let image = QRCodeImage.make(text) {
+                Image(nsImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 56, height: 56)
+                    .padding(8)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(width: 72, height: 72)
+            }
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     @ViewBuilder
     private var pairingCard: some View {
         GroupBox {
@@ -493,13 +566,14 @@ struct RemoteServiceSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
+                        pairingQRColumn("扫码配对", url: pairingQRURL(code))
                         Button("复制") { UIPasteboardLike.copy(code) }
                         Button("作废") {
                             state.pairing.invalidate()
                             state.pairingCode = nil
                         }
                     }
-                    Text("在手机面板输入此配对码完成配对。")
+                    Text("用手机相机扫二维码可直接配对，也可以手动输入 6 位配对码。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -532,18 +606,31 @@ struct DevicesSettingsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         if state.devices.isEmpty {
-                            Text("暂无已配对设备。在「服务」里生成配对码，用手机面板完成配对。")
+                            Text("暂无已配对主屏设备。在「服务」里生成配对码，用手机面板完成配对。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.vertical, 4)
                         } else {
                             ForEach(state.devices) { device in
-                                HStack {
+                                let online = device.lastSeenAt.map { Date().timeIntervalSince($0) < 90 } ?? false
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(online ? Color.green : Color.secondary.opacity(0.5))
+                                        .frame(width: 8, height: 8)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(device.name).font(.callout)
-                                        Text("配对于 \(device.pairedAt.formatted(date: .abbreviated, time: .shortened))")
+                                        if let lastSeen = device.lastSeenAt {
+                                            HStack(spacing: 4) {
+                                                Text("最近活动")
+                                                Text(lastSeen, style: .relative)
+                                            }
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
+                                        } else {
+                                            Text("配对于 \(device.pairedAt.formatted(date: .abbreviated, time: .shortened))")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
                                     Spacer()
                                     Button("撤销配对") { pendingRevoke = device }
@@ -555,10 +642,46 @@ struct DevicesSettingsView: View {
                     .padding(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } label: {
-                    Text("已配对设备").font(.headline)
+                    Text("主屏 · 已配对（可操作）").font(.headline)
                 }
 
-                Text("撤销后该设备需要重新配对；已发出的手机端 token 会立即失效。")
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if state.screenClients.isEmpty {
+                            Text("暂无副屏连接。打开副屏页面后会自动登记，无需配对。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 4)
+                        } else {
+                            ForEach(state.screenClients) { client in
+                                let online = Date().timeIntervalSince(client.lastSeenAt) < 90
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(online ? Color.green : Color.secondary.opacity(0.5))
+                                        .frame(width: 8, height: 8)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(client.name).font(.callout)
+                                        HStack(spacing: 4) {
+                                            Text("最近活动")
+                                            Text(client.lastSeenAt, style: .relative)
+                                        }
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Button("清除记录") { state.removeScreenClient(client) }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
+                    .padding(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    Text("副屏 · 只读（无需配对）").font(.headline)
+                }
+
+                Text("主屏设备才能执行按钮，必须配对；撤销后旧 token 立即失效。副屏是只读页面，不会接触 token，也不能执行任何操作；清除记录后若页面仍打开会重新登记。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

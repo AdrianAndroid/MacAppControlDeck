@@ -63,6 +63,7 @@ final class APIRouter {
     let activator: AppControlling
     let injector: ShortcutInjecting
     private let iconDirectory: URL
+    private let ordering: AppDockOrdering
     private let maxBodySize = 4096
     private let quickActionQueue = DispatchQueue(label: "deck.quick-actions", qos: .userInitiated)
     private let logger = RequestLogger.shared
@@ -71,11 +72,13 @@ final class APIRouter {
          pairing: PairingManager,
          activator: AppControlling,
          injector: ShortcutInjecting = KeyInjector(),
-         iconDirectory: URL? = nil) {
+         iconDirectory: URL? = nil,
+         ordering: AppDockOrdering? = nil) {
         self.store = store
         self.pairing = pairing
         self.activator = activator
         self.injector = injector
+        self.ordering = ordering ?? .shared
         self.iconDirectory = iconDirectory ?? ConfigStore.defaultDirectory().appendingPathComponent("icons")
         try? FileManager.default.createDirectory(at: self.iconDirectory, withIntermediateDirectories: true)
     }
@@ -184,10 +187,12 @@ final class APIRouter {
             var response = HTTPResponse.json(await WeatherService.shared.snapshot(for: config))
             response.headers["Cache-Control"] = "no-store, must-revalidate"
             return response
+        case ("POST", "/api/screen/presence"):
+            return handleScreenPresence(request)
         case ("POST", "/api/pair"):
             return await handlePair(request)
         case ("GET", "/api/buttons"):
-            return await withAuth(request) { _ in handleButtons() }
+            return await withAuth(request) { _ in await self.handleButtons() }
         case ("POST", "/api/activate"):
             return await withAuth(request) { _ in await handleActivate(request) }
         default:
@@ -213,7 +218,20 @@ final class APIRouter {
         guard let token, !token.isEmpty, let device = store.device(token: token) else {
             return .error("unauthorized", message: "凭证无效或未配对", status: 401)
         }
+        store.touchDevice(token: token)
         return await handler(device)
+    }
+
+    private func handleScreenPresence(_ request: HTTPRequest) -> HTTPResponse {
+        struct Payload: Codable { var id: String }
+        guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
+              payload.id.range(of: "^[A-Za-z0-9_-]{8,64}$", options: .regularExpression) != nil else {
+            return .error("bad-request", message: "登记信息无效", status: 400)
+        }
+        let userAgent = request.header("User-Agent") ?? ""
+        let name = ScreenClientRecord.displayName(userAgent: userAgent)
+        store.touchScreenClient(id: payload.id, name: name)
+        return HTTPResponse(status: 204, contentType: "text/plain; charset=utf-8", body: Data())
     }
 
     private func handlePair(_ request: HTTPRequest) async -> HTTPResponse {
@@ -241,6 +259,7 @@ final class APIRouter {
         }
     }
 
+    @MainActor
     private func handleButtons() -> HTTPResponse {
         struct ButtonDTO: Codable {
             var id: String
@@ -253,7 +272,9 @@ final class APIRouter {
         }
         struct Resp: Codable { var buttons: [ButtonDTO] }
 
-        let buttons = store.sortedButtons()
+        let all = store.sortedButtons()
+        let orderedApps = ordering.orderedApps(from: all.filter { $0.kind == .app })
+        let buttons = orderedApps + all.filter { $0.kind != .app }
         let dtos = buttons.map { button -> ButtonDTO in
             guard button.kind == .app else {
                 return ButtonDTO(id: button.id,
@@ -301,6 +322,9 @@ final class APIRouter {
         }
         switch button.kind {
         case .app:
+            await MainActor.run {
+                ordering.recordClick(bundleID: button.bundleID)
+            }
             let outcome = await activator.activate(bundleID: button.bundleID)
             struct Resp: Codable { var status: ActivateStatus; var message: String }
             return .json(Resp(status: outcome.status, message: outcome.message))

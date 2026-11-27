@@ -33,6 +33,7 @@ final class PetDockSettings: ObservableObject {
     }
 
     private let defaults: UserDefaults
+    private let notifiesCenter: Bool
     private var loading = true
 
     @Published var enabled: Bool { didSet { save(Key.enabled, enabled) } }
@@ -42,8 +43,9 @@ final class PetDockSettings: ObservableObject {
     @Published var showRunningDot: Bool { didSet { save(Key.runningDot, showRunningDot) } }
     @Published var markLastClicked: Bool { didSet { save(Key.markLast, markLastClicked) } }
 
-    private init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, notifiesCenter: Bool = true) {
         self.defaults = defaults
+        self.notifiesCenter = notifiesCenter
         enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
         sortMode = PetDockSortMode(rawValue: defaults.string(forKey: Key.sort) ?? "") ?? .frequency
         cooldownMinutes = defaults.object(forKey: Key.cooldown) as? Int ?? 30
@@ -55,7 +57,7 @@ final class PetDockSettings: ObservableObject {
 
     private func save(_ key: String, _ value: Any) {
         defaults.set(value, forKey: key)
-        guard !loading else { return }
+        guard !loading, notifiesCenter else { return }
         PetDockCenter.shared.settingsChanged()
     }
 }
@@ -75,15 +77,15 @@ final class PetDockStats: ObservableObject {
     @Published private(set) var lastClickedID: String?
     private let maxEventsPerApp = 40
 
-    private init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         load()
     }
 
-    func record(bundleID: String) {
+    func record(bundleID: String, at date: Date = Date()) {
         guard !bundleID.isEmpty else { return }
         var list = events[bundleID] ?? []
-        list.append(Date().timeIntervalSince1970)
+        list.append(date.timeIntervalSince1970)
         if list.count > maxEventsPerApp { list.removeFirst(list.count - maxEventsPerApp) }
         events[bundleID] = list
         lastClickedID = bundleID
@@ -181,17 +183,23 @@ final class PetDockCenter {
         guard !DeckState.shared.appButtons.isEmpty else { hide(); return }
         ensurePanel()
         visible = true
+        AppDockOrdering.shared.resortNow()
         relayout()
         panel?.orderFrontRegardless()
     }
 
     func hide() {
         visible = false
+        PetDockTooltip.shared.hide()
         panel?.orderOut(nil)
     }
 
+    /// 悬停提示需要知道快捷栏当前在屏幕上的位置与可滚动偏移。
+    var dockFrame: NSRect? { panel?.frame }
+
     func shutdown() {
         visible = false
+        PetDockTooltip.shared.hide()
         panel?.orderOut(nil)
         panel = nil
         hosting = nil
@@ -227,6 +235,7 @@ final class PetDockCenter {
 
     private func relayout() {
         guard let panel else { return }
+        PetDockTooltip.shared.hide()
         let metrics = PetDockMetrics(size: lastSize, width: lastPetFrame.width)
         hosting?.rootView = PetDockView(size: lastSize)
         let dockWidth = metrics.dockWidth(count: DeckState.shared.appButtons.count)

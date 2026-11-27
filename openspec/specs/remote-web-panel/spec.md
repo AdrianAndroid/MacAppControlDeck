@@ -976,6 +976,26 @@ Mac 端 SHALL 在天气凭据、城市或测试结果变化时通知副屏，使
 - **THEN** 四个内边距值从 `UserDefaults` 恢复，并由 `GET /api/screen/frame` 原样下发
 - **AND** 超出 0–120 的值在设置层与配置层都被收敛
 
+### Requirement: 副屏在线登记
+
+副屏页面 SHALL 在不携带 token 的前提下登记自身，用于 Mac「设备」页展示。
+
+#### Scenario: 打开与心跳
+- **WHEN** 副屏页面加载
+- **THEN** 生成并复用 localStorage 中的客户端 ID，向 `/api/screen/presence` 上报
+- **AND** 页面可见时每 30 秒补报，回到前台立即补报
+
+#### Scenario: 副屏二维码
+- **WHEN** 打开 设置 → 副屏 或菜单「显示副屏二维码…」
+- **THEN** 展示当前副屏地址二维码，扫码直接打开 `/screen/`
+- **AND** 副屏免配对，打开后自动登记到「设备 → 副屏」
+- **AND** Wi-Fi 变化后旧二维码失效，重新扫码即可
+
+#### Scenario: 不接触敏感数据
+- **WHEN** 上报登记
+- **THEN** 只发送客户端 ID，不发送 token、按钮、天气凭据或用户输入
+- **AND** 页面仍是只读，不因登记获得任何操作能力
+
 ### Requirement: 主天气图标资源与动画
 
 副屏天气卡主图标 SHALL 在和风 icon code 命中映射时使用 Meteocons Monochrome SVG；小时条与预报小图标 MUST 保持现有静态图标。
@@ -985,8 +1005,19 @@ Mac 端 SHALL 在天气凭据、城市或测试结果变化时通知副屏，使
 - **THEN** 主图标加载 128×128 的 Meteocons Monochrome SVG
 - **AND** 默认播放 SVG 自带动画；同一 code 的 30 秒轮询不重建 DOM
 
-#### Scenario: 未命中或加载失败
-- **WHEN** code 为 900 / 901 / 999 或不在映射表内，或资源请求失败
+#### Scenario: 冷热与沙尘
+- **WHEN** `now.icon` 为 900（热）/ 901（冷）
+- **THEN** 主图标分别使用 `sun-hot` / `thermometer-mercury-cold` 动画 SVG
+- **WHEN** code 为 503/504/505/507/508
+- **THEN** 主图标使用 `dust` 动画 SVG
+
+#### Scenario: 同族 code 兜底
+- **WHEN** 和风返回映射表未列出的 1xx / 3xx / 4xx / 5xx code
+- **THEN** 分别兜底到 clear / rain / snow / fog 动画 SVG
+- **AND** 150 以上优先夜间版本，350 以上优先夜间降雨版本
+
+#### Scenario: 无法归族或加载失败
+- **WHEN** code 为 999、无法解析，或资源请求失败
 - **THEN** 主图标回退到原有 24×24 静态线性 `weatherIcon(code)`
 - **AND** 不出现空白图标或控制台阻断性错误
 
@@ -1035,3 +1066,37 @@ Mac 端 SHALL 在天气凭据、城市或测试结果变化时通知副屏，使
 #### Scenario: 天气关闭
 - **WHEN** 天气未配置或加载失败
 - **THEN** 底栏不渲染城市占位文字
+
+
+### Requirement: 应用自动排序与桌宠共享
+
+手机主屏的应用区 SHALL 使用与桌宠底部快捷栏相同的排序服务（点击频率 / 手动 / 最近使用），而不是只按 `sortOrder`；界面、列数、分页与快捷操作区不得改变。
+
+#### Scenario: 顺序来源
+
+- **WHEN** 手机请求 `GET /api/buttons`
+- **THEN** 应用按钮按共享排序服务给出的顺序返回，快捷操作 / 命令 / 内置仍按原配置顺序
+- **AND** 手机不做本地重排，只渲染服务端顺序
+
+#### Scenario: 点击计入统计
+
+- **WHEN** 用户在手机上点击某个应用按钮
+- **THEN** 记录一次与桌宠相同的点击统计
+- **AND** 桌面快捷栏的「最近点击」标记同步更新
+
+#### Scenario: 5 秒后重排
+
+- **WHEN** 用户连续点击应用后停手
+- **THEN** 5 秒内顺序保持不变，按钮不会在手指下跳格
+- **AND** 空闲 5 秒后的下一次轮询拿到新顺序；保持当前页索引，页数不够时夹到最后一页
+
+#### Scenario: 手动模式
+
+- **WHEN** 排序方式为手动顺序
+- **THEN** 手机与桌宠都按 Mac 端按钮管理的 `sortOrder` 排列
+
+#### Scenario: 界面不变
+
+- **WHEN** 排序模式或顺序变化
+- **THEN** 应用卡片仍为图标 + 名称、竖屏 2 列 / 横屏 4 列（窄横屏 3 列）、整页翻页与页点
+- **AND** 不出现单行图标条、排序切换按钮或新的状态文案

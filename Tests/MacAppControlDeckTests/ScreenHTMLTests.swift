@@ -42,6 +42,27 @@ final class ScreenHTMLTests: XCTestCase {
         XCTAssertNil(ScreenHTML.iconData(named: "not-a-real-icon"))
     }
 
+    func testHotColdAndDustCodesUseAnimatedAssets() {
+        XCTAssertTrue(ScreenHTML.content.contains("'900': 'sun-hot'"))
+        XCTAssertTrue(ScreenHTML.content.contains("'901': 'thermometer-mercury-cold'"))
+        XCTAssertTrue(ScreenHTML.content.contains("'503': 'dust'"))
+        XCTAssertTrue(ScreenHTML.content.contains("n >= 500 && n < 600"), "未知天气族应尽量兜底")
+        XCTAssertNotNil(ScreenHTML.iconData(named: "thermometer-mercury-cold"))
+        XCTAssertNotNil(ScreenHTML.iconData(named: "sun-hot"))
+        XCTAssertNotNil(ScreenHTML.iconData(named: "dust"))
+    }
+
+    func testScreenReportsPresenceForDevicesPage() {
+        XCTAssertTrue(ScreenHTML.content.contains("/api/screen/presence"))
+        XCTAssertTrue(ScreenHTML.content.contains("SCREEN_CLIENT_KEY"))
+    }
+
+    func testPanelSupportsQRCodeAutoPairing() {
+        XCTAssertTrue(PanelHTML.content.contains("autoCode"))
+        XCTAssertTrue(PanelHTML.content.contains("pair"))
+        XCTAssertTrue(PanelHTML.content.contains("history.replaceState"))
+    }
+
     func testPageUsesAssetLoaderAndKeepsStaticSmallIcons() {
         XCTAssertTrue(ScreenHTML.content.contains("/screen/icons/"))
         XCTAssertTrue(ScreenHTML.content.contains("WX_HERO_ASSETS"))

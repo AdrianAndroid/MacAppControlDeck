@@ -9,22 +9,20 @@ struct PetDockView: View {
     @ObservedObject private var settings = PetDockSettings.shared
     @ObservedObject private var stats = PetDockStats.shared
     @ObservedObject private var deck = DeckState.shared
+    @ObservedObject private var ordering = AppDockOrdering.shared
 
-    @State private var orderedIDs: [String] = []
     @State private var offset: CGFloat = 0
     @State private var dragStart: CGFloat = 0
     @State private var scrolling = false
     @State private var hoveredID: String?
     @State private var runningBundleIDs: Set<String> = []
-    @State private var reorderWork: DispatchWorkItem?
+    @State private var tooltipWork: DispatchWorkItem?
+    @State private var tooltipID: String?
 
     private var metrics: PetDockMetrics { PetDockMetrics(size: size, width: 0) }
 
     private var apps: [ButtonConfig] {
-        let byID = Dictionary(uniqueKeysWithValues: deck.appButtons.map { ($0.id, $0) })
-        let ordered = orderedIDs.compactMap { byID[$0] }
-        let rest = deck.appButtons.filter { !orderedIDs.contains($0.id) }
-        return ordered + rest
+        ordering.orderedApps(from: deck.appButtons)
     }
 
     var body: some View {
@@ -36,8 +34,8 @@ struct PetDockView: View {
             let maxScroll = max(0, contentWidth - geo.size.width)
 
             HStack(spacing: spacing) {
-                ForEach(apps) { button in
-                    tileView(button, tile: tile)
+                ForEach(Array(apps.enumerated()), id: \.element.id) { index, button in
+                    tileView(button, index: index, tile: tile, spacing: spacing, padding: padding, maxScroll: maxScroll)
                 }
             }
             .padding(.horizontal, padding)
@@ -62,7 +60,10 @@ struct PetDockView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        if abs(value.translation.width) >= 3 { scrolling = true }
+                        if abs(value.translation.width) >= 3 {
+                            if !scrolling { cancelTooltip() }
+                            scrolling = true
+                        }
                         guard scrolling else { return }
                         if dragStart == 0 { dragStart = offset }
                         offset = dragStart + value.translation.width
@@ -85,7 +86,6 @@ struct PetDockView: View {
                         .stroke(Color.white.opacity(0.08), lineWidth: 1))
             )
             .onAppear {
-                refreshOrder()
                 refreshRunning()
                 stats.clearLastClickedIfNotRunning()
             }
@@ -93,13 +93,14 @@ struct PetDockView: View {
                 refreshRunning()
                 stats.clearLastClickedIfNotRunning()
             }
+            .onDisappear { cancelTooltip() }
         }
         .frame(height: metrics.height)
     }
 
     // MARK: - 单个图标
 
-    private func tileView(_ button: ButtonConfig, tile: CGFloat) -> some View {
+    private func tileView(_ button: ButtonConfig, index: Int, tile: CGFloat, spacing: CGFloat, padding: CGFloat, maxScroll: CGFloat) -> some View {
         let isLast = settings.markLastClicked && stats.lastClickedID == button.bundleID
         let running = runningBundleIDs.contains(button.bundleID)
         let radius = tile * 0.24
@@ -127,12 +128,38 @@ struct PetDockView: View {
             .animation(.easeOut(duration: 0.15), value: hovered)
             .opacity(isLast ? 0.45 : 1)
             .contentShape(RoundedRectangle(cornerRadius: radius))
+        let centerX = padding + CGFloat(index) * (tile + spacing) + tile / 2 + clampedOffset(maxScroll)
         return content
-            .help(button.name)
             .onHover { inside in
                 hoveredID = inside ? button.id : (hoveredID == button.id ? nil : hoveredID)
-                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                if inside {
+                    NSCursor.pointingHand.push()
+                    scheduleTooltip(button, centerX: centerX)
+                } else {
+                    NSCursor.pop()
+                    cancelTooltip(if: button.id)
+                }
             }
+    }
+
+    // MARK: - 悬停提示
+
+    private func scheduleTooltip(_ button: ButtonConfig, centerX: CGFloat) {
+        cancelTooltip()
+        tooltipID = button.id
+        let work = DispatchWorkItem {
+            PetDockTooltip.shared.show(text: button.name, anchorX: centerX)
+        }
+        tooltipWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7, execute: work)
+    }
+
+    private func cancelTooltip(if id: String? = nil) {
+        if let id, tooltipID != id { return }
+        tooltipWork?.cancel()
+        tooltipWork = nil
+        tooltipID = nil
+        PetDockTooltip.shared.hide()
     }
 
     private func clampedOffset(_ maxScroll: CGFloat) -> CGFloat {
@@ -153,42 +180,10 @@ struct PetDockView: View {
     }
 
     private func activate(_ button: ButtonConfig) {
+        cancelTooltip()
         DeckState.shared.perform(button)
-        stats.record(bundleID: button.bundleID)
+        ordering.recordClick(bundleID: button.bundleID)
         refreshRunning()
-        guard settings.sortMode != .manual else { return }
-        reorderWork?.cancel()
-        let work = DispatchWorkItem { refreshOrder() }
-        reorderWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
-    }
-
-    private func refreshOrder() {
-        let buttons = deck.appButtons
-        let indexOf = Dictionary(uniqueKeysWithValues: buttons.enumerated().map { ($0.element.id, $0.offset) })
-        switch settings.sortMode {
-        case .manual:
-            orderedIDs = buttons.map(\.id)
-        case .recent:
-            orderedIDs = buttons
-                .sorted { lhs, rhs in
-                    let l = stats.events[lhs.bundleID]?.last ?? 0
-                    let r = stats.events[rhs.bundleID]?.last ?? 0
-                    if l == r { return (indexOf[lhs.id] ?? 0) < (indexOf[rhs.id] ?? 0) }
-                    return l > r
-                }
-                .map(\.id)
-        case .frequency:
-            let now = Date()
-            orderedIDs = buttons
-                .sorted { lhs, rhs in
-                    let l = stats.score(bundleID: lhs.bundleID, settings: settings, now: now)
-                    let r = stats.score(bundleID: rhs.bundleID, settings: settings, now: now)
-                    if abs(l - r) < 0.0001 { return (indexOf[lhs.id] ?? 0) < (indexOf[rhs.id] ?? 0) }
-                    return l > r
-                }
-                .map(\.id)
-        }
     }
 
     private func refreshRunning() {

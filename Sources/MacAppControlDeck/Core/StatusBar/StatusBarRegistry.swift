@@ -189,9 +189,9 @@ final class StatusBarCellView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    override func mouseDown(with event: NSEvent) {
-        activateEntry()
-    }
+    /// 点击统一交给底部 NSStatusBarButton 的 action（.leftMouseUp）处理。
+    /// 这里不能再接管 mouseDown：否则一次点击会先开 popover、再在 mouseUp 时把它关掉。
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     var entryID: String { entry.id }
 

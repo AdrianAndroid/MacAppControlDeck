@@ -881,6 +881,37 @@
     applyKeepAwake(data.keepAwake !== false);
   }
 
+  // ---- 副屏在线登记：只读、无 token，仅用于 Mac「设备」页展示 ----
+  var SCREEN_CLIENT_KEY = 'deck.screen.clientId';
+
+  function screenClientId() {
+    try {
+      var id = localStorage.getItem(SCREEN_CLIENT_KEY);
+      if (!id) {
+        id = 'screen-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem(SCREEN_CLIENT_KEY, id);
+      }
+      return id;
+    } catch (e) {
+      return 'screen-session-' + Math.random().toString(36).slice(2, 12);
+    }
+  }
+
+  function reportScreenPresence() {
+    if (document.hidden) { return; }
+    try {
+      fetch('/api/screen/presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: screenClientId() }),
+        cache: 'no-store'
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  reportScreenPresence();
+  setInterval(reportScreenPresence, 30 * 1000);
+
   function loadDisplay() {
     fetch('/api/screen/display', { cache: 'no-store' })
       .then(function (response) { if (!response.ok) { throw new Error('HTTP ' + response.status); } return response.json(); })
@@ -1814,11 +1845,21 @@
     '500': 'mist',
     '501': 'fog', '509': 'fog', '514': 'fog', '515': 'fog',
     '502': 'haze', '511': 'haze', '512': 'haze', '513': 'haze',
-    '503': 'wind-dust', '504': 'wind-dust', '507': 'wind-dust', '508': 'wind-dust'
+    '503': 'dust', '504': 'dust', '505': 'dust',
+    '507': 'dust', '508': 'dust',
+    '900': 'sun-hot', '901': 'thermometer-mercury-cold'
   };
 
   function weatherHeroAsset(code) {
-    return WX_HERO_ASSETS[String(code == null ? '' : code)] || null;
+    var key = String(code == null ? '' : code);
+    if (WX_HERO_ASSETS[key]) { return WX_HERO_ASSETS[key]; }
+    // 和风新增/未列出的同族 code 按天气族兜底，尽量不留静态图标。
+    var n = parseInt(key, 10);
+    if (n >= 100 && n < 200) { return n >= 150 ? 'clear-night' : 'clear-day'; }
+    if (n >= 300 && n < 400) { return n >= 350 ? 'overcast-night-rain' : 'overcast-day-rain'; }
+    if (n >= 400 && n < 500) { return 'snow'; }
+    if (n >= 500 && n < 600) { return 'fog'; }
+    return null;
   }
 
   var heroIconToken = 0;
@@ -2059,6 +2100,7 @@
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
+      reportScreenPresence();
       loadMacTime();
       loadWeather();
       loadCountdown();

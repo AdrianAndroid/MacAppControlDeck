@@ -7,6 +7,8 @@ import SwiftUI
     static let id = "capture"
     static let shared = CaptureModule()
 
+    private var statusEntry: CaptureStatusBarEntry?
+
     var id: String { Self.id }
     var title: String { "截图与录屏" }
     var summary: String { "在 Mac 本机截图、标注、OCR、录屏和 GIF；不经过手机，也不占用遥控服务。" }
@@ -15,6 +17,11 @@ import SwiftUI
 
     func start() {
         syncDirectories()
+        if statusEntry == nil {
+            let entry = CaptureStatusBarEntry()
+            statusEntry = entry
+            StatusBarRegistry.shared.register(entry)
+        }
     }
 
     func stop() {

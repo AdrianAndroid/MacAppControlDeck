@@ -20,6 +20,48 @@ TBD - created by archiving change add-core-control-loop. Update Purpose after ar
 - **WHEN** Mac 端程序退出或端口停止监听
 - **THEN** 所有端点不可达，手机端健康检查失败并显示"Mac 未连接"
 
+### Requirement: 服务地址与网络变化刷新
+
+系统 SHALL 在网络路径变化后刷新当前面板地址，并允许通过二维码在新设备上打开面板。
+
+#### Scenario: 切换 Wi-Fi 后自动刷新
+- **WHEN** Mac 从一个 Wi-Fi 切换到另一个 Wi-Fi
+- **THEN** `NWPathMonitor` 触发后自动重算当前 IP
+- **AND** 菜单栏「电脑控制」再次打开时显示新 IP，不需要重启 App
+
+#### Scenario: 扫码打开
+- **WHEN** 打开 设置 → 电脑控制 → 服务
+- **THEN** 展示当前面板地址的二维码，手机相机扫码即可打开
+- **AND** 二维码本地生成，不上传 URL 或任何数据
+- **AND** IP 变化后旧地址/旧二维码失效，需要重新扫码
+
+#### Scenario: 内置入口
+- **WHEN** 从按钮管理添加「打开网络地址」
+- **THEN** 点击后刷新地址并打开设置 → 电脑控制 → 服务
+- **AND** 同步出现在菜单栏快捷操作与手机面板快捷操作
+
+### Requirement: 副屏在线登记端点
+
+系统 SHALL 提供免 token 的 `POST /api/screen/presence`，仅用于副屏浏览器登记展示。
+
+#### Scenario: 合法登记
+- **WHEN** 请求体为 `{"id":"screen-..."}`，且 ID 匹配 `^[A-Za-z0-9_-]{8,64}$`
+- **THEN** 返回 204，记录 ID、由 User-Agent 推导的名称、首次/最近时间
+- **AND** 记录写入本机 `screen_clients.json`，权限 0600
+
+#### Scenario: 非法登记
+- **WHEN** ID 缺失、超长或包含路径字符
+- **THEN** 返回 400，不写入任何记录
+
+#### Scenario: 无操作权限
+- **WHEN** 调用方只有副屏登记记录或未配对
+- **THEN** 仍不能访问 `/api/buttons`、`/api/activate` 等业务端点
+- **AND** 登记接口不返回 token，也不暴露任何设备凭证
+
+#### Scenario: 容量与过期
+- **WHEN** 登记数量超过 20 或记录超过 7 天未更新
+- **THEN** 自动清理最旧记录，避免无限增长
+
 ### Requirement: 端点契约
 
 系统 SHALL 提供以下白名单端点，且不提供其他可写端点。
@@ -30,9 +72,11 @@ TBD - created by archiving change add-core-control-loop. Update Purpose after ar
 - **THEN** 可用端点仅限：
   - `POST /api/pair`（需一次性配对码，免 token）
   - `GET /api/health`（免 token，返回存活与应用版本，不含敏感信息）
-  - `GET /api/buttons`（需 Bearer token，返回按钮列表含类型、图标/组合符号、分组与排序）
-  - `POST /api/activate`（需 Bearer token，请求体仅含按钮 ID；应用按钮执行启动/激活，快捷操作按钮执行按键注入）
+  - `GET /api/buttons`（需 Bearer token，返回按钮列表含类型、图标/组合符号、分组与排序；应用顺序与桌宠快捷栏共用）
+  - `POST /api/activate`（需 Bearer token，请求体仅含按钮 ID；应用按钮执行启动/激活并记录一次应用点击，快捷操作按钮执行按键注入）
   - `GET /panel/` 与静态资源（面板页面与图标）
+  - `GET /screen/`、`/screen/icons/`（只读副屏页面与图标）
+  - `POST /api/screen/presence`（免 token，副屏在线登记，仅展示用）
 - **AND** 未列出的路径全部返回 404，不允许动态注册新的可写端点
 
 #### Scenario: 激活命令的请求与响应

@@ -55,4 +55,31 @@ final class ConfigStoreTests: XCTestCase {
         let reloaded = ConfigStore(directory: directory)
         XCTAssertEqual(reloaded.device(token: token)?.name, "iPad")
     }
+
+    func test_deviceLastSeenUpdates() {
+        let store = ConfigStore(directory: directory)
+        let token = PairingManager.generateToken()
+        _ = store.addDevice(token: token, name: "iPhone")
+        let seen = Date(timeIntervalSince1970: 1_800_000_000)
+        store.touchDevice(token: token, now: seen)
+        XCTAssertEqual(store.device(token: token)?.lastSeenAt, seen)
+        let reloaded = ConfigStore(directory: directory)
+        XCTAssertEqual(reloaded.device(token: token)?.lastSeenAt, seen)
+    }
+
+    func test_screenClientPersistsAndKeepsFirstSeen() {
+        let store = ConfigStore(directory: directory)
+        let first = Date(timeIntervalSince1970: 1_800_000_000)
+        let later = first.addingTimeInterval(60)
+        _ = store.touchScreenClient(id: "screen-abc12345", name: "iPhone · Safari", now: first)
+        let updated = store.touchScreenClient(id: "screen-abc12345", name: "iPhone · Safari", now: later)
+        XCTAssertEqual(updated.firstSeenAt, first)
+        XCTAssertEqual(updated.lastSeenAt, later)
+
+        let reloaded = ConfigStore(directory: directory)
+        XCTAssertEqual(reloaded.screenClientSnapshot().count, 1)
+        XCTAssertEqual(reloaded.screenClientSnapshot().first?.name, "iPhone · Safari")
+        XCTAssertTrue(reloaded.removeScreenClient(id: "screen-abc12345"))
+        XCTAssertTrue(reloaded.screenClientSnapshot().isEmpty)
+    }
 }

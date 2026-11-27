@@ -12,6 +12,7 @@ enum BuiltinActions {
     static let all: [Preset] = [
         Preset(id: "settings.open", name: "打开设置", symbol: "⚙"),
         Preset(id: "hotkeys.open", name: "打开快捷键设置", symbol: "⌨"),
+        Preset(id: "network.open", name: "打开网络地址", symbol: "📶"),
         Preset(id: "capture.area", name: "截图（区域）", symbol: "⛶"),
         Preset(id: "capture.full", name: "截全屏", symbol: "▣"),
         Preset(id: "capture.window", name: "截窗口", symbol: "⬚"),
@@ -43,6 +44,9 @@ enum BuiltinActions {
             switch action {
             case "settings.open": MenuBarController.shared.openSettings()
             case "hotkeys.open": MenuBarController.shared.openSettings(tab: .hotkeys)
+            case "network.open":
+                DeckState.shared.refreshAddresses()
+                MenuBarController.shared.openSettings(tab: .remoteService)
             case "capture.area": MacShotController.shared.captureArea()
             case "capture.full": MacShotController.shared.captureFullScreen()
             case "capture.window": MacShotController.shared.captureWindow()
